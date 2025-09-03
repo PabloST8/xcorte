@@ -129,11 +129,21 @@ export const AvailableSlot = {
 };
 
 // Status válidos para Booking
+// Status conforme novo backend (Português) + mapa de compatibilidade
 export const BOOKING_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
+  AGENDADO: "agendado",
+  CONFIRMADO: "confirmado",
+  CANCELADO: "cancelado",
+  CONCLUIDO: "concluido",
+};
+
+// Mapa para aceitar valores antigos e convertê-los ao novo padrão
+export const LEGACY_STATUS_MAP = {
+  pending: BOOKING_STATUS.AGENDADO,
+  confirmed: BOOKING_STATUS.CONFIRMADO,
+  cancelled: BOOKING_STATUS.CANCELADO,
+  canceled: BOOKING_STATUS.CANCELADO,
+  completed: BOOKING_STATUS.CONCLUIDO,
 };
 
 // Utilitários de conversão
@@ -198,6 +208,11 @@ export const validateProduct = (product) => {
 
 export const validateBooking = (booking) => {
   const errors = [];
+
+  // Normalizar status legado se necessário
+  if (booking.status && LEGACY_STATUS_MAP[booking.status]) {
+    booking.status = LEGACY_STATUS_MAP[booking.status];
+  }
 
   if (!booking.enterpriseEmail || typeof booking.enterpriseEmail !== "string") {
     errors.push("Email da empresa é obrigatório");

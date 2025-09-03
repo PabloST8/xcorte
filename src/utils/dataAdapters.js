@@ -73,10 +73,20 @@ export const DataAdapters = {
       startTime: oldBooking.startTime || oldBooking.time || "09:00",
       endTime: oldBooking.endTime || "09:30",
       status:
-        oldBooking.status &&
-        Object.values(BOOKING_STATUS).includes(oldBooking.status)
-          ? oldBooking.status
-          : BOOKING_STATUS.PENDING,
+        (() => {
+          if (!oldBooking.status) return BOOKING_STATUS.AGENDADO;
+          const legacyMap = {
+            pending: BOOKING_STATUS.AGENDADO,
+            confirmed: BOOKING_STATUS.CONFIRMADO,
+            completed: BOOKING_STATUS.CONCLUIDO,
+            cancelled: BOOKING_STATUS.CANCELADO,
+            canceled: BOOKING_STATUS.CANCELADO,
+          };
+            const normalized = legacyMap[oldBooking.status] || oldBooking.status;
+            return Object.values(BOOKING_STATUS).includes(normalized)
+              ? normalized
+              : BOOKING_STATUS.AGENDADO;
+        })(),
       notes: oldBooking.notes || "",
       createdAt: oldBooking.createdAt || new Date().toISOString(),
       updatedAt: oldBooking.updatedAt || new Date().toISOString(),
@@ -161,13 +171,21 @@ export const DataAdapters = {
 
 // Labels para status
 function getStatusLabel(status) {
-  const labels = {
-    [BOOKING_STATUS.PENDING]: "Pendente",
-    [BOOKING_STATUS.CONFIRMED]: "Confirmado",
-    [BOOKING_STATUS.COMPLETED]: "Concluído",
-    [BOOKING_STATUS.CANCELLED]: "Cancelado",
+  const legacy = {
+    pending: BOOKING_STATUS.AGENDADO,
+    confirmed: BOOKING_STATUS.CONFIRMADO,
+    completed: BOOKING_STATUS.CONCLUIDO,
+    cancelled: BOOKING_STATUS.CANCELADO,
+    canceled: BOOKING_STATUS.CANCELADO,
   };
-  return labels[status] || "Desconhecido";
+  const normalized = legacy[status] || status;
+  const labels = {
+    [BOOKING_STATUS.AGENDADO]: "Agendado",
+    [BOOKING_STATUS.CONFIRMADO]: "Confirmado",
+    [BOOKING_STATUS.CANCELADO]: "Cancelado",
+    [BOOKING_STATUS.CONCLUIDO]: "Concluído",
+  };
+  return labels[normalized] || "Desconhecido";
 }
 
 // Validadores

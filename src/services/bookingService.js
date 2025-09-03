@@ -46,7 +46,7 @@ export const bookingService = {
 
       // Definir status padrão se não fornecido
       if (!bookingData.status) {
-        bookingData.status = BOOKING_STATUS.PENDING;
+        bookingData.status = BOOKING_STATUS.AGENDADO;
       }
 
       // Validar dados do agendamento
@@ -102,12 +102,10 @@ export const bookingService = {
     }
   },
 
-  // Completar agendamento
+  // Marcar como concluído (se backend suportar endpoint /complete)
   async completeBooking(bookingId, notes = "") {
     try {
-      const response = await api.put(`/bookings/${bookingId}/complete`, {
-        notes,
-      });
+      const response = await api.put(`/bookings/${bookingId}/complete`, { notes });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

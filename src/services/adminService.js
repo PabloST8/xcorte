@@ -22,7 +22,7 @@ export const adminService = {
           productName: "Corte Masculino",
           startTime: "14:00",
           date: "2025-09-03", // YYYY-MM-DD
-          status: BOOKING_STATUS.CONFIRMED,
+          status: BOOKING_STATUS.CONFIRMADO,
         },
         {
           id: "2",
@@ -30,7 +30,7 @@ export const adminService = {
           productName: "Barba Completa",
           startTime: "15:00",
           date: "2025-09-03", // YYYY-MM-DD
-          status: BOOKING_STATUS.PENDING,
+          status: BOOKING_STATUS.AGENDADO,
         },
       ],
       alerts: [
@@ -93,7 +93,7 @@ export const adminService = {
         date: "2025-09-03", // YYYY-MM-DD
         startTime: "14:00", // HH:MM
         endTime: "14:30", // HH:MM
-        status: BOOKING_STATUS.PENDING,
+  status: BOOKING_STATUS.AGENDADO,
         notes: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -111,7 +111,7 @@ export const adminService = {
         date: "2025-09-03", // YYYY-MM-DD
         startTime: "15:00", // HH:MM
         endTime: "15:25", // HH:MM
-        status: BOOKING_STATUS.CONFIRMED,
+  status: BOOKING_STATUS.CONFIRMADO,
         notes: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -125,7 +125,7 @@ export const adminService = {
   async updateAppointmentStatus(appointmentId, status) {
     try {
       // Tentar usar a API real
-      if (status === BOOKING_STATUS.CONFIRMED) {
+  if (status === BOOKING_STATUS.CONFIRMADO) {
         const response = await bookingService.confirmBooking(appointmentId);
         return response;
       } else {
