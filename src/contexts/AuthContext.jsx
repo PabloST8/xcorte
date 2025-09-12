@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           setIsAuthenticated(true);
-          
+
           // Firebase Auth está desabilitado para desenvolvimento
           console.log("✅ Usuário autenticado sem Firebase Auth");
         }
@@ -165,10 +165,10 @@ export const AuthProvider = ({ children }) => {
         },
         { merge: true }
       );
-      
+
       // Firebase Auth está desabilitado para desenvolvimento
       console.log("✅ Usuário registrado sem Firebase Auth");
-      
+
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message || "Falha no registro" };
@@ -223,7 +223,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Erro no logout:", error);
     }
-    
+
     try {
       // Also sign out from Firebase Auth
       await auth.signOut();
@@ -231,7 +231,7 @@ export const AuthProvider = ({ children }) => {
     } catch (firebaseError) {
       console.warn("⚠️ Erro ao fazer logout do Firebase Auth:", firebaseError);
     }
-    
+
     // Limpar dados locais independentemente do resultado
     Cookies.remove("auth_token", { path: "/" });
     Cookies.remove("user_data", { path: "/" });
@@ -352,12 +352,14 @@ export const AuthProvider = ({ children }) => {
     if (auth.currentUser) {
       return auth.currentUser;
     }
-    
+
     if (isAuthenticated) {
-      console.log("⚠️ Firebase Auth não disponível. Usando autenticação local.");
+      console.log(
+        "⚠️ Firebase Auth não disponível. Usando autenticação local."
+      );
       return null; // Indicar que Firebase Auth não está disponível
     }
-    
+
     throw new Error("Usuário não está logado na aplicação.");
   };
 

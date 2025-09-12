@@ -13,7 +13,7 @@ const cache = {
 // Fallback para localStorage quando Firestore não está disponível
 function getEnterprisesFromLocalStorage() {
   try {
-    const stored = localStorage.getItem('xcorte_enterprises');
+    const stored = localStorage.getItem("xcorte_enterprises");
     if (stored) {
       const parsed = JSON.parse(stored);
       console.log("📦 Empresas carregadas do localStorage:", parsed.length);
@@ -22,24 +22,27 @@ function getEnterprisesFromLocalStorage() {
   } catch (error) {
     console.warn("Erro ao carregar empresas do localStorage:", error);
   }
-  
+
   // Dados de exemplo para desenvolvimento
   const defaultEnterprises = [
     {
       id: "pablofafstar@gmail.com",
-      email: "pablofafstar@gmail.com", 
+      email: "pablofafstar@gmail.com",
       name: "Barbearia do Pablo",
-      displayName: "Barbearia do Pablo"
-    }
+      displayName: "Barbearia do Pablo",
+    },
   ];
-  
+
   // Salvar dados de exemplo no localStorage
   try {
-    localStorage.setItem('xcorte_enterprises', JSON.stringify(defaultEnterprises));
+    localStorage.setItem(
+      "xcorte_enterprises",
+      JSON.stringify(defaultEnterprises)
+    );
   } catch (e) {
     console.warn("Erro ao salvar empresas no localStorage:", e);
   }
-  
+
   return defaultEnterprises;
 }
 
@@ -73,13 +76,16 @@ export const publicEnterpriseFirestoreService = {
       console.log("✅ Total de empresas processadas:", enterprises.length);
       return enterprises;
     } catch (e) {
-      console.warn("❌ Falha ao listar enterprises no Firestore público, usando localStorage:", e);
-      
+      console.warn(
+        "❌ Falha ao listar enterprises no Firestore público, usando localStorage:",
+        e
+      );
+
       // Usar localStorage como fallback
       const localEnterprises = getEnterprisesFromLocalStorage();
       cache.enterprises = localEnterprises;
       cache.timestamp = now;
-      
+
       return localEnterprises;
     }
   },
@@ -92,7 +98,7 @@ export const publicEnterpriseFirestoreService = {
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
       console.warn("❌ Falha getServices Firestore, usando localStorage:", e);
-      
+
       // Fallback para localStorage com dados de exemplo
       const defaultServices = [
         {
@@ -100,23 +106,26 @@ export const publicEnterpriseFirestoreService = {
           name: "Corte de Cabelo",
           price: 2500, // R$ 25,00 em centavos
           duration: 30,
-          description: "Corte moderno e estiloso"
+          description: "Corte moderno e estiloso",
         },
         {
           id: "barba",
           name: "Barba",
           price: 1500, // R$ 15,00 em centavos
           duration: 20,
-          description: "Aparar e fazer a barba"
-        }
+          description: "Aparar e fazer a barba",
+        },
       ];
-      
+
       try {
         const stored = localStorage.getItem(`xcorte_services_${email}`);
         if (stored) {
           return JSON.parse(stored);
         } else {
-          localStorage.setItem(`xcorte_services_${email}`, JSON.stringify(defaultServices));
+          localStorage.setItem(
+            `xcorte_services_${email}`,
+            JSON.stringify(defaultServices)
+          );
           return defaultServices;
         }
       } catch (storageError) {
@@ -145,7 +154,7 @@ export const publicEnterpriseFirestoreService = {
       return sub.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
       console.warn("❌ Falha getStaff subcoleção, usando localStorage:", e);
-      
+
       // Fallback para localStorage com dados de exemplo
       const defaultStaff = [
         {
@@ -153,16 +162,19 @@ export const publicEnterpriseFirestoreService = {
           name: "Pablo",
           role: "Barbeiro Principal",
           email: "pablo@example.com",
-          enterpriseEmail: email
-        }
+          enterpriseEmail: email,
+        },
       ];
-      
+
       try {
         const stored = localStorage.getItem(`xcorte_staff_${email}`);
         if (stored) {
           return JSON.parse(stored);
         } else {
-          localStorage.setItem(`xcorte_staff_${email}`, JSON.stringify(defaultStaff));
+          localStorage.setItem(
+            `xcorte_staff_${email}`,
+            JSON.stringify(defaultStaff)
+          );
           return defaultStaff;
         }
       } catch (storageError) {
@@ -186,8 +198,11 @@ export const publicEnterpriseFirestoreService = {
         )
         .slice(0, limit);
     } catch (e) {
-      console.warn("❌ Falha getUpcomingBookings Firestore, usando localStorage:", e);
-      
+      console.warn(
+        "❌ Falha getUpcomingBookings Firestore, usando localStorage:",
+        e
+      );
+
       // Usar dados do localStorage de agendamentos
       try {
         const stored = localStorage.getItem(`xcorte_bookings_${email}`);
@@ -202,9 +217,12 @@ export const publicEnterpriseFirestoreService = {
             .slice(0, limit);
         }
       } catch (storageError) {
-        console.warn("Erro no localStorage para agendamentos próximos:", storageError);
+        console.warn(
+          "Erro no localStorage para agendamentos próximos:",
+          storageError
+        );
       }
-      
+
       return [];
     }
   },

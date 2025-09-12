@@ -6,9 +6,11 @@ async function ensureFirebaseAuth() {
   if (auth.currentUser) {
     return auth.currentUser;
   }
-  
+
   // Para desenvolvimento: se login anônimo não estiver habilitado, usar localStorage
-  console.log("⚠️ Firebase Auth não disponível para carrinho. Usando localStorage para desenvolvimento.");
+  console.log(
+    "⚠️ Firebase Auth não disponível para carrinho. Usando localStorage para desenvolvimento."
+  );
   return null; // Indicar que não há autenticação Firebase disponível
 }
 
@@ -27,10 +29,10 @@ function cartDocRef(userId, enterpriseEmail) {
 export const userCartFirestoreService = {
   async getCart(userId, enterpriseEmail) {
     if (!userId || !enterpriseEmail) return null;
-    
+
     // Tentar autenticação Firebase
     const firebaseUser = await ensureFirebaseAuth();
-    
+
     // Se Firebase Auth não estiver disponível, usar localStorage
     if (!firebaseUser) {
       const localKey = `cart_${userId}_${enterpriseEmail}`;
@@ -51,7 +53,7 @@ export const userCartFirestoreService = {
       }
       return null;
     }
-    
+
     // Usar Firestore se Firebase Auth estiver disponível
     try {
       const snap = await getDoc(cartDocRef(userId, enterpriseEmail));
@@ -71,16 +73,16 @@ export const userCartFirestoreService = {
 
   async setCart(userId, enterpriseEmail, { items, paymentMethod }) {
     if (!userId || !enterpriseEmail) return false;
-    
+
     // Tentar autenticação Firebase
     const firebaseUser = await ensureFirebaseAuth();
-    
+
     const payload = {
       items: Array.isArray(items) ? items : [],
       paymentMethod: paymentMethod || "card",
       updatedAt: new Date().toISOString(),
     };
-    
+
     // Se Firebase Auth não estiver disponível, usar localStorage
     if (!firebaseUser) {
       const localKey = `cart_${userId}_${enterpriseEmail}`;
@@ -93,13 +95,17 @@ export const userCartFirestoreService = {
         return false;
       }
     }
-    
+
     // Usar Firestore se Firebase Auth estiver disponível
     try {
-      await setDoc(cartDocRef(userId, enterpriseEmail), {
-        ...payload,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      await setDoc(
+        cartDocRef(userId, enterpriseEmail),
+        {
+          ...payload,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       console.log("✅ Carrinho salvo no Firestore:", payload);
       return true;
     } catch (error) {
