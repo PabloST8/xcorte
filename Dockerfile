@@ -1,34 +1,61 @@
 # 🚀 Dockerfile para XCorte - React App com Vite
 # Configurado para expor na porta 4000
+# Atualizado em 13/09/2025 com Node.js 22 LTS
+# Multi-stage build para otimização
 
-# Usar Node.js 18 Alpine para menor tamanho
-FROM node:18-alpine
+# Estágio 1: Build
+FROM node:22-alpine AS builder
 
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Instalar dependências do sistema necessárias
+# Instalar dependências do sistema necessárias para build
 RUN apk add --no-cache \
     git \
-    curl
+    python3 \
+    make \
+    g++
 
 # Copiar arquivos de dependências
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Instalar todas as dependências (incluindo devDependencies)
+RUN npm ci
 
 # Copiar código fonte
 COPY . .
 
+# Build da aplicação
+RUN npm run build
+
+# Estágio 2: Produção
+FROM node:22-alpine AS production
+
+# Definir diretório de trabalho
+WORKDIR /app
+
+# Instalar dependências do sistema mínimas
+RUN apk add --no-cache \
+    curl \
+    dumb-init
+
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar apenas dependências de produção
+RUN npm ci --only=production && \
+    npm cache clean --force
+
 # Criar usuário não-root para segurança
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+    adduser -S xcorte -u 1001
 
-# Mudar proprietário dos arquivos
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+# Copiar build da aplicação do estágio anterior
+COPY --from=builder --chown=xcorte:nodejs /app/dist ./dist
+COPY --from=builder --chown=xcorte:nodejs /app/package*.json ./
+
+# Mudar para usuário não-root
+USER xcorte
 
 # Expor a porta 4000
 EXPOSE 4000
@@ -42,5 +69,8 @@ ENV HOST=0.0.0.0
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:4000 || exit 1
 
-# Comando para iniciar a aplicação
-CMD ["npm", "run", "dev", "--", "--port", "4000", "--host", "0.0.0.0"]
+# Usar dumb-init para gerenciamento de processos
+ENTRYPOINT ["dumb-init", "--"]
+
+# Comando para servir a aplicação buildada
+CMD ["npm", "run", "preview", "--", "--port", "4000", "--host", "0.0.0.0"]
