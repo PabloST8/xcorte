@@ -2,7 +2,8 @@
 // Campos principais: clientName, clientEmail, clientPhone, productId, productName,
 // productPrice (centavos), productDuration (min), date (YYYY-MM-DD), startTime, endTime,
 // status (scheduled|confirmed|in_progress|completed|cancelled|no_show), notes, createdAt, updatedAt
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
+import { signInAnonymously } from "firebase/auth";
 import {
   collection,
   getDocs,
@@ -13,6 +14,23 @@ import {
   query,
   where,
 } from "firebase/firestore";
+
+// Função para garantir que o usuário esteja autenticado no Firebase Auth
+async function ensureFirebaseAuth() {
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+  
+  console.log("🔄 Tentando autenticar no Firebase Auth...");
+  try {
+    const userCredential = await signInAnonymously(auth);
+    console.log("✅ Autenticado no Firebase Auth:", userCredential.user.uid);
+    return userCredential.user;
+  } catch (error) {
+    console.error("❌ Erro ao autenticar no Firebase Auth:", error);
+    throw new Error("Falha na autenticação. Tente novamente.");
+  }
+}
 
 function bookingsRef(email) {
   return collection(db, "enterprises", email, "bookings");
@@ -114,6 +132,20 @@ export const enterpriseBookingFirestoreService = {
   },
 
   async create(enterpriseEmail, bookingData) {
+    // Garantir que o usuário esteja autenticado no Firebase Auth
+    try {
+      await ensureFirebaseAuth();
+    } catch (error) {
+      console.error("❌ Falha na autenticação:", error);
+      throw error;
+    }
+    
+    console.log("🔄 Criando agendamento com usuário autenticado:", {
+      authUser: auth.currentUser?.uid,
+      enterpriseEmail,
+      clientName: bookingData.clientName
+    });
+    
     const now = new Date().toISOString();
     const parseTime = (t) => {
       const [h, m] = (t || "00:00").split(":").map(Number);

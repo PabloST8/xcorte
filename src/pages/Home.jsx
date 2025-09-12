@@ -1,7 +1,7 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Scissors, Brush, Palette, Settings } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { enterpriseProductFirestoreService } from "../services/enterpriseProductFirestoreService";

@@ -9,7 +9,7 @@ import {
   Camera,
   LogOut,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useUserAppointments } from "../hooks/useBarbershop";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";

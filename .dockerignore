@@ -8,7 +8,7 @@ build
 .next
 
 # Arquivos de desenvolvimento
-.env.local
+# .env.local (comentado para permitir build com Firebase config)
 .env.development.local
 .env.test.local
 .env.production.local

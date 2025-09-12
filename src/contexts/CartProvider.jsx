@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "./EnterpriseContext";
 import { userCartFirestoreService } from "../services/userCartFirestoreService";
 import { v4 as uuidv4 } from "uuid";
@@ -57,11 +57,25 @@ export function CartProvider({ children }) {
       try {
         if (!loaded) return; // avoid clearing before initial load
         if (isAuthenticated && cartUserId && currentEnterprise?.email) {
+          console.log("🔄 Salvando carrinho no Firestore:", {
+            isAuthenticated,
+            cartUserId,
+            enterpriseEmail: currentEnterprise.email,
+            itemsCount: items.length
+          });
           await userCartFirestoreService.setCart(
             cartUserId,
             currentEnterprise.email,
             { items, paymentMethod }
           );
+          console.log("✅ Carrinho salvo no Firestore com sucesso");
+        } else {
+          console.log("⚠️ Não salvando no Firestore:", {
+            isAuthenticated,
+            cartUserId,
+            enterpriseEmail: currentEnterprise?.email,
+            loaded
+          });
         }
         // Always mirror to local as cache/fallback
         localStorage.setItem(
@@ -69,7 +83,7 @@ export function CartProvider({ children }) {
           JSON.stringify({ items, paymentMethod })
         );
       } catch (e) {
-        console.warn("Falha ao salvar carrinho:", e);
+        console.warn("❌ Falha ao salvar carrinho:", e);
       }
     };
     persist();

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { ArrowLeft } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 function Register() {
   const [formData, setFormData] = useState({ name: "", phone: "" });

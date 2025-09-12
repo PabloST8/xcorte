@@ -1,19 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { authService } from "../services/authService";
 import { firebaseAuthService } from "../services/firebaseAuthService";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../services/firebase";
-
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
-  }
-  return context;
-};
+import { db, auth } from "../services/firebase";
+import { signInAnonymously } from "firebase/auth";
+import { AuthContext } from "./AuthContextProvider";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -30,6 +22,16 @@ export const AuthProvider = ({ children }) => {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           setIsAuthenticated(true);
+          
+          // Also ensure Firebase Auth is synchronized
+          if (!auth.currentUser) {
+            try {
+              await signInAnonymously(auth);
+              console.log("✅ Firebase Auth sincronizado na inicialização");
+            } catch (firebaseError) {
+              console.warn("⚠️ Erro ao sincronizar Firebase Auth:", firebaseError);
+            }
+          }
         }
       } catch (error) {
         console.error("Erro ao verificar status de autenticação:", error);
@@ -135,6 +137,15 @@ export const AuthProvider = ({ children }) => {
         ...data,
       };
 
+      // Sign in to Firebase Auth as well
+      try {
+        await signInAnonymously(auth);
+        console.log("✅ Usuário autenticado no Firebase Auth");
+      } catch (firebaseError) {
+        console.warn("⚠️ Erro ao autenticar no Firebase Auth:", firebaseError);
+        // Continue with app login even if Firebase Auth fails
+      }
+
       Cookies.set("auth_token", `simple-${userObj.id}`, { expires: 30 });
       Cookies.set("user_data", JSON.stringify(userObj), { expires: 30 });
       setUser(userObj);
@@ -168,6 +179,15 @@ export const AuthProvider = ({ children }) => {
         },
         { merge: true }
       );
+      
+      // Sign in to Firebase Auth after successful registration
+      try {
+        await signInAnonymously(auth);
+        console.log("✅ Usuário registrado e autenticado no Firebase Auth");
+      } catch (firebaseError) {
+        console.warn("⚠️ Erro ao autenticar no Firebase Auth após registro:", firebaseError);
+      }
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message || "Falha no registro" };
@@ -221,26 +241,34 @@ export const AuthProvider = ({ children }) => {
       await authService.logout();
     } catch (error) {
       console.error("Erro no logout:", error);
-    } finally {
-      // Limpar dados locais independentemente do resultado
-      Cookies.remove("auth_token", { path: "/" });
-      Cookies.remove("user_data", { path: "/" });
-      Cookies.remove("current_enterprise", { path: "/" });
-
-      // Limpar também cookies sem especificar path como fallback
-      Cookies.remove("auth_token");
-      Cookies.remove("user_data");
-      Cookies.remove("current_enterprise");
-
-      // Limpar localStorage também por precaução
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("user_data");
-      localStorage.removeItem("current_enterprise");
-
-      // Resetar estado
-      setUser(null);
-      setIsAuthenticated(false);
     }
+    
+    try {
+      // Also sign out from Firebase Auth
+      await auth.signOut();
+      console.log("✅ Logout do Firebase Auth realizado");
+    } catch (firebaseError) {
+      console.warn("⚠️ Erro ao fazer logout do Firebase Auth:", firebaseError);
+    }
+    
+    // Limpar dados locais independentemente do resultado
+    Cookies.remove("auth_token", { path: "/" });
+    Cookies.remove("user_data", { path: "/" });
+    Cookies.remove("current_enterprise", { path: "/" });
+
+    // Limpar também cookies sem especificar path como fallback
+    Cookies.remove("auth_token");
+    Cookies.remove("user_data");
+    Cookies.remove("current_enterprise");
+
+    // Limpar localStorage também por precaução
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user_data");
+    localStorage.removeItem("current_enterprise");
+
+    // Resetar estado
+    setUser(null);
+    setIsAuthenticated(false);
   };
 
   const updateUser = (updatedUserData) => {
@@ -338,6 +366,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Função para garantir que o Firebase Auth esteja sincronizado
+  const ensureFirebaseAuth = async () => {
+    if (auth.currentUser) {
+      return auth.currentUser;
+    }
+    
+    if (isAuthenticated) {
+      console.log("🔄 Sincronizando Firebase Auth...");
+      try {
+        const userCredential = await signInAnonymously(auth);
+        console.log("✅ Firebase Auth sincronizado:", userCredential.user.uid);
+        return userCredential.user;
+      } catch (error) {
+        console.error("❌ Erro ao sincronizar Firebase Auth:", error);
+        throw new Error("Falha na autenticação. Tente fazer login novamente.");
+      }
+    }
+    
+    throw new Error("Usuário não está logado na aplicação.");
+  };
+
   const value = {
     user,
     loading,
@@ -352,6 +401,7 @@ export const AuthProvider = ({ children }) => {
     adminLogin,
     createAdminUser,
     checkAuthStatus,
+    ensureFirebaseAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

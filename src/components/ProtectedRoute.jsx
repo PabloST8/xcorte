@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 // Componente para proteger rotas que precisam de autenticação
 export function ProtectedRoute({ children, adminOnly = false }) {

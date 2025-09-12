@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { ArrowLeft } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 // Tela de verificação de código (SMS/Email)
 export default function Verification() {

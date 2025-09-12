@@ -3,7 +3,7 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Trash2, Edit3, ChevronLeft } from "lucide-react";
 import { useCart } from "../contexts/useCart";
 import { useEnterprise } from "../contexts/EnterpriseContext";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { formatPrice } from "../types/api";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
 import { bookingService } from "../services/bookingService";
@@ -24,7 +24,7 @@ function Cart() {
     setPaymentMethod,
   } = useCart();
   const { currentEnterprise } = useEnterprise();
-  const { user } = useAuth();
+  const { user, isAuthenticated, ensureFirebaseAuth } = useAuth();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -190,6 +190,23 @@ function Cart() {
       );
       return;
     }
+    
+    // Verificar se o usuário está autenticado
+    if (!isAuthenticated) {
+      alert("Você precisa estar logado para confirmar o agendamento.");
+      return;
+    }
+    
+    // Garantir que o Firebase Auth esteja sincronizado
+    try {
+      await ensureFirebaseAuth();
+      console.log("✅ Firebase Auth verificado para confirmação de agendamento");
+    } catch (authError) {
+      console.error("❌ Erro de autenticação:", authError);
+      alert("Erro de autenticação. Por favor, faça login novamente.");
+      return;
+    }
+    
     const isValidEmail = (email) =>
       /.+@.+\..+/.test(String(email || "").trim());
     setSubmitting(true);

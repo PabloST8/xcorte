@@ -11,7 +11,7 @@ import { BOOKING_STATUS } from "../types/api.js";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useDailySlots } from "../hooks/useDailySlots";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 function Appointment() {
   const [searchParams] = useSearchParams();
