@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -7,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 export default function Verification() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { verifyCode } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ export default function Verification() {
       if (result.success) {
         setSuccess("Verificação concluída! Redirecionando...");
         // Redirecionar após pequeno delay
-        setTimeout(() => navigate("/"), 1200);
+        setTimeout(() => navigate(getEnterpriseUrl("")), 1200);
       } else {
         setError(result.error || "Código inválido");
       }
@@ -116,7 +118,7 @@ export default function Verification() {
             <p className="text-gray-500 mt-3">
               Errou seus dados?{" "}
               <Link
-                to="/register"
+                to={getEnterpriseUrl("auth/register")}
                 className="text-amber-600 hover:text-amber-500"
               >
                 Cadastrar novamente

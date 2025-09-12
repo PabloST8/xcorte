@@ -1,5 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { useEnterprise } from "../contexts/EnterpriseContext";
+import { enterpriseProductFirestoreService } from "../services/enterpriseProductFirestoreService";
+import { formatPrice, formatDuration } from "../types/api.js";
 import {
   ChevronLeft,
   Search,
@@ -8,23 +12,67 @@ import {
   Palette,
   ChevronRight,
 } from "lucide-react";
-import { serviceCategories, allServices } from "../data/services.js";
+import { employeeFirestoreService } from "../services/employeeFirestoreService";
+import BookingOverlay from "../components/BookingOverlay";
 
 function Services() {
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { currentEnterprise } = useEnterprise();
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get("category") || "Todos";
-  const titleFromUrl =
-    searchParams.get("title") ||
-    serviceCategories.find((cat) => cat.id === categoryFromUrl)?.displayName ||
-    "Serviços";
+  const titleFromUrl = searchParams.get("title") || "Serviços";
 
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl);
+  const [services, setServices] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl);
   }, [categoryFromUrl]);
 
-  // Função para obter ícone baseado na categoria
+  useEffect(() => {
+    if (!currentEnterprise?.email) return;
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const data = await enterpriseProductFirestoreService.list(
+          currentEnterprise.email
+        );
+        setServices(Array.isArray(data) ? data : []);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [currentEnterprise]);
+
+  // Load employees for this enterprise
+  useEffect(() => {
+    if (!currentEnterprise?.email) return;
+    const run = async () => {
+      try {
+        const list = await employeeFirestoreService.list(
+          currentEnterprise.email
+        );
+        setEmployees(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error("Erro ao carregar funcionários:", e);
+        setEmployees([]);
+      }
+    };
+    run();
+  }, [currentEnterprise]);
+
+  const categories = useMemo(() => {
+    const cats = Array.from(
+      new Set((services || []).map((s) => s.category).filter(Boolean))
+    );
+    return ["Todos", ...cats];
+  }, [services]);
+
   const getServiceIcon = (category) => {
     switch (category) {
       case "Cortes":
@@ -38,25 +86,37 @@ function Services() {
     }
   };
 
-  // Filtrar serviços baseado na categoria selecionada
-  const filteredServices =
-    selectedCategory === "Todos"
-      ? allServices.map((service) => ({
-          ...service,
-          icon: getServiceIcon(service.category),
-        }))
-      : allServices
-          .filter((service) => service.category === selectedCategory)
-          .map((service) => ({
-            ...service,
-            icon: getServiceIcon(service.category),
-          }));
+  const filteredServices = useMemo(() => {
+    const list = Array.isArray(services) ? services : [];
+    return (
+      selectedCategory === "Todos"
+        ? list
+        : list.filter((s) => s.category === selectedCategory)
+    ).map((s) => ({
+      ...s,
+      icon: getServiceIcon(s.category),
+      priceInCents: s.priceInCents ?? s.price,
+    }));
+  }, [services, selectedCategory]);
+
+  const eligibleEmployeesForProduct = (product) => {
+    const list = Array.isArray(employees) ? employees : [];
+    if (!product?.id) return list;
+    const filtered = list.filter((e) => {
+      const skills = Array.isArray(e.skills) ? e.skills : [];
+      return skills.some(
+        (sk) =>
+          String(sk.productId) === String(product.id) && sk.canPerform !== false
+      );
+    });
+    return filtered.length ? filtered : list;
+  };
 
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-blue-600 text-white">
-        <Link to="/">
+        <Link to={getEnterpriseUrl("")}>
           <ChevronLeft className="w-6 h-6" />
         </Link>
         <h1 className="text-lg font-bold">{titleFromUrl}</h1>
@@ -64,19 +124,6 @@ function Services() {
       </header>
 
       <div className="px-6 py-6">
-        {/* Quiz Section */}
-        <div className="bg-blue-600 rounded-2xl p-6 text-white mb-6">
-          <h2 className="text-xl font-bold mb-2">
-            What kind of hair suits you?
-          </h2>
-          <p className="text-blue-100 mb-4 text-sm">
-            Start now to find out what kind of hair suits you
-          </p>
-          <button className="bg-white text-blue-600 px-6 py-2 rounded-full font-semibold">
-            Start
-          </button>
-        </div>
-
         {/* Category Tabs */}
         <div className="mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">
@@ -86,17 +133,17 @@ function Services() {
           </h2>
 
           <div className="flex space-x-3 mb-6">
-            {serviceCategories.map((category) => (
+            {categories.map((cat) => (
               <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
                 className={`px-4 py-2 rounded-full text-sm font-medium ${
-                  selectedCategory === category.id
+                  selectedCategory === cat
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                {category.name}
+                {cat}
               </button>
             ))}
           </div>
@@ -104,36 +151,56 @@ function Services() {
 
         {/* Services List */}
         <div className="space-y-4">
-          {filteredServices.map((service) => (
-            <Link
-              key={service.id}
-              to={`/cart?service=${encodeURIComponent(
-                service.name
-              )}&price=${service.price
-                .split("-")[0]
-                .replace("R$", "")}&duration=${encodeURIComponent(
-                service.duration
-              )}&category=${service.category}`}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-blue-100 rounded-xl">{service.icon}</div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {service.name}
-                  </h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span>{service.duration}</span>
-                    <span>•</span>
-                    <span className="font-semibold">{service.price}</span>
+          {isLoading
+            ? [...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-20 bg-gray-50 rounded-xl animate-pulse"
+                />
+              ))
+            : filteredServices.map((service) => (
+                <button
+                  key={service.id}
+                  onClick={() => {
+                    setSelectedProduct(service);
+                    setOverlayOpen(true);
+                  }}
+                  className="w-full text-left flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                      {service.icon}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {service.name}
+                      </h3>
+                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <span>{formatDuration(service.duration || 30)}</span>
+                        <span>•</span>
+                        <span className="font-semibold">
+                          {formatPrice(service.priceInCents || 0)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
-            </Link>
-          ))}
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                </button>
+              ))}
         </div>
       </div>
+
+      {/* Booking Overlay */}
+      <BookingOverlay
+        open={overlayOpen}
+        onClose={() => setOverlayOpen(false)}
+        product={selectedProduct}
+        employees={
+          selectedProduct
+            ? eligibleEmployeesForProduct(selectedProduct)
+            : employees
+        }
+      />
     </div>
   );
 }

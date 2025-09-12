@@ -2,8 +2,11 @@ import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./contexts/AuthContext";
 import { EnterpriseProvider } from "./contexts/EnterpriseContext";
+import { CartProvider } from "./contexts/CartProvider.jsx";
 import { ProtectedRoute, GuestRoute } from "./components/ProtectedRoute";
 import AdminLayout from "./layouts/AdminLayout";
+import EnterpriseDetector from "./components/EnterpriseDetector";
+import FloatingMenu from "./components/FloatingMenu";
 
 import Home from "./pages/Home";
 import ServiceDetails from "./pages/ServiceDetails";
@@ -15,15 +18,18 @@ import StaffDetail from "./pages/StaffDetail";
 import Register from "./pages/Register";
 // import Verification from "./pages/Verification"; // Removido - API não suporta verificação
 import Name from "./pages/Name";
-import Calendar from "./pages/Calendar";
 import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin";
 import Profile from "./pages/Profile";
+import Empresa from "./pages/Empresa";
+import DebugEnterprises from "./pages/DebugEnterprises";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminServices from "./pages/admin/AdminServices";
+import AdminStaff from "./pages/admin/AdminStaff";
 
 // Criar cliente do React Query
 const queryClient = new QueryClient({
@@ -40,6 +46,7 @@ function Layout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Outlet />
+      <FloatingMenu />
     </div>
   );
 }
@@ -49,11 +56,42 @@ function AuthLayout() {
   return <Outlet />;
 }
 
-// Router configuration with the new API
+// Router configuration with enterprise support
 const router = createBrowserRouter([
+  // Página de debug (sem exigir slug específico)
+  {
+    path: "/debug-enterprises",
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
+    children: [{ index: true, element: <DebugEnterprises /> }],
+  },
+  // Rota raiz - redireciona automaticamente para empresa
   {
     path: "/",
-    element: <Layout />,
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Home />,
+      },
+    ],
+  },
+
+  // Enterprise scoped routes: /:enterpriseSlug/*
+  {
+    path: "/:enterpriseSlug",
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
     children: [
       {
         index: true,
@@ -100,12 +138,8 @@ const router = createBrowserRouter([
         element: <StaffDetail />,
       },
       {
-        path: "calendar",
-        element: (
-          <ProtectedRoute>
-            <Calendar />
-          </ProtectedRoute>
-        ),
+        path: "empresa",
+        element: <Empresa />,
       },
       {
         path: "profile",
@@ -155,6 +189,15 @@ const router = createBrowserRouter([
       },
     ],
   },
+  // Rota de login admin (fora do ProtectedRoute)
+  {
+    path: "/admin/login",
+    element: (
+      <GuestRoute>
+        <AdminLogin />
+      </GuestRoute>
+    ),
+  },
   // Rotas de administração
   {
     path: "/admin",
@@ -182,35 +225,28 @@ const router = createBrowserRouter([
       },
       {
         path: "staff",
-        element: <div>Funcionários (em desenvolvimento)</div>,
-      },
-      {
-        path: "reports",
-        element: <div>Relatórios (em desenvolvimento)</div>,
-      },
-      {
-        path: "settings",
-        element: <div>Configurações (em desenvolvimento)</div>,
+        element: <AdminStaff />,
       },
     ],
   },
   // Rotas de autenticação também disponíveis na raiz para facilitar acesso
-  {
-    path: "/login",
-    element: (
-      <GuestRoute>
-        <Login />
-      </GuestRoute>
-    ),
-  },
-  {
-    path: "/register",
-    element: (
-      <GuestRoute>
-        <Register />
-      </GuestRoute>
-    ),
-  },
+  // Comentado para evitar conflitos - usar apenas /auth/login
+  // {
+  //   path: "/login",
+  //   element: (
+  //     <GuestRoute>
+  //       <Login />
+  //     </GuestRoute>
+  //   ),
+  // },
+  // {
+  //   path: "/register",
+  //   element: (
+  //     <GuestRoute>
+  //       <Register />
+  //     </GuestRoute>
+  //   ),
+  // },
   // {
   //   path: "/verification",
   //   element: (
@@ -234,7 +270,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <EnterpriseProvider>
-          <RouterProvider router={router} />
+          <CartProvider>
+            <RouterProvider router={router} />
+          </CartProvider>
         </EnterpriseProvider>
       </AuthProvider>
     </QueryClientProvider>

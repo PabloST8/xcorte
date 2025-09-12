@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 
 function Name() {
   const [firstName, setFirstName] = useState("");
@@ -7,6 +8,7 @@ function Name() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   const phone = location.state?.phone || "";
 
@@ -30,7 +32,7 @@ function Name() {
     setTimeout(() => {
       setLoading(false);
       // Redirecionar para home ou dashboard
-      navigate("/", {
+      navigate(getEnterpriseUrl(""), {
         state: {
           message: `Bem-vindo(a), ${firstName}! Seu cadastro foi realizado com sucesso.`,
           user: userData,
@@ -40,7 +42,7 @@ function Name() {
   };
 
   const handleBack = () => {
-    navigate("/login");
+    navigate("/auth/login");
   };
 
   if (!phone) {

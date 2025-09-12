@@ -23,10 +23,11 @@ export const useServiceDetails = (serviceId) => {
 };
 
 // Hook para obter funcionários
-export const useStaff = () => {
+export const useStaff = (enterpriseEmail) => {
   return useQuery({
-    queryKey: ["staff"],
-    queryFn: barbershopService.getStaff,
+    queryKey: ["staff", enterpriseEmail],
+    queryFn: () => barbershopService.getStaff(enterpriseEmail),
+    enabled: !!enterpriseEmail,
     staleTime: 10 * 60 * 1000, // 10 minutos
   });
 };

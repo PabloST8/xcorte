@@ -6,23 +6,28 @@ import {
   ChevronDown,
   ArrowLeft,
 } from "lucide-react";
-import {
-  useAvailableSlots,
-  useCreateAppointment,
-} from "../hooks/useBarbershop";
+import { useCreateAppointment } from "../hooks/useBarbershop";
 import { BOOKING_STATUS } from "../types/api.js";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { useEnterprise } from "../contexts/EnterpriseContext";
+import { useDailySlots } from "../hooks/useDailySlots";
+import { useAuth } from "../contexts/AuthContext";
 
 function Appointment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(null);
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const [selectedDate, setSelectedDate] = useState(null); // Date object
   const [selectedTime, setSelectedTime] = useState(null);
   const [appointmentData, setAppointmentData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { currentEnterprise } = useEnterprise();
+  const { user } = useAuth();
 
   // Hooks para API
-  const { data: availableSlots } = useAvailableSlots({
+  const { slots: dailySlots } = useDailySlots({
+    enterpriseEmail: currentEnterprise?.email,
     date: selectedDate,
     productId: appointmentData.productId,
     employeeId: appointmentData.employeeId,
@@ -40,6 +45,8 @@ function Appointment() {
     const staffName = searchParams.get("staff") || "";
     const employeeId =
       searchParams.get("employeeId") || searchParams.get("staffId") || "";
+    const dateStr = searchParams.get("date");
+    const timeStr = searchParams.get("time");
 
     setAppointmentData({
       productName: serviceName,
@@ -50,6 +57,25 @@ function Appointment() {
       employeeId,
     });
 
+    if (dateStr) {
+      const parsed = new Date(`${dateStr}T00:00:00`);
+      if (!isNaN(parsed)) setSelectedDate(parsed);
+    } else {
+      // default hoje
+      const today = new Date();
+      const base = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      setSelectedDate(base);
+    }
+    if (timeStr) setSelectedTime(timeStr);
+
     console.log("Dados do agendamento (API format):", {
       productName: serviceName,
       productId,
@@ -57,34 +83,16 @@ function Appointment() {
       productDuration: duration,
       staffName,
       employeeId,
+      dateStr,
+      timeStr,
     });
   }, [searchParams]);
 
-  // Dados do calendário - Nov 2024 (12-18)
-  const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
-  const calendarDays = [
-    { day: 12, available: true },
-    { day: 13, available: true },
-    { day: 14, available: true },
-    { day: 15, available: true },
-    { day: 16, available: true },
-    { day: 17, available: true },
-    { day: 18, available: true },
-  ];
-
-  // Horários disponíveis (usar da API se disponível)
-  const timeSlots = availableSlots || [
-    { time: "9:00", available: true },
-    { time: "10:00", available: true },
-    { time: "11:00", available: true },
-    { time: "12:00", available: true },
-    { time: "13:00", available: true },
-    { time: "14:00", available: true },
-    { time: "15:00", available: true },
-    { time: "16:00", available: true },
-  ];
-
-  const monthName = "Nov 12 (12 - 18)";
+  // Horários disponíveis (usar hook de slots diários)
+  const timeSlots = (dailySlots || []).map((s) => ({
+    time: s.time || s.startTime,
+    available: s.isAvailable !== false,
+  }));
 
   const handleCreateAppointment = async () => {
     if (!selectedDate || !selectedTime) {
@@ -98,17 +106,22 @@ function Appointment() {
     try {
       // Montar dados do agendamento conforme API
       const bookingData = {
-        enterpriseEmail: "test@empresa.com", // TODO: pegar do contexto
-        clientName: "Cliente Teste", // TODO: pegar do usuário logado
-        clientPhone: "11999999999", // TODO: pegar do usuário logado
-        clientEmail: "cliente@email.com", // TODO: pegar do usuário logado
+        enterpriseEmail: currentEnterprise?.email || "",
+        clientName: user?.name || user?.displayName || "Cliente",
+        clientPhone: user?.phone || user?.phoneNumber || "",
+        clientEmail: user?.email || "",
         productId: appointmentData.productId,
         productName: appointmentData.productName,
         productDuration: appointmentData.productDuration,
         productPrice: appointmentData.productPrice,
-        date: selectedDate.toISOString().split("T")[0], // YYYY-MM-DD
+        date:
+          typeof selectedDate?.toISOString === "function"
+            ? selectedDate.toISOString().split("T")[0]
+            : String(selectedDate),
         startTime: selectedTime, // HH:MM
-        status: BOOKING_STATUS.PENDING,
+        employeeId: appointmentData.employeeId || "",
+        staffName: appointmentData.staffName || "",
+        status: BOOKING_STATUS.AGENDADO,
         notes: "",
       };
 
@@ -116,11 +129,14 @@ function Appointment() {
 
       if (result) {
         // Redirecionar para página de confirmação ou pagamento
-        navigate("/payment", {
+        navigate(getEnterpriseUrl("payment"), {
           state: {
             appointment: result,
-            productName: appointmentData.productName,
-            productPrice: appointmentData.productPrice,
+            service: {
+              name: appointmentData.productName,
+              duration: appointmentData.productDuration,
+            },
+            price: appointmentData.productPrice / 100,
           },
         });
       }
@@ -136,7 +152,7 @@ function Appointment() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-        <Link to="/cart">
+        <Link to={getEnterpriseUrl("service-details")}>
           <ChevronLeft className="w-6 h-6 text-gray-900" />
         </Link>
         <h1 className="text-lg font-bold text-gray-900">Agendamento</h1>
@@ -145,7 +161,7 @@ function Appointment() {
 
       <div className="px-6 py-6">
         {/* Service Summary */}
-        {appointmentData.service && (
+        {appointmentData.productName && (
           <div className="mb-8 p-4 bg-gray-50 rounded-xl">
             <h3 className="text-lg font-bold text-gray-900 mb-3">
               Resumo do Serviço
@@ -166,7 +182,7 @@ function Appointment() {
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Preço:</span>
                 <span className="font-medium text-blue-600">
-                  R${" "}
+                  R{" "}
                   {(appointmentData.productPrice / 100)
                     .toFixed(2)
                     .replace(".", ",")}
@@ -186,53 +202,18 @@ function Appointment() {
 
         {/* Data Section */}
         <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Data</h3>
-
-          {/* Month Navigator */}
-          <div className="flex items-center justify-between mb-6">
-            <button>
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">{monthName}</span>
-              <button className="text-blue-600 font-medium">Abril</button>
-            </div>
-            <button>
-              <ChevronRight className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
-
-          {/* Week Days */}
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {weekDays.map((day) => (
-              <div
-                key={day}
-                className="text-center text-sm font-medium text-gray-500 py-2"
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-2 mb-6">
-            {calendarDays.map((dayObj) => (
-              <button
-                key={dayObj.day}
-                onClick={() => setSelectedDate(dayObj.day)}
-                className={`aspect-square flex items-center justify-center text-sm rounded-lg font-medium ${
-                  selectedDate === dayObj.day
-                    ? "bg-blue-600 text-white"
-                    : dayObj.available
-                    ? "bg-gray-100 text-gray-900 hover:bg-gray-200"
-                    : "bg-gray-50 text-gray-400 cursor-not-allowed"
-                }`}
-                disabled={!dayObj.available}
-              >
-                {dayObj.day}
-              </button>
-            ))}
-          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-3">Data</h3>
+          <input
+            type="date"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2"
+            value={selectedDate ? selectedDate.toISOString().split("T")[0] : ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return;
+              const parsed = new Date(`${v}T00:00:00`);
+              if (!isNaN(parsed)) setSelectedDate(parsed);
+            }}
+          />
         </div>
 
         {/* Hora Section */}
@@ -256,6 +237,11 @@ function Appointment() {
                 {slot.time}
               </button>
             ))}
+            {(!timeSlots || timeSlots.length === 0) && (
+              <div className="col-span-4 text-sm text-gray-500">
+                Selecione uma data para ver horários disponíveis.
+              </div>
+            )}
           </div>
         </div>
 

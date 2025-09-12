@@ -1,17 +1,20 @@
-import React from "react";
-import {
-  Users,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  Clock,
-  Star,
-  AlertCircle,
-} from "lucide-react";
+import React, { useEffect } from "react";
+import { Users, Calendar, DollarSign, Clock } from "lucide-react";
 import { useDashboardStats } from "../../hooks/useAdmin";
+import { useEnterprise } from "../../contexts/EnterpriseContext";
+import { debugFirestoreData } from "../../utils/debugFirestore";
+import { createTestData } from "../../utils/createTestData";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
+  const { currentEnterprise } = useEnterprise();
+
+  // Debug dos dados do Firestore
+  useEffect(() => {
+    if (currentEnterprise?.email) {
+      debugFirestoreData(currentEnterprise.email);
+    }
+  }, [currentEnterprise?.email]);
 
   if (isLoading) {
     return (
@@ -44,7 +47,9 @@ export default function AdminDashboard() {
     },
     {
       title: "Receita do Mês",
-      value: `R$ ${stats?.monthlyRevenue || 0}`,
+      value: `R$ ${((stats?.monthlyRevenue || 0) / 100)
+        .toFixed(2)
+        .replace(".", ",")}`,
       icon: DollarSign,
       color: "bg-green-500",
       textColor: "text-green-600",
@@ -58,14 +63,6 @@ export default function AdminDashboard() {
       textColor: "text-purple-600",
       bgColor: "bg-purple-50",
     },
-    {
-      title: "Avaliação Média",
-      value: `${stats?.averageRating || 0}/5`,
-      icon: Star,
-      color: "bg-yellow-500",
-      textColor: "text-yellow-600",
-      bgColor: "bg-yellow-50",
-    },
   ];
 
   return (
@@ -74,12 +71,21 @@ export default function AdminDashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-2">
-          Bem-vindo ao painel administrativo da barbearia
+          {currentEnterprise
+            ? `Painel administrativo - ${currentEnterprise.name}`
+            : "Bem-vindo ao painel administrativo da barbearia"}
         </p>
+
+        {/* Botão temporário para criar dados de teste */}
+        <button
+          onClick={() => createTestData(currentEnterprise?.email)}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Criar Cliente de Teste
+        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {statCards.map((stat, index) => (
           <div key={index} className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
@@ -99,10 +105,19 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Indicador de fonte dos dados */}
+      <div className="mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-sm text-blue-700">
+            📊 Dados carregados do Firestore em tempo real
+          </p>
+        </div>
+      </div>
+
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Próximos Agendamentos */}
-        <div className="lg:col-span-2 bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
               Próximos Agendamentos
@@ -123,17 +138,36 @@ export default function AdminDashboard() {
                           {appointment.clientName}
                         </p>
                         <p className="text-sm text-gray-600">
-                          {appointment.serviceName}
+                          {appointment.productName}
                         </p>
+                        {appointment.status && (
+                          <span
+                            className={`inline-block px-2 py-1 text-xs rounded-full mt-1 ${
+                              appointment.status === "CONFIRMADO"
+                                ? "bg-green-100 text-green-800"
+                                : appointment.status === "AGENDADO"
+                                ? "bg-blue-100 text-blue-800"
+                                : appointment.status === "CANCELADO"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {appointment.status}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-gray-900">
-                        {appointment.time}
+                        {appointment.startTime}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        {appointment.staffName}
-                      </p>
+                      {appointment.date && (
+                        <p className="text-sm text-gray-600">
+                          {new Date(appointment.date).toLocaleDateString(
+                            "pt-BR"
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -144,68 +178,6 @@ export default function AdminDashboard() {
                 <p className="text-gray-600">Nenhum agendamento para hoje</p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Alertas e Notificações */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Alertas</h2>
-          </div>
-          <div className="p-6">
-            {stats?.alerts?.length > 0 ? (
-              <div className="space-y-4">
-                {stats.alerts.map((alert, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start space-x-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg"
-                  >
-                    <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-yellow-800">
-                        {alert.title}
-                      </p>
-                      <p className="text-xs text-yellow-700 mt-1">
-                        {alert.message}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Nenhum alerta no momento</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Performance Chart Section */}
-      <div className="mt-8 bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Performance dos Últimos 7 Dias
-          </h2>
-        </div>
-        <div className="p-6">
-          <div className="grid grid-cols-7 gap-2">
-            {stats?.weeklyStats?.map((day, index) => (
-              <div key={index} className="text-center">
-                <div className="text-xs text-gray-600 mb-2">{day.day}</div>
-                <div
-                  className="bg-amber-200 rounded-t mx-auto"
-                  style={{
-                    height: `${Math.max(20, (day.appointments / 10) * 100)}px`,
-                    width: "20px",
-                  }}
-                ></div>
-                <div className="text-sm font-medium text-gray-900 mt-2">
-                  {day.appointments}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

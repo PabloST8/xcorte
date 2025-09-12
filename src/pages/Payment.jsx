@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { ChevronLeft, Plus, MoreHorizontal } from "lucide-react";
 import { paymentService } from "../services/paymentService";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 
 function Payment() {
   const [selectedPayment, setSelectedPayment] = useState("card");
@@ -16,22 +17,39 @@ function Payment() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   useEffect(() => {
     // Verificar se há dados vindos do estado de navegação (Appointment.jsx)
     if (location.state?.appointment) {
       const { appointment, service, price } = location.state;
+      // Derive date/time from appointment fields (date + startTime) if dateTime not provided
+      const dateStr = appointment.date || "";
+      const timeStr = appointment.startTime || "";
+      const combinedIso =
+        dateStr && timeStr ? `${dateStr}T${timeStr}:00` : null;
+      const dateObj = combinedIso
+        ? new Date(combinedIso)
+        : appointment.dateTime
+        ? new Date(appointment.dateTime)
+        : null;
       setAppointmentData({
         appointmentId: appointment.id,
-        service: service?.name || appointment.service,
-        price: price || appointment.price,
-        duration: service?.duration || appointment.duration,
-        staff: appointment.staff?.name || appointment.staffName,
-        date: new Date(appointment.dateTime).toLocaleDateString(),
-        time: new Date(appointment.dateTime).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        service:
+          service?.name || appointment.productName || appointment.service,
+        price: price ?? appointment.productPrice ?? appointment.price,
+        duration:
+          service?.duration ||
+          appointment.productDuration ||
+          appointment.duration,
+        staff: appointment.staff?.name || appointment.staffName || "",
+        date: dateObj ? dateObj.toLocaleDateString() : dateStr,
+        time: dateObj
+          ? dateObj.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : timeStr,
       });
     } else {
       // Fallback para dados da URL (manter compatibilidade)
@@ -79,7 +97,9 @@ function Payment() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-        <Link to="/appointment">
+        <Link
+          to={getEnterpriseUrl("service-details?category=Todos&title=Serviços")}
+        >
           <ChevronLeft className="w-6 h-6 text-gray-900" />
         </Link>
         <h1 className="text-lg font-bold text-gray-900">Pagamento</h1>
@@ -215,14 +235,22 @@ function Payment() {
               const paymentData = {
                 appointmentId: appointmentData.appointmentId,
                 paymentMethod: selectedPayment,
-                amount: parseFloat(appointmentData.price),
+                // amount in cents if number given in cents; if string/float assume real and convert
+                amount:
+                  typeof appointmentData.price === "number"
+                    ? appointmentData.price
+                    : Math.round(
+                        parseFloat(
+                          String(appointmentData.price).replace(",", ".")
+                        ) * 100
+                      ),
               };
 
               const result = await paymentService.processPayment(paymentData);
 
               if (result) {
                 // Navegar para a tela inicial com mensagem de sucesso
-                navigate("/", {
+                navigate(getEnterpriseUrl(""), {
                   state: {
                     message:
                       "Pagamento realizado com sucesso! Agendamento confirmado.",

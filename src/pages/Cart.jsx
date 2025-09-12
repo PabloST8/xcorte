@@ -1,283 +1,507 @@
-import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  ChevronLeft,
-  Brush,
-  Scissors,
-  Palette,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
-import { allServices, staffMembers } from "../data/services.js";
+import { useState, useEffect, useMemo } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Trash2, Edit3, ChevronLeft } from "lucide-react";
+import { useCart } from "../contexts/useCart";
+import { useEnterprise } from "../contexts/EnterpriseContext";
+import { useAuth } from "../contexts/AuthContext";
+import { formatPrice } from "../types/api";
+import { employeeFirestoreService } from "../services/employeeFirestoreService";
+import { bookingService } from "../services/bookingService";
+import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
+import Cookies from "js-cookie";
+import { availabilityService } from "../services/availabilityService";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import BookingOverlay from "../components/BookingOverlay";
 
 function Cart() {
+  const {
+    items,
+    addItem,
+    removeItem,
+    updateItem,
+    clear,
+    paymentMethod,
+    setPaymentMethod,
+  } = useCart();
+  const { currentEnterprise } = useEnterprise();
+  const { user } = useAuth();
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
   const [searchParams] = useSearchParams();
-  const [cartItems, setCartItems] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
-  const [selectedStaff, setSelectedStaff] = useState(null);
-  const [selectedStaffName, setSelectedStaffName] = useState(
-    "Selecione o Funcionário"
-  );
-  const [isStaffDropdownOpen, setIsStaffDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const [employees, setEmployees] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const isSimpleSession = (() => {
+    const t = Cookies.get("auth_token") || "";
+    return t.startsWith("simple-");
+  })();
+
+  // Legacy compatibility: if someone navigates to /cart with query params from old links, add a draft item
+  useEffect(() => {
+    const service = searchParams.get("service");
+    const price = searchParams.get("price"); // in reais
+    const durationStr = searchParams.get("duration"); // e.g., "30 min"
+    const staff = searchParams.get("staff");
+    if (service || price || durationStr || staff) {
+      const parseMinutes = (s) => {
+        if (!s) return 30;
+        const m = String(s).match(/(\d+)/);
+        return m ? Number(m[1]) : 30;
+      };
+      const priceInCents = Math.round(Number(price || 0) * 100);
+      addItem({
+        serviceName: service || "Serviço",
+        priceInCents,
+        duration: parseMinutes(durationStr),
+        employeeName: staff || "",
+      });
+      // Clean URL to avoid re-adding on refresh
+      navigate(getEnterpriseUrl("cart"), { replace: true });
+    }
+  }, [searchParams, addItem, navigate, getEnterpriseUrl]);
 
   useEffect(() => {
-    // Simular item adicionado baseado nos parâmetros da URL
-    const serviceName = searchParams.get("service") || "Corte de cabelo";
-    const servicePrice = parseInt(searchParams.get("price")) || 25;
-    const serviceDuration = searchParams.get("duration") || "25 min";
-    const serviceCategory = searchParams.get("category") || "Cortes";
-    const staffFromUrl = searchParams.get("staff");
-
-    // Definir funcionário se veio da URL
-    if (staffFromUrl) {
-      const staff = staffMembers.find((s) => s.name === staffFromUrl);
-      if (staff) {
-        setSelectedStaff(staff);
-        setSelectedStaffName(staff.name);
+    if (!currentEnterprise?.email) return;
+    (async () => {
+      try {
+        const list = await employeeFirestoreService.list(
+          currentEnterprise.email
+        );
+        setEmployees(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error("Erro ao carregar funcionários:", e);
       }
-    }
+    })();
+  }, [currentEnterprise]);
 
-    let serviceIcon = <Brush className="w-8 h-8 text-blue-600" />;
-    if (serviceCategory === "Cortes") {
-      serviceIcon = <Scissors className="w-8 h-8 text-blue-600" />;
-    } else if (serviceCategory === "Pinturas") {
-      serviceIcon = <Palette className="w-8 h-8 text-blue-600" />;
-    }
-
-    setCartItems([
-      {
-        id: 1,
-        name: serviceName,
-        duration: serviceDuration,
-        price: servicePrice,
-        category: serviceCategory,
-        icon: serviceIcon,
-      },
-    ]);
-
-    // Gerar sugestões baseadas na categoria do serviço
-    const relatedServices = allServices
-      .filter(
-        (service) =>
-          service.category !== serviceCategory && service.name !== serviceName
-      )
-      .slice(0, 2);
-
-    const suggestionItems = relatedServices.map((service) => {
-      let suggestionIcon = <Brush className="w-8 h-8 text-blue-600" />;
-      if (service.category === "Cortes") {
-        suggestionIcon = <Scissors className="w-8 h-8 text-blue-600" />;
-      } else if (service.category === "Pinturas") {
-        suggestionIcon = <Palette className="w-8 h-8 text-blue-600" />;
-      }
-
-      return {
-        ...service,
-        icon: suggestionIcon,
-      };
+  const onEdit = (it) => setEditingItem(it);
+  const onSaveEdit = (sel) => {
+    if (!editingItem) return;
+    updateItem(editingItem.id, {
+      employeeId: sel.employeeId,
+      employeeName: sel.employeeName,
+      date: sel.date,
+      time: sel.time,
     });
-
-    setSuggestions(suggestionItems);
-  }, [searchParams]);
-
-  const handleStaffSelect = (staff) => {
-    setSelectedStaff(staff);
-    setSelectedStaffName(staff.name);
-    setIsStaffDropdownOpen(false);
+    setEditingItem(null);
   };
 
-  const toggleStaffDropdown = () => {
-    setIsStaffDropdownOpen(!isStaffDropdownOpen);
+  const subtotal = useMemo(
+    () => items.reduce((acc, it) => acc + (Number(it.priceInCents) || 0), 0),
+    [items]
+  );
+
+  const isWithinWorkHours = (it) => {
+    try {
+      const emp = employees.find((e) => String(e.id) === String(it.employeeId));
+      if (!emp) return true; // sem dados, não bloqueia
+      const ws = emp.workSchedule || emp.workingHours || {};
+      const d = new Date(`${it.date}T00:00:00`);
+      const dow = d.getDay();
+      const keyEn = [
+        "sunday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+      ][dow];
+      const aliasesMap = {
+        sunday: ["sunday", "sun", "dom", "domingo"],
+        monday: ["monday", "mon", "seg", "segunda"],
+        tuesday: ["tuesday", "tue", "ter", "terca", "terça"],
+        wednesday: ["wednesday", "wed", "qua", "quarta"],
+        thursday: ["thursday", "thu", "qui", "quinta"],
+        friday: ["friday", "fri", "sex", "sexta"],
+        saturday: ["saturday", "sat", "sab", "sábado", "sabado"],
+      };
+      const norm = (k) =>
+        String(k || "")
+          .trim()
+          .toLowerCase();
+      const wsNorm = Object.fromEntries(
+        Object.entries(ws || {}).map(([k, v]) => [norm(k), v])
+      );
+      let cfg = wsNorm[norm(keyEn)];
+      if (!cfg) {
+        for (const a of aliasesMap[keyEn] || []) {
+          if (wsNorm[norm(a)]) {
+            cfg = wsNorm[norm(a)];
+            break;
+          }
+        }
+      }
+      if (!cfg) return false; // sem configuração para o dia
+      const toMins = (t) => {
+        const [h, m] = String(t || "00:00")
+          .split(":")
+          .map(Number);
+        return h * 60 + m;
+      };
+      const start = toMins(it.time);
+      const dur = Number(it.duration) || Number(it.productDuration) || 30;
+      const end = start + dur;
+      const ranges = [];
+      if (cfg.morningStart && cfg.morningEnd)
+        ranges.push([toMins(cfg.morningStart), toMins(cfg.morningEnd)]);
+      if (cfg.afternoonStart && cfg.afternoonEnd)
+        ranges.push([toMins(cfg.afternoonStart), toMins(cfg.afternoonEnd)]);
+      if (cfg.startTime && cfg.endTime)
+        ranges.push([toMins(cfg.startTime), toMins(cfg.endTime)]);
+      if (cfg.start && cfg.end)
+        ranges.push([toMins(cfg.start), toMins(cfg.end)]);
+      if (!ranges.length && cfg.isWorking === false) return false;
+      if (!ranges.length) return true;
+      return ranges.some(([rs, re]) => start >= rs && end <= re);
+    } catch {
+      return true;
+    }
   };
 
-  const addSuggestionToCart = (suggestion) => {
-    const newItem = {
-      id: cartItems.length + 1,
-      name: suggestion.name,
-      duration: suggestion.duration,
-      price: parseInt(suggestion.price.split("-")[0].replace("R$", "")),
-      category: suggestion.category,
-      icon: suggestion.icon,
-    };
-    setCartItems([...cartItems, newItem]);
+  const canConfirm = useMemo(() => {
+    if (!currentEnterprise?.email) return false;
+    if (!items.length) return false;
+    // require each item have date/time and employee and not be in the past
+    const now = new Date();
+    const toDate = (d, t) => new Date(`${d}T${t || "00:00"}:00`);
+    return items.every((it) => {
+      if (!it.date || !it.time || !it.employeeId) return false;
+      try {
+        const dt = toDate(it.date, it.time);
+        if (dt.getTime() < now.getTime()) return false;
+        return true;
+      } catch {
+        return false;
+      }
+    });
+  }, [items, currentEnterprise]);
+
+  const clientName = user?.name || "";
+  const clientPhone = user?.phone || "";
+  const clientEmail = user?.email || "";
+
+  const confirmAll = async () => {
+    if (!canConfirm) return;
+    if (!clientName || !clientPhone) {
+      alert(
+        "Dados do cliente ausentes. Faça login ou cadastre nome e telefone no perfil."
+      );
+      return;
+    }
+    const isValidEmail = (email) =>
+      /.+@.+\..+/.test(String(email || "").trim());
+    setSubmitting(true);
+    try {
+      for (const it of items) {
+        // Validação local de expediente do funcionário
+        if (!isWithinWorkHours(it)) {
+          alert(
+            `Este profissional não trabalha no horário ${it.date} ${it.time}. Escolha outro horário.`
+          );
+          setSubmitting(false);
+          return;
+        }
+        // Sanitize fields
+        const productId = String(it.productId || "");
+        const durationRaw = it.duration ?? it.productDuration;
+        let durationMin = Number.parseInt(
+          String(durationRaw ?? "").replace(/[^0-9]/g, ""),
+          10
+        );
+        if (!Number.isFinite(durationMin) || durationMin <= 0) {
+          durationMin = Number(it.duration) || Number(it.productDuration) || 30;
+        }
+        if (!Number.isFinite(durationMin) || durationMin <= 0) durationMin = 30;
+        const priceCents =
+          Number.parseInt(
+            String(it.priceInCents ?? it.productPrice ?? 0),
+            10
+          ) || 0;
+        const startTime = (it.time || "").slice(0, 5); // HH:MM
+
+        // Pre-check de slots: só chama API se NÃO for sessão simples
+        if (!isSimpleSession) {
+          try {
+            const slotsRes = await availabilityService.getEmployeeServiceSlots(
+              it.employeeId,
+              it.date,
+              productId,
+              currentEnterprise?.email
+            );
+            const slots = Array.isArray(slotsRes)
+              ? slotsRes
+              : Array.isArray(slotsRes?.data)
+              ? slotsRes.data
+              : Array.isArray(slotsRes?.slots)
+              ? slotsRes.slots
+              : [];
+            const ok = slots.some(
+              (s) =>
+                (s.startTime || s.time) === startTime && (s.isAvailable ?? true)
+            );
+            if (!ok) {
+              throw new Error("Horário ocupado ou fora do expediente");
+            }
+          } catch (preErr) {
+            const msg =
+              (typeof preErr === "object" &&
+                (preErr.message || preErr.error || preErr.msg)) ||
+              String(preErr || "");
+            const m = msg.toLowerCase();
+            const looksLikeSchedule =
+              m.includes("ocupado") ||
+              m.includes("expediente") ||
+              m.includes("valida");
+            if (looksLikeSchedule) {
+              const empLabel =
+                it.employeeName || it.employeeId || "funcionário";
+              alert(
+                `O horário ${it.date} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
+              );
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+
+        const payload = {
+          enterpriseEmail: currentEnterprise.email,
+          clientName,
+          clientPhone,
+          productId,
+          productName: it.serviceName,
+          productDuration: durationMin,
+          productPrice: priceCents,
+          date: it.date,
+          startTime,
+          // Backend pode esperar employeeEmail; nosso employeeId é o e-mail do funcionário
+          employeeEmail: it.employeeId || undefined,
+          employeeId: it.employeeId || undefined,
+          employeeName: it.employeeName || undefined,
+          staffId: it.employeeId || undefined,
+          staffName: it.employeeName || undefined,
+          notes: it.notes
+            ? `${it.notes} | pagamento: ${paymentMethod}`
+            : `pagamento: ${paymentMethod}`,
+        };
+        if (isValidEmail(clientEmail)) payload.clientEmail = clientEmail;
+        // Criação: em sessão simples, ir direto ao Firestore; caso contrário, tenta API e cai para Firestore quando fizer sentido
+        if (isSimpleSession) {
+          try {
+            await enterpriseBookingFirestoreService.create(
+              currentEnterprise.email,
+              payload
+            );
+          } catch (fbErr) {
+            const m2 = (
+              (typeof fbErr === "object" &&
+                (fbErr.message || fbErr.error || fbErr.msg)) ||
+              String(fbErr || "")
+            ).toLowerCase();
+            if (
+              fbErr?.code === "conflict" ||
+              m2.includes("conflit") ||
+              m2.includes("ocupado")
+            ) {
+              const empLabel =
+                it.employeeName || it.employeeId || "funcionário";
+              alert(
+                `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+              );
+              setSubmitting(false);
+              return;
+            }
+            throw fbErr;
+          }
+        } else {
+          // Tenta criar via API; se falhar, decide se cai para Firestore
+          try {
+            await bookingService.createBooking(payload);
+          } catch {
+            // Independente da mensagem da API, tentar fallback para Firestore; só bloquear se Firestore acusar conflito
+            try {
+              await enterpriseBookingFirestoreService.create(
+                currentEnterprise.email,
+                payload
+              );
+            } catch (fbErr) {
+              const m2 = (
+                (typeof fbErr === "object" &&
+                  (fbErr.message || fbErr.error || fbErr.msg)) ||
+                String(fbErr || "")
+              ).toLowerCase();
+              if (
+                fbErr?.code === "conflict" ||
+                m2.includes("conflit") ||
+                m2.includes("ocupado")
+              ) {
+                const empLabel =
+                  it.employeeName || it.employeeId || "funcionário";
+                alert(
+                  `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+                );
+                setSubmitting(false);
+                return;
+              }
+              throw fbErr;
+            }
+          }
+        }
+      }
+      clear();
+      alert("Agendamentos confirmados!");
+    } catch (e) {
+      console.error(e);
+      const msg =
+        (typeof e === "object" && (e.message || e.error || e.msg)) || String(e);
+      alert(`Falha ao confirmar: ${msg}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const subtotal = cartItems.reduce((total, item) => total + item.price, 0);
+  const formatItemLine = (it) => {
+    const emp = employees.find((e) => String(e.id) === String(it.employeeId));
+    const empName = it.employeeName || emp?.name || "";
+    const when = it.date && it.time ? `${it.date} ${it.time}` : "Sem data/hora";
+    return `${empName ? empName + " • " : ""}${when}`;
+  };
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-        <Link to="/service-details">
+        <Link to={getEnterpriseUrl("")}>
           <ChevronLeft className="w-6 h-6 text-gray-900" />
         </Link>
         <h1 className="text-lg font-bold text-gray-900">Carrinho</h1>
-        <button className="text-blue-600 font-medium">Editar</button>
+        <button
+          className="text-red-600 font-medium"
+          onClick={clear}
+          disabled={!items.length}
+        >
+          Esvaziar
+        </button>
       </header>
 
-      <div className="px-6 py-6">
-        {/* Cart Items */}
-        <div className="space-y-4 mb-8">
-          {cartItems.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-            >
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-blue-100 rounded-xl">{item.icon}</div>
+      <div className="px-6 py-6 space-y-6">
+        {/* Itens */}
+        <div className="space-y-3">
+          {items.length === 0 ? (
+            <div className="text-gray-600">Seu carrinho está vazio.</div>
+          ) : (
+            items.map((it) => (
+              <div
+                key={it.id}
+                className="p-4 bg-gray-50 rounded-xl flex items-start justify-between gap-4"
+              >
                 <div>
-                  <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                  <p className="text-sm text-gray-600">{item.duration}</p>
+                  <div className="font-semibold text-gray-900">
+                    {it.serviceName}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {formatItemLine(it)}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {Number(it.duration) || 30} min
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold text-gray-900 mr-2">
+                    {formatPrice(Number(it.priceInCents) || 0)}
+                  </div>
+                  <button
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                    onClick={() => onEdit(it)}
+                  >
+                    <Edit3 className="w-5 h-5" />
+                  </button>
+                  <button
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    onClick={() => removeItem(it.id)}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-bold text-gray-900">{item.price}R$</p>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {/* Staff Selection */}
-        <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
-            Selecionar
-            <br />
-            Funcionário
+        {/* Pagamento */}
+        <div className="p-4 bg-gray-50 rounded-xl">
+          <h3 className="font-semibold text-gray-900 mb-3">
+            Forma de pagamento
           </h3>
-
-          <div className="relative">
-            <button
-              onClick={toggleStaffDropdown}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  {selectedStaff?.image ? (
-                    <img
-                      src={selectedStaff.image}
-                      alt={selectedStaff.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-blue-600 font-bold text-lg">
-                      {selectedStaffName.charAt(0)}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-900">
-                    {selectedStaffName}
-                  </span>
-                  {selectedStaff && (
-                    <p className="text-sm text-gray-600">
-                      {selectedStaff.specialty}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {isStaffDropdownOpen ? (
-                <ChevronUp className="w-5 h-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="w-5 h-5 text-gray-400" />
-              )}
-            </button>
-
-            {/* Staff Dropdown */}
-            {isStaffDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
-                {staffMembers.map((staff) => (
-                  <button
-                    key={staff.id}
-                    onClick={() => handleStaffSelect(staff)}
-                    className="w-full flex items-center space-x-3 p-4 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
-                  >
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
-                      <img
-                        src={staff.image}
-                        alt={staff.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-medium text-gray-900">{staff.name}</p>
-                      <p className="text-sm text-gray-600">{staff.specialty}</p>
-                      <div className="flex items-center space-x-2 text-sm text-gray-500">
-                        <span>⭐ {staff.rating}</span>
-                        <span>•</span>
-                        <span>{staff.experience}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Suggestions */}
-        <div className="mb-8">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Suggestions</h3>
-
-          <div className="space-y-3">
-            {suggestions.slice(0, 1).map((suggestion) => (
-              <div key={suggestion.id} className="p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-blue-100 rounded-xl">
-                    {suggestion.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900">
-                      {suggestion.name}
-                    </h4>
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <span>{suggestion.duration}</span>
-                      <span>•</span>
-                      <span className="font-semibold">{suggestion.price}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => addSuggestionToCart(suggestion)}
-                    className="text-blue-600 text-sm font-medium hover:text-blue-800 transition-colors"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-              </div>
+          <div className="flex gap-4">
+            {[
+              { key: "card", label: "Cartão" },
+              { key: "pix", label: "Pix" },
+              { key: "cash", label: "Dinheiro físico" },
+            ].map((opt) => (
+              <label
+                key={opt.key}
+                className={`px-3 py-2 rounded-lg border cursor-pointer ${
+                  paymentMethod === opt.key
+                    ? "border-blue-600 text-blue-700"
+                    : "border-gray-300 text-gray-700"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  value={opt.key}
+                  checked={paymentMethod === opt.key}
+                  onChange={() => setPaymentMethod(opt.key)}
+                  className="mr-2"
+                />
+                {opt.label}
+              </label>
             ))}
           </div>
         </div>
 
-        {/* Continue Button */}
-        <Link
-          to={`/appointment?service=${encodeURIComponent(
-            cartItems[0]?.name || "Serviço"
-          )}&price=${cartItems[0]?.price || 25}&duration=${encodeURIComponent(
-            cartItems[0]?.duration || "25 min"
-          )}&staff=${encodeURIComponent(selectedStaff?.name || "")}&staffId=${
-            selectedStaff?.id || ""
-          }`}
-          className={`block w-full py-4 rounded-xl font-semibold text-lg text-center transition-colors ${
-            selectedStaff
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          }`}
-          onClick={(e) => {
-            if (!selectedStaff) {
-              e.preventDefault();
-              alert("Por favor, selecione um funcionário antes de continuar.");
-            }
-          }}
-        >
-          Continuar
-        </Link>
-
-        {/* Total */}
-        <div className="text-center">
-          <p className="text-gray-600">
-            Total: <span className="font-bold text-gray-900">{subtotal}R$</span>
-          </p>
+        {/* Total + Confirmar */}
+        <div className="flex items-center justify-between">
+          <div className="text-gray-700">
+            Total: <span className="font-bold">{formatPrice(subtotal)}</span>
+          </div>
+          <button
+            onClick={confirmAll}
+            disabled={!canConfirm || submitting}
+            className={`px-5 py-3 rounded-lg font-semibold ${
+              canConfirm && !submitting
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "bg-gray-200 text-gray-400"
+            }`}
+          >
+            {submitting ? "Confirmando..." : "Confirmar agendamento"}
+          </button>
         </div>
       </div>
+
+      {/* Edit Overlay (reuse BookingOverlay) */}
+      {editingItem && (
+        <BookingOverlay
+          open={true}
+          onClose={() => setEditingItem(null)}
+          product={{
+            id: editingItem.productId,
+            name: editingItem.serviceName,
+            duration: editingItem.duration,
+            priceInCents: editingItem.priceInCents,
+          }}
+          employees={employees}
+          mode="edit"
+          initialSelection={{
+            employeeId: editingItem.employeeId,
+            date: editingItem.date,
+            time: editingItem.time,
+          }}
+          onSave={onSaveEdit}
+        />
+      )}
     </div>
   );
 }

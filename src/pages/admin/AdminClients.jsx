@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Plus, Edit, Trash2, Search, Filter } from "lucide-react";
+import { Search, Filter, Users } from "lucide-react";
 import { useAllClients } from "../../hooks/useAdmin";
+import { formatPrice } from "../../types/api";
 
 export default function AdminClients() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,15 +38,11 @@ export default function AdminClients() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
           <p className="text-gray-600 mt-2">Gerencie sua base de clientes</p>
         </div>
-        <button className="mt-4 sm:mt-0 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
-          <Plus className="w-4 h-4" />
-          <span>Novo Cliente</span>
-        </button>
       </div>
 
       {/* Search and Filters */}
@@ -107,15 +104,6 @@ export default function AdminClients() {
                     <p className="text-sm text-gray-600">{client.email}</p>
                   </div>
                 </div>
-
-                <div className="flex space-x-2">
-                  <button className="p-2 text-gray-400 hover:text-blue-600 transition-colors">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-red-600 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-4 text-center">
@@ -128,7 +116,7 @@ export default function AdminClients() {
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-sm text-gray-600">Gasto Total</p>
                   <p className="text-lg font-semibold text-gray-900">
-                    R$ {client.totalSpent || 0}
+                    {formatPrice(client.totalSpent || 0)}
                   </p>
                 </div>
               </div>
@@ -147,10 +135,6 @@ export default function AdminClients() {
         <div className="text-center py-12">
           <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Nenhum cliente encontrado</p>
-          <button className="mt-4 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 mx-auto transition-colors">
-            <Plus className="w-4 h-4" />
-            <span>Adicionar Primeiro Cliente</span>
-          </button>
         </div>
       )}
     </div>

@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { authService } from "../services/authService";
+import { firebaseAuthService } from "../services/firebaseAuthService";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../services/firebase";
 
 const AuthContext = createContext();
 
@@ -107,6 +110,70 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Login simples: telefone (sem senha/OTP); carrega usuário existente do Firestore
+  const simplePhoneLogin = async ({ phone }) => {
+    try {
+      const cleanPhone = String(phone || "").replace(/\D/g, "");
+      if (!cleanPhone) throw new Error("Telefone obrigatório");
+
+      const userRef = doc(db, "users", cleanPhone);
+      const snap = await getDoc(userRef);
+      if (!snap.exists()) {
+        return {
+          success: false,
+          error: "Usuário não encontrado. Faça o cadastro.",
+        };
+      }
+
+      const data = snap.data() || {};
+      const userObj = {
+        id: data.id || snap.id || cleanPhone,
+        name: data.name || "Cliente",
+        phone: data.phone || cleanPhone,
+        role: data.role || "client",
+        createdAt: data.createdAt || new Date().toISOString(),
+        ...data,
+      };
+
+      Cookies.set("auth_token", `simple-${userObj.id}`, { expires: 30 });
+      Cookies.set("user_data", JSON.stringify(userObj), { expires: 30 });
+      setUser(userObj);
+      setIsAuthenticated(true);
+      setLoading(false);
+      return { success: true, user: userObj };
+    } catch (error) {
+      return { success: false, error: error.message || "Falha no login" };
+    }
+  };
+
+  // Registro simples: nome + telefone (sem senha)
+  const simpleRegister = async ({ name, phone }) => {
+    try {
+      const cleanPhone = String(phone || "").replace(/\D/g, "");
+      const displayName = String(name || "").trim();
+      if (!cleanPhone || !displayName) {
+        throw new Error("Nome e telefone são obrigatórios");
+      }
+      const userRef = doc(db, "users", cleanPhone);
+      // Cria/atualiza mantendo o mesmo ID do telefone puro
+      await setDoc(
+        userRef,
+        {
+          id: cleanPhone,
+          name: displayName,
+          phone: cleanPhone,
+          role: "client",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || "Falha no registro" };
+    }
+  };
+
   const register = async (userData) => {
     try {
       // Backend exige 'role'; definir padrão se não vier do formulário
@@ -156,8 +223,21 @@ export const AuthProvider = ({ children }) => {
       console.error("Erro no logout:", error);
     } finally {
       // Limpar dados locais independentemente do resultado
+      Cookies.remove("auth_token", { path: "/" });
+      Cookies.remove("user_data", { path: "/" });
+      Cookies.remove("current_enterprise", { path: "/" });
+      
+      // Limpar também cookies sem especificar path como fallback
       Cookies.remove("auth_token");
       Cookies.remove("user_data");
+      Cookies.remove("current_enterprise");
+      
+      // Limpar localStorage também por precaução
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user_data");
+      localStorage.removeItem("current_enterprise");
+      
+      // Resetar estado
       setUser(null);
       setIsAuthenticated(false);
     }
@@ -166,7 +246,96 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (updatedUserData) => {
     const updatedUser = { ...user, ...updatedUserData };
     setUser(updatedUser);
+    setIsAuthenticated(true);
+    Cookies.set("auth_token", `admin-${updatedUser.id}`, { expires: 7 });
     Cookies.set("user_data", JSON.stringify(updatedUser), { expires: 7 });
+  };
+
+  // Login específico para admin
+  const adminLogin = async (credentials) => {
+    try {
+      // Tentar autenticar com Firebase
+      const result = await firebaseAuthService.adminSignIn(
+        credentials.email,
+        credentials.password
+      );
+
+      if (result.user && result.token) {
+        // Salvar token e dados do usuário
+        Cookies.set("auth_token", result.token, { expires: 7 });
+        Cookies.set("user_data", JSON.stringify(result.user), { expires: 7 });
+
+        setUser(result.user);
+        setIsAuthenticated(true);
+
+        return { success: true, user: result.user };
+      } else {
+        return {
+          success: false,
+          error: "Falha na autenticação",
+        };
+      }
+    } catch (error) {
+      console.error("Erro no login admin:", error);
+
+      // Se o Firebase falhar, usar fallback local para desenvolvimento
+      if (
+        credentials.email === "empresaadmin@xcortes.com" &&
+        credentials.password === "admin123"
+      ) {
+        const adminUser = {
+          id: "admin-1",
+          name: "Administrador",
+          email: credentials.email,
+          role: "admin",
+          enterpriseEmail: "test@empresa.com",
+        };
+
+        updateUser(adminUser);
+        return { success: true, user: adminUser };
+      }
+
+      return {
+        success: false,
+        error: error.message || "Credenciais inválidas",
+      };
+    }
+  };
+
+  // Função para criar usuário admin no Firestore (para desenvolvimento)
+  const createAdminUser = async () => {
+    try {
+      const adminData = {
+        email: "empresaadmin@xcortes.com",
+        name: "Administrador XCortes",
+        role: "admin",
+        status: "active",
+        enterpriseEmail: "test@empresa.com",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        permissions: {
+          dashboard: true,
+          appointments: true,
+          clients: true,
+          services: true,
+          staff: true,
+        },
+      };
+
+      // Criar documento do usuário admin no Firestore
+      await setDoc(doc(db, "users", "empresaadmin@xcortes.com"), adminData);
+
+      console.log("✅ Usuário admin criado no Firestore!");
+      console.log("📧 Email: empresaadmin@xcortes.com");
+      console.log(
+        "🔐 Agora crie o usuário no Firebase Authentication com senha: admin123"
+      );
+
+      return { success: true, data: adminData };
+    } catch (error) {
+      console.error("❌ Erro ao criar usuário admin:", error);
+      return { success: false, error: error.message };
+    }
   };
 
   const value = {
@@ -174,10 +343,14 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAuthenticated,
     login,
+    simplePhoneLogin,
+    simpleRegister,
     register,
     verifyCode,
     logout,
     updateUser,
+    adminLogin,
+    createAdminUser,
     checkAuthStatus,
   };
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,6 +14,7 @@ import { formatPrice } from "../types/api.js";
 import { allServices, staffMembers } from "../data/services.js";
 
 function Calendar() {
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -175,7 +177,7 @@ function Calendar() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="flex items-center px-4 py-4">
-          <Link to="/" className="mr-4">
+          <Link to={getEnterpriseUrl("")} className="mr-4">
             <ChevronLeft className="w-6 h-6 text-gray-600" />
           </Link>
           <h1 className="text-xl font-bold text-gray-900">Agendar Horário</h1>

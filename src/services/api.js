@@ -1,29 +1,34 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { USE_REMOTE_API, REMOTE_API_BASE_URL } from "../config";
 
-// Base URL dinâmica:
-// 1. Usa variável de ambiente VITE_API_BASE_URL se definida (produção build).
-// 2. Em desenvolvimento (localhost) usa caminho relativo /api para passar pelo proxy do Vite.
-// 3. Fallback final para domínio público.
-const API_BASE_URL =
-  import.meta?.env?.VITE_API_BASE_URL ||
-  (typeof window !== "undefined" && window.location.hostname === "localhost"
-    ? "/api"
-    : "https://x-corte-api.hiarley.me");
+// Se a API remota estiver desativada, usamos um baseURL fictício e interceptamos todas as requisições
+const API_BASE_URL = USE_REMOTE_API ? REMOTE_API_BASE_URL : "/__api_disabled__";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
+  timeout: 15000,
 });
+
+if (!USE_REMOTE_API) {
+  // Intercepta qualquer requisição e cancela imediatamente
+  api.interceptors.request.use(() => {
+    throw new axios.Cancel("REMOTE_API_DISABLED");
+  });
+}
 
 // Interceptor para adicionar token de autenticação
 api.interceptors.request.use(
   (config) => {
     const token = Cookies.get("auth_token");
-    if (token) {
+    // Não enviar Authorization para sessões locais simples (token "simple-*")
+    const isSimpleSession =
+      typeof token === "string" && token.startsWith("simple-");
+    if (token && !isSimpleSession) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.headers?.Authorization) {
+      delete config.headers.Authorization;
     }
     return config;
   },
@@ -36,11 +41,30 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (axios.isCancel(error)) {
+      return Promise.reject({
+        message: "API remota desativada",
+        code: "REMOTE_API_DISABLED",
+      });
+    }
     if (error.response?.status === 401) {
-      // Token expirado ou inválido
-      Cookies.remove("auth_token");
-      Cookies.remove("user_data");
-      window.location.href = "/auth/login";
+      const token = Cookies.get("auth_token");
+      const hasToken = typeof token === "string" && token.length > 0;
+      const isSimpleSession = hasToken && token.startsWith("simple-");
+      // Só redireciona quando há um token real do backend e ele falhou
+      if (hasToken && !isSimpleSession) {
+        // Limpar cookies com diferentes configurações de path
+        Cookies.remove("auth_token", { path: "/" });
+        Cookies.remove("user_data", { path: "/" });
+        Cookies.remove("auth_token");
+        Cookies.remove("user_data");
+        
+        // Limpar localStorage também
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_data");
+        
+        // Deixe o ProtectedRoute cuidar de redirecionar para a rota correta
+      }
     }
     return Promise.reject(error);
   }

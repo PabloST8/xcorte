@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Calendar } from "lucide-react";
+import { Trash2, Calendar } from "lucide-react";
 import {
   useAllAppointments,
   useUpdateAppointmentStatus,
+  useDeleteAppointment,
 } from "../../hooks/useAdmin";
+import { BOOKING_STATUS, formatPrice } from "../../types/api.js";
 
 export default function AdminAppointments() {
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -23,47 +25,72 @@ export default function AdminAppointments() {
   const { mutate: updateStatus, isLoading: isUpdating } =
     useUpdateAppointmentStatus();
 
+  const { mutate: deleteAppointment, isLoading: isDeleting } =
+    useDeleteAppointment();
+
+  const handleDelete = async (appointmentId, clientName) => {
+    if (
+      window.confirm(
+        `Tem certeza que deseja deletar o agendamento de ${clientName}?`
+      )
+    ) {
+      try {
+        await deleteAppointment(appointmentId);
+        // O hook já invalidará as queries automaticamente
+      } catch (error) {
+        alert("Erro ao deletar agendamento: " + error.message);
+      }
+    }
+  };
+
   const handleStatusChange = (appointmentId, newStatus) => {
-    updateStatus({ appointmentId, status: newStatus });
+    // Garantir que enviamos os status canônicos do backend (pt-BR)
+    const mapOut = (s) => {
+      switch (s) {
+        case "scheduled":
+          return BOOKING_STATUS.AGENDADO;
+        case "confirmed":
+          return BOOKING_STATUS.CONFIRMADO;
+        case "completed":
+          return BOOKING_STATUS.CONCLUIDO;
+        case "cancelled":
+        case "canceled":
+          return BOOKING_STATUS.CANCELADO;
+        default:
+          return s; // já deve estar em pt-BR
+      }
+    };
+    updateStatus({ appointmentId, status: mapOut(newStatus) });
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    const s = (status || "").toLowerCase();
+    switch (s) {
       case "scheduled":
+      case "agendado":
         return "bg-blue-100 text-blue-800";
       case "confirmed":
+      case "confirmado":
         return "bg-green-100 text-green-800";
       case "in_progress":
+      case "em_andamento":
         return "bg-yellow-100 text-yellow-800";
       case "completed":
+      case "concluido":
         return "bg-purple-100 text-purple-800";
       case "cancelled":
+      case "canceled":
+      case "cancelado":
         return "bg-red-100 text-red-800";
       case "no_show":
+      case "faltou":
         return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case "scheduled":
-        return "Agendado";
-      case "confirmed":
-        return "Confirmado";
-      case "in_progress":
-        return "Em Andamento";
-      case "completed":
-        return "Concluído";
-      case "cancelled":
-        return "Cancelado";
-      case "no_show":
-        return "Faltou";
-      default:
-        return status;
-    }
-  };
+  // Status text formatting is handled inline via getStatusColor and normalized values
 
   if (isLoading) {
     return (
@@ -88,17 +115,13 @@ export default function AdminAppointments() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Agendamentos</h1>
           <p className="text-gray-600 mt-2">
             Gerencie todos os agendamentos da barbearia
           </p>
         </div>
-        <button className="mt-4 sm:mt-0 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
-          <Plus className="w-4 h-4" />
-          <span>Novo Agendamento</span>
-        </button>
       </div>
 
       {/* Filters */}
@@ -206,10 +229,11 @@ export default function AdminAppointments() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {appointment.serviceName}
+                      {appointment.productName || appointment.serviceName}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {appointment.duration}
+                      {(appointment.productDuration || appointment.duration) ??
+                        ""}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -217,15 +241,48 @@ export default function AdminAppointments() {
                       {appointment.date}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {appointment.time}
+                      {appointment.startTime || appointment.time}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {appointment.staffName}
+                    {appointment.staffName ||
+                      appointment.employeeName ||
+                      appointment.staff_name ||
+                      appointment.employee_name ||
+                      appointment.staff?.name ||
+                      appointment.employee?.name ||
+                      appointment.employeeEmail ||
+                      appointment.employee_email ||
+                      appointment.staffEmail ||
+                      appointment.staff_email ||
+                      appointment.employeeId ||
+                      appointment.employee_id ||
+                      appointment.staffId ||
+                      appointment.staff_id ||
+                      appointment.funcionarioNome ||
+                      appointment.funcionarioEmail ||
+                      "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
-                      value={appointment.status}
+                      value={
+                        // Normalizar para os valores canônicos
+                        ((s) => {
+                          switch ((s || "").toLowerCase()) {
+                            case "scheduled":
+                              return BOOKING_STATUS.AGENDADO;
+                            case "confirmed":
+                              return BOOKING_STATUS.CONFIRMADO;
+                            case "completed":
+                              return BOOKING_STATUS.CONCLUIDO;
+                            case "cancelled":
+                            case "canceled":
+                              return BOOKING_STATUS.CANCELADO;
+                            default:
+                              return s;
+                          }
+                        })(appointment.status)
+                      }
                       onChange={(e) =>
                         handleStatusChange(appointment.id, e.target.value)
                       }
@@ -234,26 +291,33 @@ export default function AdminAppointments() {
                         appointment.status
                       )}`}
                     >
-                      <option value="scheduled">Agendado</option>
-                      <option value="confirmed">Confirmado</option>
-                      <option value="in_progress">Em Andamento</option>
-                      <option value="completed">Concluído</option>
-                      <option value="cancelled">Cancelado</option>
-                      <option value="no_show">Faltou</option>
+                      <option value={BOOKING_STATUS.AGENDADO}>Agendado</option>
+                      <option value={BOOKING_STATUS.CONFIRMADO}>
+                        Confirmado
+                      </option>
+                      <option value={BOOKING_STATUS.CONCLUIDO}>
+                        Concluído
+                      </option>
+                      <option value={BOOKING_STATUS.CANCELADO}>
+                        Cancelado
+                      </option>
                     </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    R$ {appointment.price}
+                    {formatPrice(
+                      Number(appointment.productPrice ?? appointment.price ?? 0)
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900 p-1">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="text-amber-600 hover:text-amber-900 p-1">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-900 p-1">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() =>
+                          handleDelete(appointment.id, appointment.clientName)
+                        }
+                        disabled={isDeleting}
+                        className="text-red-600 hover:text-red-900 p-1 disabled:opacity-50"
+                        title="Deletar agendamento"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>

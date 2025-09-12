@@ -1,29 +1,29 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
+  const { simplePhoneLogin } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: location.state?.email || "",
-    password: "",
-  });
+  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState(
-    location.state?.message || ""
-  );
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const formatPhone = (value) => {
+    const digits = String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10)
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
+  const handlePhoneChange = (e) => {
+    setPhone(formatPhone(e.target.value));
     // Limpar erro e mensagem de sucesso quando usuário começar a digitar
     if (error) setError("");
     if (successMessage) setSuccessMessage("");
@@ -35,19 +35,15 @@ export default function Login() {
     setError("");
 
     try {
-      const result = await login(formData);
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length < 10) {
+        setError("Informe um telefone válido");
+        return;
+      }
+      const result = await simplePhoneLogin({ phone });
 
       if (result.success) {
-        // Verificar o tipo de usuário e redirecionar adequadamente
-        if (
-          result.user &&
-          (result.user.role === "admin" || result.user.role === "owner")
-        ) {
-          navigate("/admin/dashboard");
-        } else {
-          // Para clientes ou quando não temos dados do usuário ainda
-          navigate("/");
-        }
+        navigate("/");
       } else {
         setError(result.error || "Erro ao fazer login");
       }
@@ -97,79 +93,23 @@ export default function Login() {
             )}
 
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                E-mail
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Telefone
               </label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
+                type="tel"
+                value={phone}
+                onChange={handlePhoneChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-                placeholder="seu@email.com"
+                placeholder="(11) 99999-9999"
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={16}
                 required
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Senha
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-                  placeholder="Sua senha"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <Eye className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-700"
-                >
-                  Lembrar de mim
-                </label>
-              </div>
-
-              <Link
-                to="/auth/forgot-password"
-                className="text-sm text-amber-600 hover:text-amber-500 transition-colors"
-              >
-                Esqueci minha senha
-              </Link>
-            </div>
+            {/* Sem senha/OTP. Mantemos apenas nome e telefone. */}
 
             <button
               type="submit"
@@ -178,17 +118,19 @@ export default function Login() {
             >
               {loading ? "Entrando..." : "Entrar"}
             </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/auth/register")}
+              className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 py-3 px-4 rounded-lg font-medium transition-colors"
+            >
+              Fazer cadastro
+            </button>
           </form>
 
           <div className="mt-8 text-center">
             <p className="text-gray-600">
-              Não tem uma conta?{" "}
-              <Link
-                to="/register"
-                className="text-amber-600 hover:text-amber-500 font-medium transition-colors"
-              >
-                Cadastre-se
-              </Link>
+              Login só com telefone. O nome é coletado no cadastro.
             </p>
           </div>
         </div>

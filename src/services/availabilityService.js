@@ -29,7 +29,8 @@ export const availabilityService = {
     enterpriseEmail,
     date = null,
     productId = null,
-    employeeId = null
+    employeeId = null,
+    durationMinutes = null
   ) {
     try {
       const params = new URLSearchParams({
@@ -37,6 +38,7 @@ export const availabilityService = {
         ...(date && { date }),
         ...(productId && { productId }),
         ...(employeeId && { employeeId }),
+        ...(durationMinutes && { duration: String(durationMinutes) }),
       });
 
       const response = await api.get(
@@ -103,15 +105,23 @@ export const availabilityService = {
   },
 
   // Obter slots de funcionário para serviço específico
-  async getEmployeeServiceSlots(employeeId, date = null, productId = null) {
+  async getEmployeeServiceSlots(
+    employeeId,
+    date = null,
+    productId = null,
+    enterpriseEmail = null
+  ) {
     try {
       const params = new URLSearchParams({
         ...(date && { date }),
         ...(productId && { productId }),
+        ...(enterpriseEmail && { enterpriseEmail }),
       });
 
       const response = await api.get(
-        `/employees/${employeeId}/availability/service-slots?${params.toString()}`
+        `/employees/${encodeURIComponent(
+          employeeId
+        )}/availability/service-slots?${params.toString()}`
       );
       return response.data;
     } catch (error) {

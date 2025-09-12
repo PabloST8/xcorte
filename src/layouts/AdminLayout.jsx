@@ -1,22 +1,19 @@
 import React, { useState } from "react";
-import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
+import { Outlet, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   Calendar,
   Users,
   Scissors,
-  Settings,
   LogOut,
   Menu,
   X,
   UserCheck,
-  BarChart3,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
 
@@ -26,13 +23,26 @@ export default function AdminLayout() {
     { name: "Clientes", href: "/admin/clients", icon: Users },
     { name: "Funcionários", href: "/admin/staff", icon: UserCheck },
     { name: "Serviços", href: "/admin/services", icon: Scissors },
-    { name: "Relatórios", href: "/admin/reports", icon: BarChart3 },
-    { name: "Configurações", href: "/admin/settings", icon: Settings },
   ];
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/");
+    try {
+      await logout();
+      
+      // Usar URL completa para funcionar tanto em localhost quanto em produção
+      // Adicionar timestamp para forçar quebra de cache
+      const timestamp = Date.now();
+      const loginUrl = `${window.location.origin}/auth/login?t=${timestamp}`;
+      
+      // Forçar navegação usando window.location para contornar possíveis problemas de cache
+      window.location.href = loginUrl;
+    } catch (error) {
+      console.error("Erro no logout:", error);
+      // Mesmo com erro, redirecionar para login
+      const timestamp = Date.now();
+      const loginUrl = `${window.location.origin}/auth/login?t=${timestamp}`;
+      window.location.href = loginUrl;
+    }
   };
 
   const isActive = (href) => {

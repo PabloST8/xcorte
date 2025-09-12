@@ -1,17 +1,17 @@
 import React, { useState } from "react";
-import { Plus, Edit, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Edit } from "lucide-react";
 import {
   useServices,
   useCreateService,
-  useUpdateService,
   useDeleteService,
+  useUpdateService,
 } from "../../hooks/useAdmin";
-import { DataAdapters } from "../../utils/dataAdapters.js";
 
 export default function AdminServices() {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingService, setEditingService] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingService, setEditingService] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const { data: services, isLoading, error } = useServices();
   const createServiceMutation = useCreateService();
@@ -22,57 +22,95 @@ export default function AdminServices() {
     name: "",
     description: "",
     duration: 30, // minutos
-    price: 3000, // centavos
+    price: 25, // reais
     category: "",
     isActive: true,
   });
 
-  // Converte serviços da API para display
-  const displayServices =
-    services?.map((service) => DataAdapters.serviceFromAPI(service)) || [];
+  const [priceInput, setPriceInput] = useState("2500"); // centavos (R$ 25,00)
+  const [durationHours, setDurationHours] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(30);
+
+  // Função para formatar o input de preço
+  const formatPrice = (value) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, "");
+
+    // Converte para centavos
+    const cents = parseInt(numbers) || 0;
+
+    // Converte para reais (centavos / 100)
+    const reais = cents / 100;
+
+    // Formata para exibição
+    return reais.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
+  // Função para atualizar o preço
+  const handlePriceChange = (value) => {
+    const numbers = value.replace(/\D/g, "");
+
+    // Limita a 5 dígitos (99900 centavos = R$ 999,00)
+    const limitedNumbers = numbers.slice(0, 5);
+    setPriceInput(limitedNumbers);
+
+    const cents = parseInt(limitedNumbers) || 0;
+    const reais = cents / 100;
+
+    setNewService((prev) => ({ ...prev, price: reais }));
+  };
+
+  // Função para atualizar a duração
+  const updateDuration = (hours, minutes) => {
+    const totalMinutes = hours * 60 + minutes;
+    // Não permitir duração zero
+    if (totalMinutes === 0) {
+      return;
+    }
+    setNewService((prev) => ({ ...prev, duration: totalMinutes }));
+  };
+
+  // Função para validar se pode criar o serviço
+  const canCreateService = () => {
+    return (
+      newService.duration > 0 &&
+      newService.price > 0 &&
+      newService.name.trim() !== ""
+    );
+  };
+
+  // Usar serviços diretamente do Firestore
+  const displayServices = services || [];
 
   const filteredServices = displayServices.filter(
     (service) =>
-      service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      service.category.toLowerCase().includes(searchTerm.toLowerCase())
+      (service.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (service.category || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCreateService = async (e) => {
     e.preventDefault();
     try {
-      // Garantir que os dados estão no formato correto da API
-      const serviceData = DataAdapters.serviceToAPI(newService);
-      await createServiceMutation.mutateAsync(serviceData);
+      // Usar dados diretamente do newService (já em reais)
+      await createServiceMutation.mutateAsync(newService);
 
       setShowCreateModal(false);
       setNewService({
         name: "",
         description: "",
         duration: 30,
-        price: 3000,
+        price: 25,
         category: "",
         isActive: true,
       });
+      setPriceInput("2500"); // Reset para R$ 25,00
+      setDurationHours(0);
+      setDurationMinutes(30);
     } catch (error) {
       console.error("Erro ao criar serviço:", error);
-    }
-  };
-
-  const handleUpdateService = async (e) => {
-    e.preventDefault();
-    if (!editingService) return;
-
-    try {
-      // Converter para formato API
-      const serviceData = DataAdapters.serviceToAPI(editingService);
-
-      await updateServiceMutation.mutateAsync({
-        serviceId: editingService.id,
-        serviceData,
-      });
-      setEditingService(null);
-    } catch (error) {
-      console.error("Erro ao atualizar serviço:", error);
     }
   };
 
@@ -84,6 +122,78 @@ export default function AdminServices() {
         console.error("Erro ao deletar serviço:", error);
       }
     }
+  };
+
+  const handleEditService = (service) => {
+    setEditingService(service);
+    setIsEditMode(true);
+
+    // Preencher o formulário com os dados do serviço
+    setNewService({
+      name: service.name,
+      description: service.description,
+      duration: service.duration,
+      price: service.price,
+      category: service.category,
+      isActive: service.isActive,
+    });
+
+    // Calcular horas e minutos
+    const hours = Math.floor(service.duration / 60);
+    const minutes = service.duration % 60;
+    setDurationHours(hours);
+    setDurationMinutes(minutes);
+
+    // Calcular preço em centavos para o input
+    const priceInCents = Math.round(service.price * 100);
+    setPriceInput(priceInCents.toString());
+
+    setShowCreateModal(true);
+  };
+
+  const handleUpdateService = async (e) => {
+    e.preventDefault();
+    try {
+      await updateServiceMutation.mutateAsync({
+        id: editingService.id,
+        ...newService,
+      });
+
+      // Reset form
+      setShowCreateModal(false);
+      setIsEditMode(false);
+      setEditingService(null);
+      setNewService({
+        name: "",
+        description: "",
+        duration: 30,
+        price: 25,
+        category: "",
+        isActive: true,
+      });
+      setPriceInput("2500");
+      setDurationHours(0);
+      setDurationMinutes(30);
+    } catch (error) {
+      console.error("Erro ao atualizar serviço:", error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowCreateModal(false);
+    setIsEditMode(false);
+    setEditingService(null);
+    setNewService({
+      name: "",
+      description: "",
+      duration: 30,
+      price: 25,
+      category: "",
+      isActive: true,
+    });
+    setPriceInput("2500");
+    setDurationHours(0);
+    setDurationMinutes(30);
   };
 
   if (isLoading) {
@@ -157,8 +267,8 @@ export default function AdminServices() {
 
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setEditingService(service)}
-                    className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                    onClick={() => handleEditService(service)}
+                    className="p-2 text-gray-400 hover:text-amber-600 transition-colors"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -180,13 +290,26 @@ export default function AdminServices() {
                 <div>
                   <p className="text-sm text-gray-600">Duração</p>
                   <p className="font-medium text-gray-900">
-                    {service.duration}
+                    {Math.floor(service.duration / 60) > 0 &&
+                      `${Math.floor(service.duration / 60)}h `}
+                    {service.duration % 60 > 0 && `${service.duration % 60}min`}
+                    {service.duration === 0 && "0min"}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-600">Preço</p>
                   <p className="font-medium text-gray-900">
-                    R$ {service.price}
+                    R${" "}
+                    {
+                      // Se o valor for muito alto (>100), provavelmente está em centavos
+                      (service.price > 100
+                        ? service.price / 100
+                        : service.price || 0
+                      ).toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    }
                   </p>
                 </div>
               </div>
@@ -217,10 +340,15 @@ export default function AdminServices() {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Novo Serviço
+                {isEditMode ? "Editar Serviço" : "Novo Serviço"}
               </h3>
 
-              <form onSubmit={handleCreateService} className="space-y-4">
+              <form
+                onSubmit={
+                  isEditMode ? handleUpdateService : handleCreateService
+                }
+                className="space-y-4"
+              >
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nome do Serviço
@@ -276,52 +404,117 @@ export default function AdminServices() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Duração (min)
+                      Duração
                     </label>
-                    <input
-                      type="number"
-                      value={newService.duration}
-                      onChange={(e) =>
-                        setNewService({
-                          ...newService,
-                          duration: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      required
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Horas
+                        </label>
+                        <select
+                          value={durationHours}
+                          onChange={(e) => {
+                            const hours = parseInt(e.target.value);
+                            setDurationHours(hours);
+                            // Se for 0h e minutos for 0, muda para 15min
+                            const newMinutes =
+                              hours === 0 && durationMinutes === 0
+                                ? 15
+                                : durationMinutes;
+                            if (hours === 0 && durationMinutes === 0) {
+                              setDurationMinutes(15);
+                            }
+                            updateDuration(hours, newMinutes);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        >
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((h) => (
+                            <option key={h} value={h}>
+                              {h}h
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Minutos
+                        </label>
+                        <select
+                          value={durationMinutes}
+                          onChange={(e) => {
+                            const minutes = parseInt(e.target.value);
+                            setDurationMinutes(minutes);
+                            // Se for 0min e horas for 0, muda para 1h
+                            const newHours =
+                              minutes === 0 && durationHours === 0
+                                ? 1
+                                : durationHours;
+                            if (minutes === 0 && durationHours === 0) {
+                              setDurationHours(1);
+                            }
+                            updateDuration(newHours, minutes);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        >
+                          {[0, 15, 30, 45].map((m) => (
+                            <option key={m} value={m}>
+                              {m}min
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Total: {Math.floor(newService.duration / 60)}h{" "}
+                      {newService.duration % 60}min
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preço (R$)
+                      Preço
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      value={newService.price}
-                      onChange={(e) =>
-                        setNewService({ ...newService, price: e.target.value })
-                      }
+                      type="text"
+                      value={formatPrice(priceInput)}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="R$ 0,00"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Digite os centavos (ex: 2500 = R$ 25,00) - máximo R$
+                      999,00
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={
+                      isEditMode
+                        ? handleCancelEdit
+                        : () => setShowCreateModal(false)
+                    }
                     className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    disabled={createServiceMutation.isLoading}
+                    disabled={
+                      (isEditMode
+                        ? updateServiceMutation.isLoading
+                        : createServiceMutation.isLoading) ||
+                      !canCreateService()
+                    }
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors disabled:bg-amber-300"
                   >
-                    {createServiceMutation.isLoading
+                    {isEditMode
+                      ? updateServiceMutation.isLoading
+                        ? "Atualizando..."
+                        : "Atualizar Serviço"
+                      : createServiceMutation.isLoading
                       ? "Criando..."
                       : "Criar Serviço"}
                   </button>

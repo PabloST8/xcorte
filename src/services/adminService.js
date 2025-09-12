@@ -1,6 +1,5 @@
 import { productService } from "./productService";
 import { bookingService } from "./bookingService";
-import { enterpriseService } from "./enterpriseService";
 import { BOOKING_STATUS } from "../types/api.js";
 
 // Serviços administrativos usando as APIs reais
@@ -11,7 +10,6 @@ export const adminService = {
       todayAppointments: 3,
       monthlyRevenue: 125000, // em centavos (R$ 1.250,00)
       totalClients: 45,
-      averageRating: 4.8,
       pendingAppointments: 2,
       completedAppointments: 18,
       cancelledAppointments: 1,
@@ -32,23 +30,6 @@ export const adminService = {
           date: "2025-09-03", // YYYY-MM-DD
           status: BOOKING_STATUS.AGENDADO,
         },
-      ],
-      alerts: [
-        {
-          id: "1",
-          type: "warning",
-          message: "2 agendamentos pendentes de confirmação",
-          action: "Ver agendamentos",
-        },
-      ],
-      weeklyStats: [
-        { day: "Seg", appointments: 8, revenue: 24000 }, // centavos
-        { day: "Ter", appointments: 12, revenue: 36000 },
-        { day: "Qua", appointments: 6, revenue: 18000 },
-        { day: "Qui", appointments: 10, revenue: 30000 },
-        { day: "Sex", appointments: 15, revenue: 45000 },
-        { day: "Sáb", appointments: 18, revenue: 54000 },
-        { day: "Dom", appointments: 4, revenue: 12000 },
       ],
       topServices: [
         { name: "Corte Masculino", count: 12 },
@@ -93,7 +74,7 @@ export const adminService = {
         date: "2025-09-03", // YYYY-MM-DD
         startTime: "14:00", // HH:MM
         endTime: "14:30", // HH:MM
-  status: BOOKING_STATUS.AGENDADO,
+        status: BOOKING_STATUS.AGENDADO,
         notes: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -111,7 +92,7 @@ export const adminService = {
         date: "2025-09-03", // YYYY-MM-DD
         startTime: "15:00", // HH:MM
         endTime: "15:25", // HH:MM
-  status: BOOKING_STATUS.CONFIRMADO,
+        status: BOOKING_STATUS.CONFIRMADO,
         notes: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -125,7 +106,7 @@ export const adminService = {
   async updateAppointmentStatus(appointmentId, status) {
     try {
       // Tentar usar a API real
-  if (status === BOOKING_STATUS.CONFIRMADO) {
+      if (status === BOOKING_STATUS.CONFIRMADO) {
         const response = await bookingService.confirmBooking(appointmentId);
         return response;
       } else {
@@ -323,104 +304,5 @@ export const adminService = {
     } else {
       throw new Error("Cliente não encontrado");
     }
-  },
-
-  // Configurações da empresa
-  async getBusinessSettings() {
-    try {
-      const currentEnterprise = "test@empresa.com";
-      // Ajuste: método correto é getEnterpriseByEmail
-      const response = await enterpriseService.getEnterpriseByEmail(
-        currentEnterprise
-      );
-      return response;
-    } catch {
-      // Fallback
-      const fallbackSettings = {
-        name: "X-Corte Barbearia",
-        email: "test@empresa.com",
-        phone: "11999999999",
-        address: "Rua da Barbearia, 123",
-        workingHours: {
-          monday: { open: "09:00", close: "18:00", closed: false },
-          tuesday: { open: "09:00", close: "18:00", closed: false },
-          wednesday: { open: "09:00", close: "18:00", closed: false },
-          thursday: { open: "09:00", close: "18:00", closed: false },
-          friday: { open: "09:00", close: "20:00", closed: false },
-          saturday: { open: "08:00", close: "16:00", closed: false },
-          sunday: { open: "00:00", close: "00:00", closed: true },
-        },
-      };
-
-      return { success: true, data: fallbackSettings };
-    }
-  },
-
-  async updateBusinessSettings(settingsData) {
-    try {
-      const currentEnterprise = "test@empresa.com";
-      const response = await enterpriseService.updateEnterprise(
-        currentEnterprise,
-        settingsData
-      );
-      return response;
-    } catch {
-      // Simular sucesso
-      return {
-        success: true,
-        message: "Configurações atualizadas com sucesso!",
-      };
-    }
-  },
-
-  // Relatórios
-  async getFinancialReport() {
-    // Como não temos endpoint de relatórios, usar dados de fallback
-    const fallbackReport = {
-      totalRevenue: 2450,
-      appointmentCount: 28,
-      averageTicket: 87.5,
-      period: "2024-12-01 - 2024-12-31",
-      dailyRevenue: [
-        { date: "2024-12-28", revenue: 180, appointments: 6 },
-        { date: "2024-12-29", revenue: 210, appointments: 7 },
-        { date: "2024-12-30", revenue: 150, appointments: 5 },
-      ],
-      topServices: [
-        { name: "Corte Masculino", revenue: 900, count: 30 },
-        { name: "Barba Completa", revenue: 625, count: 25 },
-        { name: "Corte + Barba", revenue: 924, count: 14 },
-      ],
-    };
-
-    return { success: true, data: fallbackReport };
-  },
-
-  async getAppointmentsReport() {
-    // Como não temos endpoint de relatórios, usar dados de fallback
-    const fallbackReport = {
-      totalAppointments: 28,
-      completedAppointments: 24,
-      cancelledAppointments: 3,
-      pendingAppointments: 1,
-      period: "2024-12-01 - 2024-12-31",
-      appointmentsByStatus: [
-        { status: "completed", count: 24, percentage: 85.7 },
-        { status: "cancelled", count: 3, percentage: 10.7 },
-        { status: "pending", count: 1, percentage: 3.6 },
-      ],
-      appointmentsByDay: [
-        { date: "2024-12-28", count: 6 },
-        { date: "2024-12-29", count: 7 },
-        { date: "2024-12-30", count: 5 },
-      ],
-      busyHours: [
-        { hour: "14:00", count: 8 },
-        { hour: "15:00", count: 6 },
-        { hour: "16:00", count: 5 },
-      ],
-    };
-
-    return { success: true, data: fallbackReport };
   },
 };

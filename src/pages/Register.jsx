@@ -1,20 +1,16 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 function Register() {
-  const [formData, setFormData] = useState({
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    name: "",
-  });
+  const [formData, setFormData] = useState({ name: "", phone: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { simpleRegister } = useAuth();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -27,22 +23,8 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (
-      !formData.email.trim() ||
-      !formData.phone.trim() ||
-      !formData.password.trim()
-    ) {
-      setError("Todos os campos são obrigatórios");
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem");
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres");
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setError("Nome e telefone são obrigatórios");
       return;
     }
 
@@ -50,21 +32,14 @@ function Register() {
     setError("");
 
     try {
-      const result = await register({
-        email: formData.email,
-        phone: formData.phone.replace(/\D/g, ""), // Remove formatação
-        password: formData.password,
+      const result = await simpleRegister({
         name: formData.name,
+        phone: formData.phone.replace(/\D/g, ""),
       });
 
       if (result.success) {
-        // Registro bem-sucedido, navegar para login
-        navigate("/login", {
-          state: {
-            message: "Conta criada com sucesso! Faça login para continuar.",
-            email: formData.email,
-          },
-        });
+        // Registro bem-sucedido, navegar para login centralizado
+        navigate("/auth/login");
       } else {
         setError(result.error || "Erro ao criar conta");
       }
@@ -77,15 +52,14 @@ function Register() {
   };
 
   const formatPhone = (value) => {
-    // Remove tudo que não é número
-    const numbers = value.replace(/\D/g, "");
-
-    // Formata o número: (11) 99999-9999
-    if (numbers.length <= 11) {
-      const formatted = numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
-      return formatted;
-    }
-    return value;
+    const digits = String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 10)
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   };
 
   const handlePhoneChange = (e) => {
@@ -99,7 +73,7 @@ function Register() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-white shadow-sm">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(getEnterpriseUrl(""))}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <ArrowLeft className="w-6 h-6 text-gray-600" />
@@ -145,24 +119,7 @@ function Register() {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                E-mail
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
+            {/* Registro só com Nome e Telefone */}
 
             <div>
               <label
@@ -189,53 +146,11 @@ function Register() {
               </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Senha
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-                placeholder="Mínimo 6 caracteres"
-                required
-                minLength={6}
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Confirmar senha
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-                placeholder="Digite a senha novamente"
-                required
-              />
-            </div>
+            {/* Sem senha */}
 
             <button
               type="submit"
-              disabled={
-                loading ||
-                !formData.email ||
-                !formData.phone ||
-                !formData.password
-              }
+              disabled={loading || !formData.name || !formData.phone}
               className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white py-3 px-4 rounded-lg font-medium transition-colors"
             >
               {loading ? (
