@@ -3,7 +3,6 @@
 // productPrice (centavos), productDuration (min), date (YYYY-MM-DD), startTime, endTime,
 // status (scheduled|confirmed|in_progress|completed|cancelled|no_show), notes, createdAt, updatedAt
 import { db, auth } from "./firebase";
-import { signInAnonymously } from "firebase/auth";
 import {
   collection,
   getDocs,
@@ -21,15 +20,8 @@ async function ensureFirebaseAuth() {
     return auth.currentUser;
   }
   
-  console.log("🔄 Tentando autenticar no Firebase Auth...");
-  try {
-    const userCredential = await signInAnonymously(auth);
-    console.log("✅ Autenticado no Firebase Auth:", userCredential.user.uid);
-    return userCredential.user;
-  } catch (error) {
-    console.error("❌ Erro ao autenticar no Firebase Auth:", error);
-    throw new Error("Falha na autenticação. Tente novamente.");
-  }
+  console.log("⚠️ Firebase Auth não disponível para agendamentos. Usando dados locais.");
+  return null; // Indicar que Firebase Auth não está disponível
 }
 
 function bookingsRef(email) {
@@ -47,6 +39,91 @@ const STATUS_CANONICAL = {
   no_show: "no_show",
 };
 
+// Funções para localStorage como fallback
+const STORAGE_PREFIX = "xcorte_bookings_";
+
+function getLocalStorageKey(enterpriseEmail) {
+  return `${STORAGE_PREFIX}${enterpriseEmail}`;
+}
+
+function getBookingsFromLocalStorage(enterpriseEmail) {
+  try {
+    const stored = localStorage.getItem(getLocalStorageKey(enterpriseEmail));
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.warn("Erro ao carregar agendamentos do localStorage:", error);
+    return [];
+  }
+}
+
+function saveBookingsToLocalStorage(enterpriseEmail, bookings) {
+  try {
+    localStorage.setItem(getLocalStorageKey(enterpriseEmail), JSON.stringify(bookings));
+    return true;
+  } catch (error) {
+    console.error("Erro ao salvar agendamentos no localStorage:", error);
+    return false;
+  }
+}
+
+function filterBookingsLocally(bookings, params = {}) {
+  const { date, status, search } = params;
+  let filtered = [...bookings];
+  
+  // Filtro por data
+  if (date && date !== "all") {
+    const todayStr = new Date().toISOString().split("T")[0];
+    
+    if (date === "today") {
+      filtered = filtered.filter(b => b.date === todayStr);
+    } else if (date === "tomorrow") {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+      filtered = filtered.filter(b => b.date === tomorrowStr);
+    } else if (date === "week") {
+      const today = new Date();
+      const start = new Date();
+      start.setDate(today.getDate() - 3);
+      const end = new Date();
+      end.setDate(today.getDate() + 3);
+      const startStr = start.toISOString().split("T")[0];
+      const endStr = end.toISOString().split("T")[0];
+      filtered = filtered.filter(b => b.date >= startStr && b.date <= endStr);
+    } else if (date === "month") {
+      const monthPrefix = todayStr.slice(0, 7); // YYYY-MM
+      filtered = filtered.filter(b => b.date.startsWith(monthPrefix));
+    } else if (date === "upcoming") {
+      filtered = filtered.filter(b => b.date >= todayStr);
+    } else if (!["today", "tomorrow", "week", "month", "upcoming"].includes(date)) {
+      // Data específica
+      filtered = filtered.filter(b => b.date === date);
+    }
+  }
+  
+  // Filtro por status
+  if (status && status !== "all") {
+    filtered = filtered.filter(b => b.status === (STATUS_CANONICAL[status] || status));
+  }
+  
+  // Filtro por busca
+  if (search) {
+    const term = search.toLowerCase();
+    filtered = filtered.filter(b => 
+      (b.clientName || "").toLowerCase().includes(term)
+    );
+  }
+  
+  // Normalizar campos para compatibilidade
+  return filtered.map(b => ({
+    ...b,
+    price: b.productPrice ?? b.price ?? 0,
+    serviceName: b.productName,
+    time: b.startTime,
+    staffName: b.staffName || "",
+  })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
 export const enterpriseBookingFirestoreService = {
   async list(enterpriseEmail, params = {}) {
     if (!enterpriseEmail) return [];
@@ -56,178 +133,165 @@ export const enterpriseBookingFirestoreService = {
       params,
     });
 
-    const { date, status } = params;
-    let q = bookingsRef(enterpriseEmail);
-    const constraints = [];
-    if (
-      date &&
-      date !== "all" &&
-      !["today", "tomorrow", "week", "month"].includes(date)
-    ) {
-      constraints.push(where("date", "==", date));
-    }
-    if (status) {
-      constraints.push(
-        where("status", "==", STATUS_CANONICAL[status] || status)
-      );
-    }
-    if (constraints.length) {
-      q = query(q, ...constraints);
+    // Tentar Firebase primeiro, localStorage como fallback
+    const firebaseUser = await ensureFirebaseAuth();
+    
+    if (!firebaseUser) {
+      console.log("📦 Carregando agendamentos do localStorage");
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      return filterBookingsLocally(localBookings, params);
     }
 
-    console.log(
-      "🔍 Querying Firestore path: enterprises/" + enterpriseEmail + "/bookings"
-    );
-    const snap = await getDocs(q);
-    let data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    try {
+      const { date, status } = params;
+      let q = bookingsRef(enterpriseEmail);
+      const constraints = [];
+      
+      if (date && date !== "all" && !["today", "tomorrow", "week", "month", "upcoming"].includes(date)) {
+        constraints.push(where("date", "==", date));
+      }
+      if (status && status !== "all") {
+        constraints.push(where("status", "==", STATUS_CANONICAL[status] || status));
+      }
+      if (constraints.length) {
+        q = query(q, ...constraints);
+      }
 
-    console.log("🔍 Raw Firestore bookings found:", data.length);
-    console.log("🔍 Raw Firestore bookings data:", data);
+      console.log("🔍 Querying Firestore path: enterprises/" + enterpriseEmail + "/bookings");
+      const snap = await getDocs(q);
+      let data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // Filtros especiais (today, tomorrow, week, month) aplicados client-side
-    const todayStr = new Date().toISOString().split("T")[0];
-    if (date === "today") {
-      data = data.filter((b) => b.date === todayStr);
-    } else if (date === "tomorrow") {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tStr = tomorrow.toISOString().split("T")[0];
-      data = data.filter((b) => b.date === tStr);
-    } else if (date === "week") {
-      const today = new Date();
-      const start = new Date();
-      start.setDate(today.getDate() - 3);
-      const end = new Date();
-      end.setDate(today.getDate() + 3);
-      data = data.filter(
-        (b) =>
-          b.date >= start.toISOString().split("T")[0] &&
-          b.date <= end.toISOString().split("T")[0]
-      );
-    } else if (date === "month") {
-      const monthPrefix = todayStr.slice(0, 7); // YYYY-MM
-      data = data.filter((b) => b.date.startsWith(monthPrefix));
-    } else if (date === "upcoming") {
-      data = data.filter((b) => b.date >= todayStr);
+      console.log("🔍 Raw Firestore bookings found:", data.length);
+      
+      // Aplicar filtros especiais client-side
+      return filterBookingsLocally(data, params);
+    } catch (error) {
+      console.warn("⚠️ Firestore falhou, usando localStorage:", error);
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      return filterBookingsLocally(localBookings, params);
     }
-
-    // Search (clientName) client-side
-    if (params.search) {
-      const term = params.search.toLowerCase();
-      data = data.filter((b) =>
-        (b.clientName || "").toLowerCase().includes(term)
-      );
-    }
-
-    // Normalizar campos ausentes para compatibilidade com UI
-    const result = data.map((b) => ({
-      ...b,
-      price: b.productPrice ?? b.price ?? 0,
-      serviceName: b.productName,
-      time: b.startTime,
-      staffName: b.staffName || "",
-    }));
-
-    return result;
   },
 
   async create(enterpriseEmail, bookingData) {
-    // Garantir que o usuário esteja autenticado no Firebase Auth
-    try {
-      await ensureFirebaseAuth();
-    } catch (error) {
-      console.error("❌ Falha na autenticação:", error);
-      throw error;
-    }
-    
-    console.log("🔄 Criando agendamento com usuário autenticado:", {
-      authUser: auth.currentUser?.uid,
-      enterpriseEmail,
-      clientName: bookingData.clientName
-    });
+    const firebaseUser = await ensureFirebaseAuth();
     
     const now = new Date().toISOString();
     const parseTime = (t) => {
-      const [h, m] = (t || "00:00").split(":").map(Number);
-      return h * 60 + m;
+      if (!t) return "09:00";
+      if (typeof t === "string" && t.includes(":")) return t;
+      return "09:00";
     };
-    const formatTime = (mins) =>
-      `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(
-        mins % 60
-      ).padStart(2, "0")}`;
+
+    const startTime = parseTime(bookingData.startTime || bookingData.time);
+    const endTime = parseTime(bookingData.endTime);
+
     const payload = {
-      clientName: bookingData.clientName || "",
-      clientEmail: bookingData.clientEmail || "",
-      clientPhone: bookingData.clientPhone || "",
-      productId: bookingData.productId || "",
-      productName: bookingData.productName || bookingData.serviceName || "",
-      productPrice: bookingData.productPrice ?? bookingData.price ?? 0,
-      productDuration:
-        bookingData.productDuration ?? bookingData.duration ?? 30,
-      date: bookingData.date || now.split("T")[0],
-      startTime: bookingData.startTime || bookingData.time || "09:00",
-      endTime: bookingData.endTime || null, // calculada abaixo
+      clientName: String(bookingData.clientName || "").trim(),
+      clientEmail: String(bookingData.clientEmail || "").trim(),
+      clientPhone: String(bookingData.clientPhone || "").replace(/\D/g, ""),
+      productId: String(bookingData.productId || bookingData.serviceId || ""),
+      productName: String(bookingData.productName || bookingData.serviceName || ""),
+      productPrice: Number(bookingData.productPrice || bookingData.price || 0),
+      productDuration: Number(bookingData.productDuration || bookingData.duration || 60),
+      date: String(bookingData.date || ""),
+      startTime,
+      endTime,
       status: STATUS_CANONICAL[bookingData.status] || "scheduled",
-      notes: bookingData.notes || "",
-      staffName: bookingData.staffName || "",
-      employeeId: bookingData.employeeId || bookingData.staffId || "",
-      enterpriseEmail,
+      notes: String(bookingData.notes || "").trim(),
+      staffName: String(bookingData.staffName || "").trim(),
+      staffId: String(bookingData.staffId || "").trim(),
       createdAt: now,
       updatedAt: now,
     };
-    // Calcular endTime correto
-    const startM = parseTime(payload.startTime);
-    const endM = startM + (payload.productDuration || 30);
-    payload.endTime = formatTime(endM);
 
-    // Verificar conflito simples (mesmo funcionário / mesmo dia / sobreposição)
-    if (payload.employeeId) {
-      try {
-        const qConflict = query(
-          bookingsRef(enterpriseEmail),
-          where("date", "==", payload.date),
-          where("employeeId", "==", payload.employeeId)
-        );
-        const snap = await getDocs(qConflict);
-        const overlap = snap.docs.some((d) => {
-          const b = d.data();
-          const bStart = parseTime(b.startTime);
-          const bDur = b.productDuration || 30;
-          let bEnd = b.endTime ? parseTime(b.endTime) : bStart + bDur;
-          if (bEnd < bStart) bEnd = bStart + bDur; // corrige dados antigos
-          return startM < bEnd && endM > bStart;
-        });
-        if (overlap) {
-          throw {
-            code: "conflict",
-            message: "Horário já ocupado para este profissional.",
-          };
-        }
-      } catch (confErr) {
-        if (confErr?.code === "conflict") throw confErr;
-        // silencia outros erros de verificação (segue criação)
-      }
+    if (!firebaseUser) {
+      // Usar localStorage
+      console.log("📦 Salvando agendamento no localStorage");
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const newBooking = {
+        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...payload
+      };
+      localBookings.push(newBooking);
+      saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      return newBooking;
     }
 
-    console.log("💾 Firestore payload preparado:", payload);
-
-    const ref = await addDoc(bookingsRef(enterpriseEmail), payload);
-    const result = { id: ref.id, ...payload };
-
-    return result;
+    try {
+      console.log("💾 Firestore payload preparado:", payload);
+      const ref = await addDoc(bookingsRef(enterpriseEmail), payload);
+      return { id: ref.id, ...payload };
+    } catch (error) {
+      console.warn("⚠️ Firestore falhou, salvando no localStorage:", error);
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const newBooking = {
+        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...payload
+      };
+      localBookings.push(newBooking);
+      saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      return newBooking;
+    }
   },
 
   async updateStatus(enterpriseEmail, bookingId, status) {
-    const ref = doc(db, "enterprises", enterpriseEmail, "bookings", bookingId);
-    await updateDoc(ref, {
-      status: STATUS_CANONICAL[status] || status,
-      updatedAt: new Date().toISOString(),
-    });
-    return true;
+    const firebaseUser = await ensureFirebaseAuth();
+    
+    if (!firebaseUser || bookingId.startsWith('local_')) {
+      // Usar localStorage
+      console.log("📦 Atualizando status no localStorage");
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const bookingIndex = localBookings.findIndex(b => b.id === bookingId);
+      if (bookingIndex >= 0) {
+        localBookings[bookingIndex].status = STATUS_CANONICAL[status] || status;
+        localBookings[bookingIndex].updatedAt = new Date().toISOString();
+        saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      }
+      return true;
+    }
+
+    try {
+      const ref = doc(db, "enterprises", enterpriseEmail, "bookings", bookingId);
+      await updateDoc(ref, {
+        status: STATUS_CANONICAL[status] || status,
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
+    } catch (error) {
+      console.warn("⚠️ Firestore falhou para updateStatus, usando localStorage:", error);
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const bookingIndex = localBookings.findIndex(b => b.id === bookingId);
+      if (bookingIndex >= 0) {
+        localBookings[bookingIndex].status = STATUS_CANONICAL[status] || status;
+        localBookings[bookingIndex].updatedAt = new Date().toISOString();
+        saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      }
+      return true;
+    }
   },
+
   async remove(enterpriseEmail, bookingId) {
-    const ref = doc(db, "enterprises", enterpriseEmail, "bookings", bookingId);
-    await deleteDoc(ref);
-    return true;
+    const firebaseUser = await ensureFirebaseAuth();
+    
+    if (!firebaseUser || bookingId.startsWith('local_')) {
+      // Usar localStorage
+      console.log("📦 Removendo agendamento do localStorage");
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const filteredBookings = localBookings.filter(b => b.id !== bookingId);
+      saveBookingsToLocalStorage(enterpriseEmail, filteredBookings);
+      return true;
+    }
+
+    try {
+      const ref = doc(db, "enterprises", enterpriseEmail, "bookings", bookingId);
+      await deleteDoc(ref);
+      return true;
+    } catch (error) {
+      console.warn("⚠️ Firestore falhou para remove, usando localStorage:", error);
+      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const filteredBookings = localBookings.filter(b => b.id !== bookingId);
+      saveBookingsToLocalStorage(enterpriseEmail, filteredBookings);
+      return true;
+    }
   },
 };

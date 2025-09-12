@@ -6,7 +6,6 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  signInAnonymously,
 } from "firebase/auth";
 import { db } from "./firebase";
 import {
@@ -109,10 +108,7 @@ export const firebaseAuthService = {
   getCurrentUserToken,
   subscribeAuth,
   async ensureAnonymous() {
-    try {
-      if (!auth.currentUser) await signInAnonymously(auth);
-    } catch {
-      /* ignore */
-    }
+    // Firebase Auth desabilitado para desenvolvimento
+    console.log("⚠️ Firebase Auth não disponível");
   },
 };

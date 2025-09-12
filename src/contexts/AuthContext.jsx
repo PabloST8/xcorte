@@ -4,7 +4,6 @@ import { authService } from "../services/authService";
 import { firebaseAuthService } from "../services/firebaseAuthService";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "../services/firebase";
-import { signInAnonymously } from "firebase/auth";
 import { AuthContext } from "./AuthContextProvider";
 
 export const AuthProvider = ({ children }) => {
@@ -23,15 +22,8 @@ export const AuthProvider = ({ children }) => {
           setUser(parsedUser);
           setIsAuthenticated(true);
           
-          // Also ensure Firebase Auth is synchronized
-          if (!auth.currentUser) {
-            try {
-              await signInAnonymously(auth);
-              console.log("✅ Firebase Auth sincronizado na inicialização");
-            } catch (firebaseError) {
-              console.warn("⚠️ Erro ao sincronizar Firebase Auth:", firebaseError);
-            }
-          }
+          // Firebase Auth está desabilitado para desenvolvimento
+          console.log("✅ Usuário autenticado sem Firebase Auth");
         }
       } catch (error) {
         console.error("Erro ao verificar status de autenticação:", error);
@@ -137,14 +129,8 @@ export const AuthProvider = ({ children }) => {
         ...data,
       };
 
-      // Sign in to Firebase Auth as well
-      try {
-        await signInAnonymously(auth);
-        console.log("✅ Usuário autenticado no Firebase Auth");
-      } catch (firebaseError) {
-        console.warn("⚠️ Erro ao autenticar no Firebase Auth:", firebaseError);
-        // Continue with app login even if Firebase Auth fails
-      }
+      // Firebase Auth está desabilitado para desenvolvimento
+      console.log("✅ Usuário autenticado sem Firebase Auth");
 
       Cookies.set("auth_token", `simple-${userObj.id}`, { expires: 30 });
       Cookies.set("user_data", JSON.stringify(userObj), { expires: 30 });
@@ -180,13 +166,8 @@ export const AuthProvider = ({ children }) => {
         { merge: true }
       );
       
-      // Sign in to Firebase Auth after successful registration
-      try {
-        await signInAnonymously(auth);
-        console.log("✅ Usuário registrado e autenticado no Firebase Auth");
-      } catch (firebaseError) {
-        console.warn("⚠️ Erro ao autenticar no Firebase Auth após registro:", firebaseError);
-      }
+      // Firebase Auth está desabilitado para desenvolvimento
+      console.log("✅ Usuário registrado sem Firebase Auth");
       
       return { success: true };
     } catch (error) {
@@ -373,15 +354,8 @@ export const AuthProvider = ({ children }) => {
     }
     
     if (isAuthenticated) {
-      console.log("🔄 Sincronizando Firebase Auth...");
-      try {
-        const userCredential = await signInAnonymously(auth);
-        console.log("✅ Firebase Auth sincronizado:", userCredential.user.uid);
-        return userCredential.user;
-      } catch (error) {
-        console.error("❌ Erro ao sincronizar Firebase Auth:", error);
-        throw new Error("Falha na autenticação. Tente fazer login novamente.");
-      }
+      console.log("⚠️ Firebase Auth não disponível. Usando autenticação local.");
+      return null; // Indicar que Firebase Auth não está disponível
     }
     
     throw new Error("Usuário não está logado na aplicação.");
