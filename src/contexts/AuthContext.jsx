@@ -226,17 +226,17 @@ export const AuthProvider = ({ children }) => {
       Cookies.remove("auth_token", { path: "/" });
       Cookies.remove("user_data", { path: "/" });
       Cookies.remove("current_enterprise", { path: "/" });
-      
+
       // Limpar também cookies sem especificar path como fallback
       Cookies.remove("auth_token");
       Cookies.remove("user_data");
       Cookies.remove("current_enterprise");
-      
+
       // Limpar localStorage também por precaução
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_data");
       localStorage.removeItem("current_enterprise");
-      
+
       // Resetar estado
       setUser(null);
       setIsAuthenticated(false);

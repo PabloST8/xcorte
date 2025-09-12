@@ -33,9 +33,9 @@ export const enterpriseBookingFirestoreService = {
   async list(enterpriseEmail, params = {}) {
     if (!enterpriseEmail) return [];
 
-    console.log('🔍 enterpriseBookingFirestoreService.list called with:', {
+    console.log("🔍 enterpriseBookingFirestoreService.list called with:", {
       enterpriseEmail,
-      params
+      params,
     });
 
     const { date, status } = params;
@@ -56,13 +56,15 @@ export const enterpriseBookingFirestoreService = {
     if (constraints.length) {
       q = query(q, ...constraints);
     }
-    
-    console.log('🔍 Querying Firestore path: enterprises/' + enterpriseEmail + '/bookings');
+
+    console.log(
+      "🔍 Querying Firestore path: enterprises/" + enterpriseEmail + "/bookings"
+    );
     const snap = await getDocs(q);
     let data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    
-    console.log('🔍 Raw Firestore bookings found:', data.length);
-    console.log('🔍 Raw Firestore bookings data:', data);
+
+    console.log("🔍 Raw Firestore bookings found:", data.length);
+    console.log("🔍 Raw Firestore bookings data:", data);
 
     // Filtros especiais (today, tomorrow, week, month) aplicados client-side
     const todayStr = new Date().toISOString().split("T")[0];

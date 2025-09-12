@@ -23,10 +23,10 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [fallbackAppointments, setFallbackAppointments] = useState([]);
   const [loadingFallback, setLoadingFallback] = useState(false);
-  
-  console.log('🔍 Profile Debug - User:', user);
-  console.log('🔍 Profile Debug - CurrentEnterprise:', currentEnterprise);
-  
+
+  console.log("🔍 Profile Debug - User:", user);
+  console.log("🔍 Profile Debug - CurrentEnterprise:", currentEnterprise);
+
   const { data: appointments, isLoading } = useUserAppointments({
     enterpriseEmail: currentEnterprise?.email,
     clientEmail: user?.email,
@@ -36,36 +36,39 @@ export default function Profile() {
     userName: user?.name,
     userPhone: user?.phone || user?.phoneNumber,
   });
-  
-  console.log('🔍 Profile Debug - Appointments from API:', appointments);
-  console.log('🔍 Profile Debug - IsLoading:', isLoading);
-  console.log('🔍 Profile Debug - Fallback Appointments:', fallbackAppointments);
-  
+
+  console.log("🔍 Profile Debug - Appointments from API:", appointments);
+  console.log("🔍 Profile Debug - IsLoading:", isLoading);
+  console.log(
+    "🔍 Profile Debug - Fallback Appointments:",
+    fallbackAppointments
+  );
+
   const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   // Fallback para carregar agendamentos quando a API principal não funciona
   React.useEffect(() => {
-    console.log('🔄 Fallback Effect triggered');
-    console.log('🔄 IsLoading:', isLoading);
-    console.log('🔄 Appointments length:', (appointments || []).length);
-    console.log('🔄 Current Enterprise Email:', currentEnterprise?.email);
-    console.log('🔄 User identifier check:', {
+    console.log("🔄 Fallback Effect triggered");
+    console.log("🔄 IsLoading:", isLoading);
+    console.log("🔄 Appointments length:", (appointments || []).length);
+    console.log("🔄 Current Enterprise Email:", currentEnterprise?.email);
+    console.log("🔄 User identifier check:", {
       email: user?.email,
       name: user?.name,
       phone: user?.phone,
-      phoneNumber: user?.phoneNumber
+      phoneNumber: user?.phoneNumber,
     });
-    
+
     if (isLoading) {
-      console.log('⏳ Still loading, skipping fallback');
+      console.log("⏳ Still loading, skipping fallback");
       return;
     }
     if ((appointments || []).length > 0) {
-      console.log('✅ API has appointments, skipping fallback');
+      console.log("✅ API has appointments, skipping fallback");
       return;
     }
     if (!currentEnterprise?.email) {
-      console.log('❌ No enterprise email, skipping fallback');
+      console.log("❌ No enterprise email, skipping fallback");
       return;
     }
     const hasIdentifier = !!(
@@ -75,81 +78,107 @@ export default function Profile() {
       user?.phoneNumber
     );
     if (!hasIdentifier) {
-      console.log('❌ No user identifier, skipping fallback');
+      console.log("❌ No user identifier, skipping fallback");
       return;
     }
 
-    console.log('🚀 Starting fallback appointment search...');
+    console.log("🚀 Starting fallback appointment search...");
     let cancelled = false;
     setLoadingFallback(true);
     (async () => {
       try {
-        console.log('📊 User data for search:', {
+        console.log("📊 User data for search:", {
           email: user?.email,
           name: user?.name,
-          phone: user?.phone || user?.phoneNumber
+          phone: user?.phone || user?.phoneNumber,
         });
-        console.log('🏢 Enterprise data for search:', {
+        console.log("🏢 Enterprise data for search:", {
           email: currentEnterprise?.email,
-          name: currentEnterprise?.name
+          name: currentEnterprise?.name,
         });
 
         // Tentar buscar do Firestore primeiro - BUSCAR EM TODAS AS EMPRESAS
         let firestoreAppointments = [];
         try {
-          console.log('🔍 Searching Firestore appointments in ALL enterprises...');
-          
+          console.log(
+            "🔍 Searching Firestore appointments in ALL enterprises..."
+          );
+
           // Lista de todas as empresas conhecidas
           const allEnterprises = [
-            'empresaadmin@xcortes.com',
-            'pablofafstar@gmail.com', 
-            'admin@teste.com'
+            "empresaadmin@xcortes.com",
+            "pablofafstar@gmail.com",
+            "admin@teste.com",
           ];
-          
+
           // Buscar em todas as empresas
           const allPromises = allEnterprises.map(async (enterpriseEmail) => {
             try {
-              console.log('🔍 Searching in enterprise:', enterpriseEmail);
-              const bookings = await enterpriseBookingFirestoreService.list(enterpriseEmail);
-              console.log('📋 Found', bookings.length, 'bookings in', enterpriseEmail);
-              return bookings.map(b => ({ ...b, sourceEnterprise: enterpriseEmail }));
+              console.log("🔍 Searching in enterprise:", enterpriseEmail);
+              const bookings = await enterpriseBookingFirestoreService.list(
+                enterpriseEmail
+              );
+              console.log(
+                "📋 Found",
+                bookings.length,
+                "bookings in",
+                enterpriseEmail
+              );
+              return bookings.map((b) => ({
+                ...b,
+                sourceEnterprise: enterpriseEmail,
+              }));
             } catch (error) {
-              console.warn('❌ Error searching in', enterpriseEmail, ':', error);
+              console.warn(
+                "❌ Error searching in",
+                enterpriseEmail,
+                ":",
+                error
+              );
               return [];
             }
           });
-          
+
           const allResults = await Promise.all(allPromises);
           firestoreAppointments = allResults.flat();
-          
-          console.log('📋 Total Firestore appointments found across all enterprises:', firestoreAppointments.length);
-          console.log('📋 All Firestore appointments data:', firestoreAppointments);
+
+          console.log(
+            "📋 Total Firestore appointments found across all enterprises:",
+            firestoreAppointments.length
+          );
+          console.log(
+            "📋 All Firestore appointments data:",
+            firestoreAppointments
+          );
         } catch (error) {
           console.warn("❌ Erro ao buscar do Firestore:", error);
         }
 
         // Fallback para o bookingService (usado na UserAppointments) - APENAS SE A API ESTIVER FUNCIONANDO
-        console.log('🔍 Searching API appointments...');
+        console.log("🔍 Searching API appointments...");
         let apiAppointments = [];
         try {
           const unwrap = (val) =>
             Array.isArray(val) ? val : Array.isArray(val?.data) ? val.data : [];
-          
+
           const allRaw = await bookingService.getBookings(
             currentEnterprise.email
           );
-          console.log('📋 All API appointments raw:', allRaw);
-          
+          console.log("📋 All API appointments raw:", allRaw);
+
           const today = new Date().toISOString().split("T")[0];
           const todayRaw = await bookingService.getBookings(
             currentEnterprise.email,
             today
           );
-          console.log('📋 Today API appointments raw:', todayRaw);
-          
+          console.log("📋 Today API appointments raw:", todayRaw);
+
           apiAppointments = [...unwrap(allRaw), ...unwrap(todayRaw)];
         } catch (error) {
-          console.warn('⚠️ API appointments failed, using only Firestore data:', error.message);
+          console.warn(
+            "⚠️ API appointments failed, using only Firestore data:",
+            error.message
+          );
           // Não é um erro crítico, apenas seguimos sem dados da API
         }
 
@@ -167,38 +196,37 @@ export default function Profile() {
           if (!map.has(key)) map.set(key, b);
         });
 
-        console.log('📊 Total appointments in map:', map.size);
+        console.log("📊 Total appointments in map:", map.size);
 
         const uEmail = user?.email || "";
         const uName = user?.name || "";
         const uPhone = user?.phone || user?.phoneNumber || "";
-        
-        console.log('🔍 Filtering by user data:', { uEmail, uName, uPhone });
-        
+
+        console.log("🔍 Filtering by user data:", { uEmail, uName, uPhone });
+
         const merged = Array.from(map.values()).filter((b) => {
           const bEmail = b.clientEmail || b.email || "";
           const bName = b.clientName || b.name || "";
           const bPhone = b.clientPhone || b.phone || "";
-          
-          const emailMatch = (uEmail && bEmail === uEmail);
-          const nameMatch = (uName && bName === uName);
-          const phoneMatch = (uPhone && bPhone === uPhone);
-          
-          console.log('🔍 Checking appointment:', {
+
+          const emailMatch = uEmail && bEmail === uEmail;
+          const nameMatch = uName && bName === uName;
+          const phoneMatch = uPhone && bPhone === uPhone;
+
+          console.log("🔍 Checking appointment:", {
             appointment: { bEmail, bName, bPhone },
             matches: { emailMatch, nameMatch, phoneMatch },
-            willInclude: emailMatch || nameMatch || phoneMatch
+            willInclude: emailMatch || nameMatch || phoneMatch,
           });
-          
+
           return emailMatch || nameMatch || phoneMatch;
         });
-        
-        
-        console.log('✅ Filtered appointments:', merged.length);
-        console.log('✅ Filtered appointments data:', merged);
+
+        console.log("✅ Filtered appointments:", merged.length);
+        console.log("✅ Filtered appointments data:", merged);
         if (!cancelled) setFallbackAppointments(merged);
       } catch (error) {
-        console.error('❌ Fallback error:', error);
+        console.error("❌ Fallback error:", error);
         if (!cancelled) setFallbackAppointments([]);
       } finally {
         if (!cancelled) setLoadingFallback(false);
@@ -235,29 +263,30 @@ export default function Profile() {
   const handleLogout = async () => {
     try {
       await logout();
-      
+
       // Limpeza adicional para garantir
-      document.cookie.split(";").forEach(cookie => {
+      document.cookie.split(";").forEach((cookie) => {
         const eqPos = cookie.indexOf("=");
-        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+        const name =
+          eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
         if (name) {
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
           document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
         }
       });
-      
+
       // Limpar localStorage completamente
       localStorage.clear();
       sessionStorage.clear();
-      
+
       // Aguardar um pouco para garantir que o estado seja limpo
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       // Usar URL completa para funcionar tanto em localhost quanto em produção
       // Adicionar timestamp para forçar quebra de cache
       const timestamp = Date.now();
       const loginUrl = `${window.location.origin}/auth/login?t=${timestamp}`;
-      
+
       // Forçar navegação usando window.location para contornar possíveis problemas de cache
       window.location.href = loginUrl;
     } catch (error) {

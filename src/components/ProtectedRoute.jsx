@@ -24,13 +24,7 @@ export function ProtectedRoute({ children, adminOnly = false }) {
     }
 
     // Redirecionar para login centralizado em vez da empresa específica
-    return (
-      <Navigate
-        to="/auth/login"
-        state={{ from: location }}
-        replace
-      />
-    );
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   if (adminOnly && user?.role !== "admin" && user?.role !== "owner") {

@@ -58,11 +58,11 @@ api.interceptors.response.use(
         Cookies.remove("user_data", { path: "/" });
         Cookies.remove("auth_token");
         Cookies.remove("user_data");
-        
+
         // Limpar localStorage também
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_data");
-        
+
         // Deixe o ProtectedRoute cuidar de redirecionar para a rota correta
       }
     }

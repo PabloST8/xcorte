@@ -28,12 +28,12 @@ export default function AdminLayout() {
   const handleLogout = async () => {
     try {
       await logout();
-      
+
       // Usar URL completa para funcionar tanto em localhost quanto em produção
       // Adicionar timestamp para forçar quebra de cache
       const timestamp = Date.now();
       const loginUrl = `${window.location.origin}/auth/login?t=${timestamp}`;
-      
+
       // Forçar navegação usando window.location para contornar possíveis problemas de cache
       window.location.href = loginUrl;
     } catch (error) {
