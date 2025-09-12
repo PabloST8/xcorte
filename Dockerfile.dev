@@ -1,0 +1,50 @@
+# 🛠️ Dockerfile.dev para XCorte - Ambiente de Desenvolvimento
+# Configurado para expor na porta 4000
+# Atualizado em 13/09/2025 com Node.js 22 LTS
+
+# Usar Node.js 22 Alpine (versão LTS mais recente)
+FROM node:22-alpine
+
+# Definir diretório de trabalho
+WORKDIR /app
+
+# Instalar dependências do sistema necessárias
+RUN apk add --no-cache \
+    git \
+    curl \
+    bash \
+    vim
+
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar todas as dependências (incluindo devDependencies)
+RUN npm install && \
+    npm cache clean --force
+
+# Criar usuário não-root para segurança
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S xcorte -u 1001
+
+# Copiar código fonte
+COPY --chown=xcorte:nodejs . .
+
+# Mudar para usuário não-root
+USER xcorte
+
+# Expor a porta 4000
+EXPOSE 4000
+
+# Definir variáveis de ambiente para desenvolvimento
+ENV NODE_ENV=development
+ENV PORT=4000
+ENV HOST=0.0.0.0
+ENV VITE_HOST=0.0.0.0
+ENV VITE_PORT=4000
+
+# Comando de saúde para verificar se a aplicação está rodando
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:4000 || exit 1
+
+# Comando para iniciar em modo desenvolvimento com hot reload
+CMD ["npm", "run", "dev"]

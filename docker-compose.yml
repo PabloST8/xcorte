@@ -1,16 +1,27 @@
-version: '3.8'
+# 🐳 Docker Compose para XCorte
+# Configurado para expor na porta 4000
+
+version: "3.8"
 
 services:
-  xcorte-frontend:
-    build: .
-    container_name: xcorte-app
+  xcorte-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xcorte-dev
     ports:
-      - "80:4000"
-    restart: unless-stopped
+      - "4000:4000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=4000
       - HOST=0.0.0.0
+    volumes:
+      # Mount do código fonte para development (hot reload)
+      - .:/app
+      - /app/node_modules
+    networks:
+      - xcorte-network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000"]
       interval: 30s
@@ -18,17 +29,24 @@ services:
       retries: 3
       start_period: 40s
 
-  # Opcional: Nginx como reverse proxy
-  nginx:
-    image: nginx:alpine
-    container_name: xcorte-nginx
+  # Serviço para build de produção
+  xcorte-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xcorte-prod
     ports:
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - xcorte-frontend
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - HOST=0.0.0.0
+    networks:
+      - xcorte-network
     restart: unless-stopped
     profiles:
-      - ssl
+      - production
+
+networks:
+  xcorte-network:
+    driver: bridge
