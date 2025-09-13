@@ -73,4 +73,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENTRYPOINT ["dumb-init", "--"]
 
 # Comando para servir a aplicação buildada
-CMD ["npm", "run", "preview", "--", "--port", "4000", "--host", "0.0.0.0"]
+RUN npm install -g serve
+
+CMD ["serve", "-s", "dist", "-l", "4000"]
