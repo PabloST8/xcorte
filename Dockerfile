@@ -39,12 +39,8 @@ RUN apk add --no-cache \
     curl \
     dumb-init
 
-# Copiar arquivos de dependências
-COPY package*.json ./
-
-# Instalar apenas dependências de produção
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Instalar serve globalmente para servir arquivos estáticos
+RUN npm install -g serve
 
 # Criar usuário não-root para segurança
 RUN addgroup -g 1001 -S nodejs && \
@@ -52,7 +48,6 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Copiar build da aplicação do estágio anterior
 COPY --from=builder --chown=xcorte:nodejs /app/dist ./dist
-COPY --from=builder --chown=xcorte:nodejs /app/package*.json ./
 
 # Mudar para usuário não-root
 USER xcorte
@@ -72,7 +67,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Usar dumb-init para gerenciamento de processos
 ENTRYPOINT ["dumb-init", "--"]
 
-# Comando para servir a aplicação buildada
-RUN npm install -g serve
-
-CMD ["serve", "-s", "dist", "-l", "4000"]
+# Comando para servir a aplicação buildada com serve (otimizado para produção)
+CMD ["serve", "-s", "dist", "-l", "4000", "--no-clipboard", "--no-port-switching"]
