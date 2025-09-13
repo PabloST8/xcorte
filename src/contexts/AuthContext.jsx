@@ -151,6 +151,24 @@ export const AuthProvider = ({ children }) => {
       if (!cleanPhone || !displayName) {
         throw new Error("Nome e telefone são obrigatórios");
       }
+
+      // Para desenvolvimento: usar auth anônimo para permitir escrita no Firestore
+      let currentUser = auth.currentUser;
+      if (!currentUser) {
+        try {
+          // Import signInAnonymously
+          const { signInAnonymously } = await import("firebase/auth");
+          const userCredential = await signInAnonymously(auth);
+          currentUser = userCredential.user;
+          console.log("✅ Autenticação anônima realizada para registro");
+        } catch (authError) {
+          console.warn(
+            "⚠️ Falha na autenticação anônima, tentando criar sem auth:",
+            authError
+          );
+        }
+      }
+
       const userRef = doc(db, "users", cleanPhone);
       // Cria/atualiza mantendo o mesmo ID do telefone puro
       await setDoc(
@@ -166,8 +184,7 @@ export const AuthProvider = ({ children }) => {
         { merge: true }
       );
 
-      // Firebase Auth está desabilitado para desenvolvimento
-      console.log("✅ Usuário registrado sem Firebase Auth");
+      console.log("✅ Usuário registrado no Firestore");
 
       return { success: true };
     } catch (error) {
