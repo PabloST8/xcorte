@@ -97,8 +97,29 @@ export const firestoreDashboardService = {
         });
 
         stats.monthlyRevenue = monthlyAppointments.reduce((total, apt) => {
-          return total + (apt.price || 0);
+          // Tentar diferentes campos onde o preço pode estar
+          const price =
+            apt.totalPrice || apt.productPrice || apt.price || apt.valor || 0;
+
+          console.log(`💰 Dashboard - Agendamento ${apt.id}:`, {
+            date: apt.date,
+            totalPrice: apt.totalPrice,
+            productPrice: apt.productPrice,
+            price: apt.price,
+            valor: apt.valor,
+            priceUsed: price,
+          });
+
+          return total + price;
         }, 0);
+
+        console.log(
+          `💰 Dashboard - Receita mensal calculada:`,
+          stats.monthlyRevenue,
+          "para",
+          monthlyAppointments.length,
+          "agendamentos"
+        );
 
         // Próximos agendamentos (próximos 5)
         const futureAppointments = appointments

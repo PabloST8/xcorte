@@ -6,6 +6,7 @@ import {
   useDeleteAppointment,
 } from "../../hooks/useAdmin";
 import { BOOKING_STATUS, formatPrice } from "../../types/api.js";
+import { useEnterprise } from "../../contexts/EnterpriseContext";
 
 export default function AdminAppointments() {
   const [dateFilter, setDateFilter] = useState("all");
@@ -28,6 +29,8 @@ export default function AdminAppointments() {
   const { mutate: deleteAppointment, isLoading: isDeleting } =
     useDeleteAppointment();
 
+  const { currentEnterprise, loading: enterpriseLoading } = useEnterprise();
+
   const handleDelete = async (appointmentId, clientName) => {
     if (
       window.confirm(
@@ -44,6 +47,8 @@ export default function AdminAppointments() {
   };
 
   const handleStatusChange = (appointmentId, newStatus) => {
+    console.log("🔄 Alterando status:", { appointmentId, newStatus });
+
     // Garantir que enviamos os status canônicos do backend (pt-BR)
     const mapOut = (s) => {
       switch (s) {
@@ -60,7 +65,14 @@ export default function AdminAppointments() {
           return s; // já deve estar em pt-BR
       }
     };
-    updateStatus({ appointmentId, status: mapOut(newStatus) });
+
+    const mappedStatus = mapOut(newStatus);
+    console.log("📝 Status mapeado:", {
+      original: newStatus,
+      mapped: mappedStatus,
+    });
+
+    updateStatus({ appointmentId, status: mappedStatus });
   };
 
   const getStatusColor = (status) => {
@@ -92,7 +104,7 @@ export default function AdminAppointments() {
 
   // Status text formatting is handled inline via getStatusColor and normalized values
 
-  if (isLoading) {
+  if (isLoading || enterpriseLoading || !currentEnterprise) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
@@ -156,10 +168,8 @@ export default function AdminAppointments() {
               <option value="all">Todos</option>
               <option value="scheduled">Agendado</option>
               <option value="confirmed">Confirmado</option>
-              <option value="in_progress">Em Andamento</option>
               <option value="completed">Concluído</option>
               <option value="cancelled">Cancelado</option>
-              <option value="no_show">Faltou</option>
             </select>
           </div>
 

@@ -9,6 +9,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { employeeFirestoreService } from "./employeeFirestoreService";
 
 export const firestoreProductsService = {
   // Buscar produtos/serviços por filtros
@@ -89,8 +90,26 @@ export const firestoreProductsService = {
   mapProductData(data) {
     // Converter preço de centavos para reais se necessário
     let price = parseFloat(data.price || data.productPrice) || 0;
-    if (price > 100 && Number.isInteger(price)) {
-      price = price / 100;
+    console.log(
+      "🔍 Mapeamento - Preço original do banco:",
+      data.price,
+      "tipo:",
+      typeof data.price
+    );
+
+    // SEMPRE converter de centavos para reais no mapeamento
+    // Assumir que todos os valores no banco estão em centavos
+    if (Number.isInteger(price) && price > 0) {
+      const asReais = price / 100;
+      console.log(
+        "🔄 Convertendo de centavos para reais:",
+        price,
+        "→",
+        asReais
+      );
+      price = asReais;
+    } else {
+      console.log("💰 Preço não é um inteiro positivo:", price);
     }
 
     return {
@@ -201,11 +220,41 @@ export const firestoreProductsService = {
   // Atualizar produto/serviço
   async updateProduct(productId, productData, enterpriseEmail = null) {
     try {
+      // Validar se productData existe
+      if (!productData || typeof productData !== "object") {
+        throw new Error("Dados do produto são obrigatórios");
+      }
+
+      // Validar campos obrigatórios
+      if (
+        !productData.name ||
+        typeof productData.name !== "string" ||
+        productData.name.trim() === ""
+      ) {
+        throw new Error("Nome do produto é obrigatório");
+      }
+
+      if (
+        productData.price === undefined ||
+        productData.price === null ||
+        isNaN(productData.price) ||
+        productData.price < 0
+      ) {
+        throw new Error("Preço do produto deve ser um número válido");
+      }
+
       // Converter preço para centavos se necessário
-      const price = Math.round((productData.price || 0) * 100);
+      console.log(
+        "💾 Salvamento - Preço recebido:",
+        productData.price,
+        "tipo:",
+        typeof productData.price
+      );
+      const price = Math.round(productData.price * 100);
+      console.log("💾 Salvamento - Preço convertido para centavos:", price);
 
       const updatedProduct = {
-        name: productData.name || "",
+        name: productData.name.trim(),
         description: productData.description || "",
         price: price,
         duration: productData.duration || 30,
@@ -231,6 +280,24 @@ export const firestoreProductsService = {
       }
 
       await updateDoc(productRef, updatedProduct);
+
+      // Atualizar referências nos funcionários se for uma empresa
+      if (enterpriseEmail) {
+        try {
+          await employeeFirestoreService.updateServiceReferences(
+            enterpriseEmail,
+            productId,
+            { name: productData.name }
+          );
+          console.log("✅ Referências de funcionários atualizadas com sucesso");
+        } catch (error) {
+          console.warn(
+            "⚠️ Erro ao atualizar referências de funcionários:",
+            error
+          );
+          // Não falhar a operação principal por isso
+        }
+      }
 
       return {
         success: true,
@@ -265,6 +332,23 @@ export const firestoreProductsService = {
       }
 
       await deleteDoc(productRef);
+
+      // Remover referências nos funcionários se for uma empresa
+      if (enterpriseEmail) {
+        try {
+          await employeeFirestoreService.removeServiceReferences(
+            enterpriseEmail,
+            productId
+          );
+          console.log("✅ Referências de funcionários removidas com sucesso");
+        } catch (error) {
+          console.warn(
+            "⚠️ Erro ao remover referências de funcionários:",
+            error
+          );
+          // Não falhar a operação principal por isso
+        }
+      }
 
       return {
         success: true,

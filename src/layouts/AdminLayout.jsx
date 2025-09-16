@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -11,11 +11,44 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useEnterprise } from "../contexts/EnterpriseContext";
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { syncEnterpriseWithUser } = useEnterprise();
+
+  // Sincronizar empresa com usuário admin logado
+  useEffect(() => {
+    console.log("🔍 AdminLayout - Verificando usuário:", {
+      user,
+      hasUser: !!user,
+      email: user?.email,
+      role: user?.role,
+      enterpriseEmail: user?.enterpriseEmail,
+      isAdmin: user?.role === "admin",
+      hasEnterpriseEmail: !!user?.enterpriseEmail,
+    });
+
+    if (user && user.role === "admin" && user.enterpriseEmail) {
+      console.log(
+        `🔄 Admin logado: ${user.email}, sincronizando empresa: ${user.enterpriseEmail}`
+      );
+      console.log("📋 Dados completos do usuário:", user);
+      syncEnterpriseWithUser(user);
+    } else {
+      console.log("⚠️ Usuário não tem dados suficientes para sincronização:", {
+        user,
+      });
+      if (user && user.role !== "admin") {
+        console.log("❌ Role incorreto:", user.role, "esperado: admin");
+      }
+      if (user && !user.enterpriseEmail) {
+        console.log("❌ enterpriseEmail ausente no usuário");
+      }
+    }
+  }, [user, syncEnterpriseWithUser]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },

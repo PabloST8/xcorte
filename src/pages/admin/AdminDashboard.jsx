@@ -3,7 +3,6 @@ import { Users, Calendar, DollarSign, Clock } from "lucide-react";
 import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
-import { createTestData } from "../../utils/createTestData";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
@@ -75,14 +74,6 @@ export default function AdminDashboard() {
             ? `Painel administrativo - ${currentEnterprise.name}`
             : "Bem-vindo ao painel administrativo da barbearia"}
         </p>
-
-        {/* Botão temporário para criar dados de teste */}
-        <button
-          onClick={() => createTestData(currentEnterprise?.email)}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Criar Cliente de Teste
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -103,15 +94,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Indicador de fonte dos dados */}
-      <div className="mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-700">
-            📊 Dados carregados do Firestore em tempo real
-          </p>
-        </div>
       </div>
 
       {/* Main Content Grid */}

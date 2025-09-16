@@ -18,7 +18,24 @@ export const AuthProvider = ({ children }) => {
         const userData = Cookies.get("user_data");
 
         if (token && userData) {
-          const parsedUser = JSON.parse(userData);
+          let parsedUser = JSON.parse(userData);
+          // Corrigir enterpriseEmail para admin do Pablo
+          if (
+            parsedUser.email === "pablofafstar@gmail.com" &&
+            (!parsedUser.enterpriseEmail ||
+              parsedUser.enterpriseEmail !== "pablofafstar@gmail.com")
+          ) {
+            parsedUser = {
+              ...parsedUser,
+              enterpriseEmail: "pablofafstar@gmail.com",
+            };
+            Cookies.set("user_data", JSON.stringify(parsedUser), {
+              expires: 7,
+            });
+            console.log(
+              "🛠️ Corrigido enterpriseEmail para admin Pablo ao restaurar do cookie"
+            );
+          }
           setUser(parsedUser);
           setIsAuthenticated(true);
 
@@ -275,6 +292,10 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     Cookies.set("auth_token", `admin-${updatedUser.id}`, { expires: 7 });
     Cookies.set("user_data", JSON.stringify(updatedUser), { expires: 7 });
+
+    // Limpar cookies da empresa para forçar nova sincronização
+    console.log("🗑️ Limpando cookies da empresa para nova sincronização");
+    Cookies.remove("current_enterprise");
   };
 
   // Login específico para admin
@@ -314,11 +335,28 @@ export const AuthProvider = ({ children }) => {
           name: "Administrador",
           email: credentials.email,
           role: "admin",
-          enterpriseEmail: "test@empresa.com",
+          enterpriseEmail: "pablofafstar@gmail.com", // Admin gerencia a Barbearia do Pablo
         };
 
         updateUser(adminUser);
         return { success: true, user: adminUser };
+      }
+
+      // Suporte para login direto do Pablo
+      if (
+        credentials.email === "pablofafstar@gmail.com" &&
+        credentials.password === "123123"
+      ) {
+        const pabloUser = {
+          id: "pablo-1",
+          name: "Pablo",
+          email: credentials.email,
+          role: "admin",
+          enterpriseEmail: "pablofafstar@gmail.com", // Própria empresa
+        };
+
+        updateUser(pabloUser);
+        return { success: true, user: pabloUser };
       }
 
       return {
@@ -336,7 +374,7 @@ export const AuthProvider = ({ children }) => {
         name: "Administrador XCortes",
         role: "admin",
         status: "active",
-        enterpriseEmail: "test@empresa.com",
+        enterpriseEmail: "pablofafstar@gmail.com", // Admin gerencia a Barbearia do Pablo
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         permissions: {

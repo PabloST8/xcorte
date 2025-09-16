@@ -229,10 +229,32 @@ export const enterpriseBookingFirestoreService = {
       updatedAt: now,
     };
 
+    // Função para verificar conflito
+    const hasConflict = (bookings, staffId, date, startTime) => {
+      return bookings.some(
+        (b) =>
+          String(b.staffId) === String(staffId) &&
+          String(b.date) === String(date) &&
+          String(b.startTime) === String(startTime)
+      );
+    };
+
     if (!firebaseUser) {
       // Usar localStorage
       console.log("📦 Salvando agendamento no localStorage");
       const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      if (
+        hasConflict(
+          localBookings,
+          payload.staffId,
+          payload.date,
+          payload.startTime
+        )
+      ) {
+        throw new Error(
+          "Já existe um agendamento para este profissional neste horário."
+        );
+      }
       const newBooking = {
         id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...payload,
@@ -243,12 +265,38 @@ export const enterpriseBookingFirestoreService = {
     }
 
     try {
+      // Buscar conflitos no Firestore
+      const { query, where, getDocs } = await import("firebase/firestore");
+      const q = query(
+        bookingsRef(enterpriseEmail),
+        where("staffId", "==", payload.staffId),
+        where("date", "==", payload.date),
+        where("startTime", "==", payload.startTime)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        throw new Error(
+          "Já existe um agendamento para este profissional neste horário."
+        );
+      }
       console.log("💾 Firestore payload preparado:", payload);
       const ref = await addDoc(bookingsRef(enterpriseEmail), payload);
       return { id: ref.id, ...payload };
     } catch (error) {
       console.warn("⚠️ Firestore falhou, salvando no localStorage:", error);
       const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      if (
+        hasConflict(
+          localBookings,
+          payload.staffId,
+          payload.date,
+          payload.startTime
+        )
+      ) {
+        throw new Error(
+          "Já existe um agendamento para este profissional neste horário."
+        );
+      }
       const newBooking = {
         id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...payload,

@@ -5,6 +5,7 @@ import {
   limit,
   doc,
   deleteDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -148,8 +149,40 @@ export const firestoreAppointmentsService = {
 
     // Filtro por status no frontend
     if (filters.status) {
-      filteredAppointments = filteredAppointments.filter(
-        (appointment) => appointment.status === filters.status
+      console.log("🔍 Filtro de status aplicado:", filters.status);
+
+      // Mapear status do filtro (inglês) para o formato do banco (português)
+      const mapFilterStatusToBD = (filterStatus) => {
+        switch (filterStatus) {
+          case "scheduled":
+            return "agendado";
+          case "confirmed":
+            return "confirmado";
+          case "in_progress":
+            return "em_andamento";
+          case "completed":
+            return "concluido";
+          case "cancelled":
+          case "canceled":
+            return "cancelado";
+          default:
+            return filterStatus; // pode já estar em português
+        }
+      };
+
+      const expectedStatus = mapFilterStatusToBD(filters.status);
+      console.log("🎯 Status esperado após mapeamento:", expectedStatus);
+
+      filteredAppointments = filteredAppointments.filter((appointment) => {
+        const appointmentStatus = (appointment.status || "").toLowerCase();
+        console.log(
+          `📋 Agendamento ${appointment.id}: status="${appointmentStatus}" vs esperado="${expectedStatus}"`
+        );
+        return appointmentStatus === expectedStatus;
+      });
+
+      console.log(
+        `✅ Filtrados ${filteredAppointments.length} agendamentos com status "${expectedStatus}"`
       );
     }
 
@@ -203,6 +236,56 @@ export const firestoreAppointmentsService = {
       };
     } catch (error) {
       console.error("Erro ao deletar agendamento:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  },
+
+  // Atualizar status do agendamento
+  async updateAppointmentStatus(
+    appointmentId,
+    newStatus,
+    enterpriseEmail = null
+  ) {
+    try {
+      console.log(
+        "🔄 Atualizando status do agendamento:",
+        appointmentId,
+        "para:",
+        newStatus
+      );
+
+      let appointmentRef;
+
+      if (enterpriseEmail) {
+        // Atualizar na subcoleção da empresa
+        appointmentRef = doc(
+          db,
+          "enterprises",
+          enterpriseEmail,
+          "bookings",
+          appointmentId
+        );
+      } else {
+        // Atualizar na coleção global
+        appointmentRef = doc(db, "bookings", appointmentId);
+      }
+
+      await updateDoc(appointmentRef, {
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      });
+
+      console.log("✅ Status do agendamento atualizado com sucesso");
+
+      return {
+        success: true,
+        message: "Status do agendamento atualizado com sucesso",
+      };
+    } catch (error) {
+      console.error("❌ Erro ao atualizar status do agendamento:", error);
       return {
         success: false,
         error: error.message,

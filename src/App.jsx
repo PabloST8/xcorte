@@ -30,6 +30,8 @@ import AdminAppointments from "./pages/admin/AdminAppointments";
 import AdminClients from "./pages/admin/AdminClients";
 import AdminServices from "./pages/admin/AdminServices";
 import AdminStaff from "./pages/admin/AdminStaff";
+import SuperAdmin from "./pages/SuperAdmin";
+import CreateSuperAdminButton from "./components/CreateSuperAdminButton";
 
 // Criar cliente do React Query
 const queryClient = new QueryClient({
@@ -58,6 +60,11 @@ function AuthLayout() {
 
 // Router configuration with enterprise support
 const router = createBrowserRouter([
+  // Super Admin - rota especial sem enterprise context
+  {
+    path: "/SAdmin",
+    element: <SuperAdmin />,
+  },
   // Página de debug (sem exigir slug específico)
   {
     path: "/debug-enterprises",
@@ -272,6 +279,7 @@ function App() {
         <EnterpriseProvider>
           <CartProvider>
             <RouterProvider router={router} />
+            <CreateSuperAdminButton />
           </CartProvider>
         </EnterpriseProvider>
       </AuthProvider>

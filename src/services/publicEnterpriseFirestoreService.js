@@ -31,6 +31,12 @@ function getEnterprisesFromLocalStorage() {
       name: "Barbearia do Pablo",
       displayName: "Barbearia do Pablo",
     },
+    {
+      id: "empresaadmin@xcortes.com",
+      email: "empresaadmin@xcortes.com",
+      name: "XCorte Admin",
+      displayName: "XCorte Admin",
+    },
   ];
 
   // Salvar dados de exemplo no localStorage

@@ -12,9 +12,12 @@ import {
 } from "lucide-react";
 import { formatPrice } from "../types/api.js";
 import { allServices, staffMembers } from "../data/services.js";
+import NotificationPopup from "../components/NotificationPopup";
+import { useNotification } from "../hooks/useNotification";
 
 function Calendar() {
   const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { notification, showSuccess, hideNotification } = useNotification();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -155,7 +158,7 @@ function Calendar() {
 
   const confirmAppointment = () => {
     // Aqui você salvaria o agendamento
-    alert("Agendamento confirmado!");
+    showSuccess("Agendamento confirmado!");
     // Reset
     setSelectedDate(null);
     setSelectedTime(null);
@@ -483,6 +486,13 @@ function Calendar() {
           </div>
         )}
       </div>
+      <NotificationPopup
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
+      />
     </div>
   );
 }

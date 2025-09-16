@@ -54,6 +54,33 @@ export const paymentService = {
       throw error.response?.data || error.message;
     }
   },
+
+  // Processar pagamento (método principal)
+  async processPayment(paymentData) {
+    try {
+      // Para desenvolvimento, simular sucesso do pagamento
+      console.log("Processing payment:", paymentData);
+
+      // Simular delay do processamento
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Retornar sucesso
+      return {
+        success: true,
+        paymentId: `payment_${Date.now()}`,
+        status: "completed",
+        message: "Pagamento processado com sucesso",
+        paymentMethod: paymentData.paymentMethod,
+        amount: paymentData.amount,
+      };
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      return {
+        success: false,
+        error: error.message || "Erro no processamento do pagamento",
+      };
+    }
+  },
 };
 
 // Serviços de Notificação

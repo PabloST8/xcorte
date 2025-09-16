@@ -12,6 +12,8 @@ import Cookies from "js-cookie";
 import { availabilityService } from "../services/availabilityService";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import BookingOverlay from "../components/BookingOverlay";
+import NotificationPopup from "../components/NotificationPopup";
+import { useNotification } from "../hooks/useNotification";
 
 function Cart() {
   const {
@@ -26,6 +28,13 @@ function Cart() {
   const { currentEnterprise } = useEnterprise();
   const { user, isAuthenticated, ensureFirebaseAuth } = useAuth();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const {
+    notification,
+    showSuccess,
+    showError,
+    showWarning,
+    hideNotification,
+  } = useNotification();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -185,28 +194,30 @@ function Cart() {
   const confirmAll = async () => {
     if (!canConfirm) return;
     if (!clientName || !clientPhone) {
-      alert(
+      showError(
         "Dados do cliente ausentes. Faça login ou cadastre nome e telefone no perfil."
       );
       return;
     }
-    
+
     // Verificar se o usuário está autenticado
     if (!isAuthenticated) {
-      alert("Você precisa estar logado para confirmar o agendamento.");
+      showError("Você precisa estar logado para confirmar o agendamento.");
       return;
     }
-    
+
     // Garantir que o Firebase Auth esteja sincronizado
     try {
       await ensureFirebaseAuth();
-      console.log("✅ Firebase Auth verificado para confirmação de agendamento");
+      console.log(
+        "✅ Firebase Auth verificado para confirmação de agendamento"
+      );
     } catch (authError) {
       console.error("❌ Erro de autenticação:", authError);
-      alert("Erro de autenticação. Por favor, faça login novamente.");
+      showError("Erro de autenticação. Por favor, faça login novamente.");
       return;
     }
-    
+
     const isValidEmail = (email) =>
       /.+@.+\..+/.test(String(email || "").trim());
     setSubmitting(true);
@@ -214,7 +225,7 @@ function Cart() {
       for (const it of items) {
         // Validação local de expediente do funcionário
         if (!isWithinWorkHours(it)) {
-          alert(
+          showError(
             `Este profissional não trabalha no horário ${it.date} ${it.time}. Escolha outro horário.`
           );
           setSubmitting(false);
@@ -274,7 +285,7 @@ function Cart() {
             if (looksLikeSchedule) {
               const empLabel =
                 it.employeeName || it.employeeId || "funcionário";
-              alert(
+              showError(
                 `O horário ${it.date} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
               );
               setSubmitting(false);
@@ -324,7 +335,7 @@ function Cart() {
             ) {
               const empLabel =
                 it.employeeName || it.employeeId || "funcionário";
-              alert(
+              showError(
                 `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
               );
               setSubmitting(false);
@@ -356,7 +367,7 @@ function Cart() {
               ) {
                 const empLabel =
                   it.employeeName || it.employeeId || "funcionário";
-                alert(
+                showError(
                   `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
                 );
                 setSubmitting(false);
@@ -368,12 +379,12 @@ function Cart() {
         }
       }
       clear();
-      alert("Agendamentos confirmados!");
+      showSuccess("Agendamentos confirmados!");
     } catch (e) {
       console.error(e);
       const msg =
         (typeof e === "object" && (e.message || e.error || e.msg)) || String(e);
-      alert(`Falha ao confirmar: ${msg}`);
+      showError(`Falha ao confirmar: ${msg}`);
     } finally {
       setSubmitting(false);
     }
@@ -519,6 +530,13 @@ function Cart() {
           onSave={onSaveEdit}
         />
       )}
+      <NotificationPopup
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
+      />
     </div>
   );
 }

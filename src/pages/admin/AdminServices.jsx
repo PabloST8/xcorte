@@ -77,7 +77,8 @@ export default function AdminServices() {
   const canCreateService = () => {
     return (
       newService.duration > 0 &&
-      newService.price > 0 &&
+      newService.price !== null &&
+      newService.price >= 15 && // Preço mínimo de R$ 15,00
       newService.name.trim() !== ""
     );
   };
@@ -94,6 +95,12 @@ export default function AdminServices() {
   const handleCreateService = async (e) => {
     e.preventDefault();
     try {
+      // Validar preço mínimo
+      if (newService.price === null || newService.price < 15) {
+        alert("O preço mínimo do serviço deve ser R$ 15,00");
+        return;
+      }
+
       // Usar dados diretamente do newService (já em reais)
       await createServiceMutation.mutateAsync(newService);
 
@@ -125,28 +132,50 @@ export default function AdminServices() {
   };
 
   const handleEditService = (service) => {
+    console.log("🔍 Serviço sendo editado (dados originais):", service);
+    console.log(
+      "🔍 Preço específico do serviço:",
+      service.price,
+      "tipo:",
+      typeof service.price
+    );
+
+    // Validar se o serviço tem os dados necessários
+    if (!service || !service.id) {
+      console.error("Serviço inválido para edição");
+      return;
+    }
+
     setEditingService(service);
     setIsEditMode(true);
 
-    // Preencher o formulário com os dados do serviço
+    // Preencher o formulário com os dados do serviço com valores padrão
     setNewService({
-      name: service.name,
-      description: service.description,
-      duration: service.duration,
-      price: service.price,
-      category: service.category,
-      isActive: service.isActive,
+      name: service.name || "",
+      description: service.description || "",
+      duration: service.duration || 30,
+      price: service.price || 25,
+      category: service.category || "",
+      isActive: service.isActive !== false,
     });
 
     // Calcular horas e minutos
-    const hours = Math.floor(service.duration / 60);
-    const minutes = service.duration % 60;
+    const duration = service.duration || 30;
+    const hours = Math.floor(duration / 60);
+    const minutes = duration % 60;
     setDurationHours(hours);
     setDurationMinutes(minutes);
 
     // Calcular preço em centavos para o input
-    const priceInCents = Math.round(service.price * 100);
-    setPriceInput(priceInCents.toString());
+    const price = service.price || 25;
+    console.log("💰 Preço do serviço para edição:", price);
+
+    // TESTE: Removendo a conversão para ver se o problema está aqui
+    // const priceInCents = Math.round(price * 100);
+    // console.log('💰 Convertendo para centavos no input:', price, '→', priceInCents);
+
+    // Usando o preço direto sem conversão
+    setPriceInput(price.toString());
 
     setShowCreateModal(true);
   };
@@ -154,9 +183,30 @@ export default function AdminServices() {
   const handleUpdateService = async (e) => {
     e.preventDefault();
     try {
+      // Validar dados antes de enviar
+      if (!newService.name || newService.name.trim() === "") {
+        alert("Nome do serviço é obrigatório");
+        return;
+      }
+
+      if (newService.price === null || newService.price < 15) {
+        alert("O preço mínimo do serviço deve ser R$ 15,00");
+        return;
+      }
+
+      if (!newService.duration || newService.duration <= 0) {
+        alert("Duração do serviço deve ser maior que zero");
+        return;
+      }
+
+      console.log("Dados do serviço a serem atualizados:", {
+        serviceId: editingService.id,
+        serviceData: newService,
+      });
+
       await updateServiceMutation.mutateAsync({
-        id: editingService.id,
-        ...newService,
+        serviceId: editingService.id,
+        serviceData: newService,
       });
 
       // Reset form
@@ -478,13 +528,29 @@ export default function AdminServices() {
                       value={formatPrice(priceInput)}
                       onChange={(e) => handlePriceChange(e.target.value)}
                       placeholder="R$ 0,00"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
+                        newService.price !== null && newService.price < 15
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-300"
+                      }`}
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Digite os centavos (ex: 2500 = R$ 25,00) - máximo R$
-                      999,00
+                      Digite os centavos (ex: 2500 = R$ 25,00) - mínimo R$ 15,00
+                      - máximo R$ 999,00
                     </p>
+                    {editingService &&
+                      editingService.price !== null &&
+                      editingService.price < 15 && (
+                        <p className="text-xs text-red-600 mt-1">
+                          ⚠️ O preço mínimo deve ser R$ 15,00
+                        </p>
+                      )}
+                    {newService.price !== null && newService.price < 15 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        ⚠️ O preço mínimo deve ser R$ 15,00
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -506,7 +572,11 @@ export default function AdminServices() {
                       (isEditMode
                         ? updateServiceMutation.isLoading
                         : createServiceMutation.isLoading) ||
-                      !canCreateService()
+                      !canCreateService() ||
+                      (isEditMode
+                        ? editingService?.price !== null &&
+                          editingService?.price < 15
+                        : newService.price !== null && newService.price < 15)
                     }
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors disabled:bg-amber-300"
                   >

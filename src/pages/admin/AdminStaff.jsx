@@ -18,6 +18,7 @@ import {
   useDeleteStaff,
   useServices,
 } from "../../hooks/useAdmin";
+import { useEnterprise } from "../../contexts/EnterpriseContext";
 
 const WEEK_DAYS = [
   { key: "monday", label: "Seg", name: "Segunda" },
@@ -32,9 +33,143 @@ const WEEK_DAYS = [
 export default function AdminStaff() {
   const { data: staff, isLoading, error } = useStaff();
   const { data: services } = useServices();
+  const { currentEnterprise } = useEnterprise();
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const deleteStaffMutation = useDeleteStaff();
+
+  // Obter email da empresa atual
+  const currentEnterpriseEmail =
+    currentEnterprise?.email || "empresaadmin@xcortes.com";
+
+  // Função helper para filtrar habilidades válidas
+  const getValidSkills = (employeeSkills) => {
+    if (!employeeSkills || !services) return [];
+
+    return employeeSkills.filter((skill) => {
+      const serviceId = skill.productId || skill.serviceId;
+      return services.some((service) => service.id === serviceId);
+    });
+  };
+
+  // Validações em tempo real
+  const validateEmail = (email) => {
+    if (!email.trim()) return "";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return "E-mail deve ter formato válido (exemplo: usuario@dominio.com)";
+    }
+    return "";
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone.trim()) return "";
+    const phoneNumbers = phone.replace(/\D/g, "");
+    if (phoneNumbers.length < 10) {
+      return "Telefone deve ter pelo menos 10 dígitos";
+    }
+    if (phoneNumbers.length > 11) {
+      return "Telefone deve ter no máximo 11 dígitos";
+    }
+    return "";
+  };
+
+  // Atualizar erro de campo específico
+  const updateFieldError = (field, error) => {
+    setFieldErrors((prev) => ({
+      ...prev,
+      [field]: error,
+    }));
+  };
+
+  // Função de validação do funcionário
+  const validateStaff = (staffData) => {
+    const errors = [];
+
+    // Validar campos obrigatórios básicos
+    if (!staffData.name?.trim()) {
+      errors.push("Nome é obrigatório");
+    } else if (staffData.name.trim().length < 2) {
+      errors.push("Nome deve ter pelo menos 2 caracteres");
+    }
+
+    // Validar email
+    if (!staffData.email?.trim()) {
+      errors.push("E-mail é obrigatório");
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(staffData.email.trim())) {
+        errors.push(
+          "E-mail deve ter um formato válido (exemplo: usuario@dominio.com)"
+        );
+      }
+    }
+
+    // Validar telefone
+    if (!staffData.phone?.trim()) {
+      errors.push("Telefone é obrigatório");
+    } else {
+      // Remover formatação e verificar se tem pelo menos 10 dígitos
+      const phoneNumbers = staffData.phone.replace(/\D/g, "");
+      if (phoneNumbers.length < 10) {
+        errors.push("Telefone deve ter pelo menos 10 dígitos");
+      } else if (phoneNumbers.length > 11) {
+        errors.push("Telefone deve ter no máximo 11 dígitos");
+      }
+    }
+
+    // Validar cargo
+    if (!staffData.position?.trim()) {
+      errors.push("Cargo é obrigatório");
+    }
+
+    // Validar se tem pelo menos um serviço/habilidade
+    const validSkills = getValidSkills(staffData.skills || []);
+    if (validSkills.length === 0) {
+      errors.push("Funcionário deve ter pelo menos uma especialidade/serviço");
+    }
+
+    // Validar se tem pelo menos um dia de trabalho configurado
+    const workingDays = Object.entries(staffData.workSchedule || {}).filter(
+      ([, schedule]) => schedule?.isWorking === true
+    );
+    if (workingDays.length === 0) {
+      errors.push("Funcionário deve trabalhar em pelo menos um dia da semana");
+    }
+
+    // Validar horários dos dias de trabalho
+    workingDays.forEach(([day, schedule]) => {
+      const dayName = WEEK_DAYS.find((d) => d.key === day)?.name || day;
+
+      if (!schedule.morningStart || !schedule.morningEnd) {
+        errors.push(`Horário da manhã é obrigatório para ${dayName}`);
+      }
+
+      if (schedule.morningStart && schedule.morningEnd) {
+        if (schedule.morningStart >= schedule.morningEnd) {
+          errors.push(
+            `Horário de início deve ser menor que o fim em ${dayName} (manhã)`
+          );
+        }
+      }
+
+      // Validar horário da tarde se informado
+      if (schedule.afternoonStart && schedule.afternoonEnd) {
+        if (schedule.afternoonStart >= schedule.afternoonEnd) {
+          errors.push(
+            `Horário de início deve ser menor que o fim em ${dayName} (tarde)`
+          );
+        }
+        if (schedule.afternoonStart <= schedule.morningEnd) {
+          errors.push(
+            `Horário da tarde deve ser após o horário da manhã em ${dayName}`
+          );
+        }
+      }
+    });
+
+    return errors;
+  };
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -43,6 +178,8 @@ export default function AdminStaff() {
   const [editingStaff, setEditingStaff] = useState(null);
   const [blockingStaff, setBlockingStaff] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [newStaff, setNewStaff] = useState({
     name: "",
@@ -53,7 +190,7 @@ export default function AdminStaff() {
     skills: [],
     workSchedule: {},
     isActive: true,
-    enterpriseEmail: "empresaadmin@xcortes.com",
+    enterpriseEmail: currentEnterpriseEmail,
   });
 
   const [blockForm, setBlockForm] = useState({
@@ -94,6 +231,17 @@ export default function AdminStaff() {
   // Criar funcionário
   const handleCreateStaff = async (e) => {
     e.preventDefault();
+
+    // Limpar erros anteriores
+    setValidationErrors([]);
+
+    // Validar dados antes de enviar
+    const errors = validateStaff(newStaff);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
     console.log("Tentando criar funcionário:", newStaff);
     try {
       const result = await createStaffMutation.mutateAsync(newStaff);
@@ -110,16 +258,30 @@ export default function AdminStaff() {
   const handleEditStaff = (employee) => {
     setEditingStaff(employee);
     setIsEditMode(true);
-    setNewStaff({
+    // CORREÇÃO: Manter o enterpriseEmail original do funcionário
+    // Também limpar habilidades órfãs antes de editar
+    const cleanedEmployee = {
       ...employee,
-      enterpriseEmail: "empresaadmin@xcortes.com",
-    });
+      skills: getValidSkills(employee.skills || []),
+    };
+    setNewStaff(cleanedEmployee);
     setShowCreateModal(true);
   };
 
   // Atualizar funcionário
   const handleUpdateStaff = async (e) => {
     e.preventDefault();
+
+    // Limpar erros anteriores
+    setValidationErrors([]);
+
+    // Validar dados antes de enviar
+    const errors = validateStaff(newStaff);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
     try {
       await updateStaffMutation.mutateAsync({
         id: editingStaff.id,
@@ -131,6 +293,7 @@ export default function AdminStaff() {
       resetForm();
     } catch (error) {
       console.error("Erro ao atualizar funcionário:", error);
+      alert("Erro ao atualizar funcionário: " + error.message);
     }
   };
 
@@ -138,9 +301,15 @@ export default function AdminStaff() {
   const handleDeleteStaff = async (staffId) => {
     if (window.confirm("Tem certeza que deseja excluir este funcionário?")) {
       try {
+        console.log("🗑️ Tentando deletar funcionário:", staffId);
         await deleteStaffMutation.mutateAsync(staffId);
+        console.log("✅ Funcionário deletado com sucesso");
       } catch (error) {
-        console.error("Erro ao deletar funcionário:", error);
+        console.error("❌ Erro ao deletar funcionário:", error);
+        alert(
+          "Erro ao deletar funcionário: " +
+            (error.message || "Erro desconhecido")
+        );
       }
     }
   };
@@ -196,8 +365,10 @@ export default function AdminStaff() {
       skills: [],
       workSchedule: {},
       isActive: true,
-      enterpriseEmail: "empresaadmin@xcortes.com",
+      enterpriseEmail: currentEnterpriseEmail,
     });
+    setValidationErrors([]);
+    setFieldErrors({});
   };
 
   // Cancelar edição
@@ -205,6 +376,8 @@ export default function AdminStaff() {
     setShowCreateModal(false);
     setIsEditMode(false);
     setEditingStaff(null);
+    setValidationErrors([]);
+    setFieldErrors({});
     resetForm();
   };
 
@@ -224,6 +397,13 @@ export default function AdminStaff() {
           },
         ],
       }));
+      // Limpar erros relacionados a skills quando adicionar uma habilidade
+      setValidationErrors((prev) =>
+        prev.filter(
+          (error) =>
+            !error.includes("especialidade") && !error.includes("serviço")
+        )
+      );
     }
   };
 
@@ -250,6 +430,12 @@ export default function AdminStaff() {
         },
       },
     }));
+    // Limpar erros relacionados a dias de trabalho quando adicionar um dia
+    setValidationErrors((prev) =>
+      prev.filter(
+        (error) => !error.includes("dia") && !error.includes("trabalhar")
+      )
+    );
   };
 
   // Remover dia de trabalho
@@ -418,7 +604,15 @@ export default function AdminStaff() {
                   )}
 
                   <button
-                    onClick={() => handleDeleteStaff(employee.id)}
+                    onClick={() => {
+                      console.log("🎯 Funcionário selecionado para exclusão:", {
+                        id: employee.id,
+                        email: employee.email,
+                        name: employee.name,
+                        fullEmployee: employee,
+                      });
+                      handleDeleteStaff(employee.id);
+                    }}
                     className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                     disabled={deleteStaffMutation.isLoading}
                     title="Deletar funcionário"
@@ -462,32 +656,37 @@ export default function AdminStaff() {
                     Especialidades ✓
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {employee.skills.slice(0, 3).map((skill, index) => {
-                      // Garantir que sempre temos uma string para renderizar
-                      let skillName = "Serviço";
+                    {getValidSkills(employee.skills)
+                      .slice(0, 3)
+                      .map((skill, index) => {
+                        // Garantir que sempre temos uma string para renderizar
+                        let skillName = "Serviço";
 
-                      if (typeof skill === "string") {
-                        skillName = skill;
-                      } else if (typeof skill === "object" && skill !== null) {
-                        skillName =
-                          skill.productName ||
-                          skill.serviceName ||
-                          skill.name ||
-                          "Serviço";
-                      }
+                        if (typeof skill === "string") {
+                          skillName = skill;
+                        } else if (
+                          typeof skill === "object" &&
+                          skill !== null
+                        ) {
+                          skillName =
+                            skill.productName ||
+                            skill.serviceName ||
+                            skill.name ||
+                            "Serviço";
+                        }
 
-                      return (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full"
-                        >
-                          {skillName}
-                        </span>
-                      );
-                    })}
-                    {employee.skills.length > 3 && (
+                        return (
+                          <span
+                            key={index}
+                            className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full"
+                          >
+                            {skillName}
+                          </span>
+                        );
+                      })}
+                    {getValidSkills(employee.skills).length > 3 && (
                       <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                        +{employee.skills.length - 3} mais
+                        +{getValidSkills(employee.skills).length - 3} mais
                       </span>
                     )}
                   </div>
@@ -513,31 +712,32 @@ export default function AdminStaff() {
                     Horários
                   </p>
                   <div className="space-y-1">
-                    {Object.entries(employee.workSchedule).map(
-                      ([day, schedule]) => {
-                        const dayInfo = WEEK_DAYS.find((d) => d.key === day);
-                        if (!schedule.isWorking) return null;
-                        return (
-                          <div key={day} className="text-xs text-gray-600">
-                            <span className="font-medium text-gray-700">
-                              {dayInfo?.label}:
+                    {WEEK_DAYS.map((dayInfo) => {
+                      const schedule = employee.workSchedule[dayInfo.key];
+                      if (!schedule || !schedule.isWorking) return null;
+                      return (
+                        <div
+                          key={dayInfo.key}
+                          className="text-xs text-gray-600"
+                        >
+                          <span className="font-medium text-gray-700">
+                            {dayInfo.label}:
+                          </span>
+                          <div className="grid grid-cols-2 gap-x-2 ml-2">
+                            <span>
+                              M: {schedule.morningStart}-{schedule.morningEnd}
                             </span>
-                            <div className="grid grid-cols-2 gap-x-2 ml-2">
-                              <span>
-                                M: {schedule.morningStart}-{schedule.morningEnd}
-                              </span>
-                              {schedule.afternoonStart &&
-                                schedule.afternoonEnd && (
-                                  <span>
-                                    T: {schedule.afternoonStart}-
-                                    {schedule.afternoonEnd}
-                                  </span>
-                                )}
-                            </div>
+                            {schedule.afternoonStart &&
+                              schedule.afternoonEnd && (
+                                <span>
+                                  T: {schedule.afternoonStart}-
+                                  {schedule.afternoonEnd}
+                                </span>
+                              )}
                           </div>
-                        );
-                      }
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -592,6 +792,23 @@ export default function AdminStaff() {
               <h3 className="text-lg font-medium text-gray-900 mb-6">
                 {isEditMode ? "Editar Funcionário" : "Novo Funcionário"}
               </h3>
+
+              {/* Validation Errors */}
+              {validationErrors.length > 0 && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <h4 className="text-sm font-medium text-red-800 mb-2">
+                    Corrija os seguintes problemas:
+                  </h4>
+                  <ul className="text-sm text-red-700 space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index} className="flex items-start">
+                        <span className="text-red-500 mr-2">•</span>
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <form
                 onSubmit={isEditMode ? handleUpdateStaff : handleCreateStaff}
@@ -652,16 +869,27 @@ export default function AdminStaff() {
                     <input
                       type="email"
                       value={newStaff.email}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const value = e.target.value;
                         setNewStaff((prev) => ({
                           ...prev,
-                          email: e.target.value,
-                        }))
-                      }
+                          email: value,
+                        }));
+                        // Validação em tempo real
+                        const error = validateEmail(value);
+                        updateFieldError("email", error);
+                      }}
                       placeholder="exemplo@email.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
+                        fieldErrors.email ? "border-red-300" : "border-gray-300"
+                      }`}
                       required
                     />
+                    {fieldErrors.email && (
+                      <p className="text-red-600 text-xs mt-1">
+                        {fieldErrors.email}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -673,16 +901,27 @@ export default function AdminStaff() {
                     <input
                       type="text"
                       value={newStaff.phone}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const formattedPhone = formatPhone(e.target.value);
                         setNewStaff((prev) => ({
                           ...prev,
-                          phone: formatPhone(e.target.value),
-                        }))
-                      }
+                          phone: formattedPhone,
+                        }));
+                        // Validação em tempo real
+                        const error = validatePhone(formattedPhone);
+                        updateFieldError("phone", error);
+                      }}
                       placeholder="(88) 99999-9999"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
+                        fieldErrors.phone ? "border-red-300" : "border-gray-300"
+                      }`}
                       required
                     />
+                    {fieldErrors.phone && (
+                      <p className="text-red-600 text-xs mt-1">
+                        {fieldErrors.phone}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -707,7 +946,7 @@ export default function AdminStaff() {
                 {/* Skills/Services */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Habilidades / Serviços
+                    Habilidades / Serviços *
                   </label>
 
                   {/* Available Services */}
@@ -737,7 +976,7 @@ export default function AdminStaff() {
                         Selecionados:
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {newStaff.skills.map((skill) => (
+                        {getValidSkills(newStaff.skills).map((skill) => (
                           <span
                             key={skill.productId || skill.serviceId}
                             className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center space-x-1"
@@ -766,7 +1005,7 @@ export default function AdminStaff() {
                 {/* Work Days */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Dias de Trabalho
+                    Dias de Trabalho *
                   </label>
 
                   {/* Day Selection */}
@@ -796,103 +1035,101 @@ export default function AdminStaff() {
                   {/* Work Schedule Details */}
                   {Object.keys(newStaff.workSchedule).length > 0 && (
                     <div className="space-y-4">
-                      {Object.entries(newStaff.workSchedule).map(
-                        ([dayKey, schedule]) => {
-                          const dayInfo = WEEK_DAYS.find(
-                            (d) => d.key === dayKey
-                          );
-                          return (
-                            <div
-                              key={dayKey}
-                              className="border border-gray-200 rounded-lg p-4"
-                            >
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-medium text-gray-900">
-                                  {dayInfo?.name}
-                                </h4>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveWorkDay(dayKey)}
-                                  className="text-red-600 hover:text-red-800 text-sm"
-                                >
-                                  Remover
-                                </button>
-                              </div>
+                      {WEEK_DAYS.filter(
+                        (dayInfo) => newStaff.workSchedule[dayInfo.key]
+                      ).map((dayInfo) => {
+                        const schedule = newStaff.workSchedule[dayInfo.key];
+                        return (
+                          <div
+                            key={dayInfo.key}
+                            className="border border-gray-200 rounded-lg p-4"
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-medium text-gray-900">
+                                {dayInfo.name}
+                              </h4>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveWorkDay(dayInfo.key)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                Remover
+                              </button>
+                            </div>
 
-                              <div className="grid grid-cols-4 gap-4">
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">
-                                    Manhã
-                                  </label>
-                                  <input
-                                    type="time"
-                                    value={schedule.morningStart}
-                                    onChange={(e) =>
-                                      handleUpdateWorkTime(
-                                        dayKey,
-                                        "morningStart",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">
-                                    às
-                                  </label>
-                                  <input
-                                    type="time"
-                                    value={schedule.morningEnd}
-                                    onChange={(e) =>
-                                      handleUpdateWorkTime(
-                                        dayKey,
-                                        "morningEnd",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">
-                                    Tarde
-                                  </label>
-                                  <input
-                                    type="time"
-                                    value={schedule.afternoonStart}
-                                    onChange={(e) =>
-                                      handleUpdateWorkTime(
-                                        dayKey,
-                                        "afternoonStart",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">
-                                    às
-                                  </label>
-                                  <input
-                                    type="time"
-                                    value={schedule.afternoonEnd}
-                                    onChange={(e) =>
-                                      handleUpdateWorkTime(
-                                        dayKey,
-                                        "afternoonEnd",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
-                                  />
-                                </div>
+                            <div className="grid grid-cols-4 gap-4">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  Manhã
+                                </label>
+                                <input
+                                  type="time"
+                                  value={schedule.morningStart}
+                                  onChange={(e) =>
+                                    handleUpdateWorkTime(
+                                      dayInfo.key,
+                                      "morningStart",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  às
+                                </label>
+                                <input
+                                  type="time"
+                                  value={schedule.morningEnd}
+                                  onChange={(e) =>
+                                    handleUpdateWorkTime(
+                                      dayInfo.key,
+                                      "morningEnd",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  Tarde
+                                </label>
+                                <input
+                                  type="time"
+                                  value={schedule.afternoonStart}
+                                  onChange={(e) =>
+                                    handleUpdateWorkTime(
+                                      dayInfo.key,
+                                      "afternoonStart",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">
+                                  às
+                                </label>
+                                <input
+                                  type="time"
+                                  value={schedule.afternoonEnd}
+                                  onChange={(e) =>
+                                    handleUpdateWorkTime(
+                                      dayInfo.key,
+                                      "afternoonEnd",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                />
                               </div>
                             </div>
-                          );
-                        }
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

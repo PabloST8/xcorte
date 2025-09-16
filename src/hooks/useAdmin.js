@@ -5,12 +5,22 @@ import { firestoreAppointmentsService } from "../services/firestoreAppointmentsS
 import { firestoreClientsService } from "../services/firestoreClientsService";
 import { firestoreProductsService } from "../services/firestoreProductsService";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
+import { useEnterprise } from "../contexts/EnterpriseContext";
+
+// Hook helper para obter email da empresa atual
+const useCurrentEnterpriseEmail = () => {
+  const { currentEnterprise } = useEnterprise();
+  const email = currentEnterprise?.email || "empresaadmin@xcortes.com";
+  console.log("🏢 useCurrentEnterpriseEmail:", { currentEnterprise, email });
+  return email;
+};
 
 export const useDashboardStats = () => {
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useQuery({
     queryKey: ["admin", "dashboard-stats", enterpriseEmail],
+    enabled: !!enterpriseEmail,
     queryFn: async () => {
       // Tentar buscar dados do Firestore primeiro
       try {
@@ -35,11 +45,12 @@ export const useDashboardStats = () => {
 
 // Hook para obter todos os agendamentos (admin) - usando Firestore
 export const useAllAppointments = (params = {}) => {
-  // Fixar o email da empresa para evitar mudanças durante o carregamento
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useQuery({
     queryKey: ["admin", "appointments", params, enterpriseEmail],
+    enabled: !!enterpriseEmail,
+    keepPreviousData: false,
     queryFn: async () => {
       // Tentar buscar do Firestore primeiro
       try {
@@ -74,10 +85,28 @@ export const useAllAppointments = (params = {}) => {
 // Hook para atualizar status do agendamento
 export const useUpdateAppointmentStatus = () => {
   const queryClient = useQueryClient();
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
-    mutationFn: ({ appointmentId, status }) =>
-      adminService.updateAppointmentStatus(appointmentId, status),
+    mutationFn: async ({ appointmentId, status }) => {
+      // Tentar atualizar no Firestore primeiro
+      try {
+        const response =
+          await firestoreAppointmentsService.updateAppointmentStatus(
+            appointmentId,
+            status,
+            enterpriseEmail
+          );
+        if (response.success) {
+          return response;
+        }
+      } catch (error) {
+        console.log("Firestore indisponível, usando fallback:", error);
+      }
+
+      // Fallback para adminService
+      return adminService.updateAppointmentStatus(appointmentId, status);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "dashboard-stats"] });
@@ -89,7 +118,7 @@ export const useUpdateAppointmentStatus = () => {
 export const useDeleteAppointment = () => {
   const queryClient = useQueryClient();
   // Fixar o email da empresa
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
     mutationFn: async (appointmentId) => {
@@ -119,10 +148,11 @@ export const useDeleteAppointment = () => {
 // Hook para obter todos os serviços
 export const useServices = () => {
   // Fixar o email da empresa
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useQuery({
     queryKey: ["admin", "services", enterpriseEmail],
+    enabled: !!enterpriseEmail,
     queryFn: async () => {
       // Tentar buscar do Firestore primeiro
       try {
@@ -152,14 +182,20 @@ export const useServices = () => {
 
 // Hook para obter todos os funcionários
 export const useStaff = () => {
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useQuery({
     queryKey: ["admin", "staff", enterpriseEmail],
     queryFn: async () => {
+      console.log(
+        "🔍 useStaff: Buscando funcionários para empresa:",
+        enterpriseEmail
+      );
+
       // Tentar buscar do Firestore primeiro
       try {
         const response = await employeeFirestoreService.list(enterpriseEmail);
+        console.log("✅ useStaff: Funcionários encontrados:", response);
         return response || [];
       } catch (error) {
         console.log(
@@ -180,7 +216,7 @@ export const useStaff = () => {
 // Hook para criar serviço
 export const useCreateService = () => {
   const queryClient = useQueryClient();
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
     mutationFn: async (serviceData) => {
@@ -209,7 +245,7 @@ export const useCreateService = () => {
 // Hook para atualizar serviço
 export const useUpdateService = () => {
   const queryClient = useQueryClient();
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
     mutationFn: async ({ serviceId, serviceData }) => {
@@ -239,7 +275,7 @@ export const useUpdateService = () => {
 // Hook para deletar serviço
 export const useDeleteService = () => {
   const queryClient = useQueryClient();
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
     mutationFn: async (serviceId) => {
@@ -250,6 +286,8 @@ export const useDeleteService = () => {
           enterpriseEmail
         );
         if (response.success) {
+          // Após deletar o serviço, limpar as habilidades órfãs de todos os funcionários
+          await cleanOrphanSkillsFromAllEmployees(serviceId, enterpriseEmail);
           return response;
         }
       } catch (error) {
@@ -261,14 +299,56 @@ export const useDeleteService = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "services"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "staff"] });
     },
   });
+};
+
+// Função helper para limpar habilidades órfãs
+const cleanOrphanSkillsFromAllEmployees = async (
+  deletedServiceId,
+  enterpriseEmail
+) => {
+  try {
+    console.log(
+      `🧹 Limpando habilidades órfãs do serviço ${deletedServiceId}...`
+    );
+
+    // Buscar todos os funcionários da empresa
+    const employees = await employeeFirestoreService.list(enterpriseEmail);
+
+    // Para cada funcionário, remover a habilidade do serviço deletado
+    for (const employee of employees) {
+      if (employee.skills && employee.skills.length > 0) {
+        const updatedSkills = employee.skills.filter(
+          (skill) =>
+            skill.productId !== deletedServiceId &&
+            skill.serviceId !== deletedServiceId
+        );
+
+        // Se houve mudança nas habilidades, atualizar o funcionário
+        if (updatedSkills.length !== employee.skills.length) {
+          console.log(
+            `🔧 Removendo habilidade órfã do funcionário ${employee.name}`
+          );
+          await employeeFirestoreService.update(employee.id, {
+            ...employee,
+            skills: updatedSkills,
+          });
+        }
+      }
+    }
+
+    console.log("✅ Limpeza de habilidades órfãs concluída");
+  } catch (error) {
+    console.error("❌ Erro ao limpar habilidades órfãs:", error);
+  }
 };
 
 // Hook para criar funcionário
 export const useCreateStaff = () => {
   const queryClient = useQueryClient();
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useMutation({
     mutationFn: async (staffData) => {
@@ -298,20 +378,14 @@ export const useCreateStaff = () => {
 // Hook para atualizar funcionário
 export const useUpdateStaff = () => {
   const queryClient = useQueryClient();
-  const enterpriseEmail = "empresaadmin@xcortes.com";
 
   return useMutation({
     mutationFn: async ({ id, ...staffData }) => {
       // Tentar atualizar no Firestore primeiro
       try {
-        const dataWithEnterprise = {
-          ...staffData,
-          enterpriseEmail: enterpriseEmail,
-        };
-        const result = await employeeFirestoreService.update(
-          id,
-          dataWithEnterprise
-        );
+        // IMPORTANTE: Não modificar o enterpriseEmail durante a atualização
+        // Manter o enterpriseEmail original do funcionário
+        const result = await employeeFirestoreService.update(id, staffData);
         return result;
       } catch (error) {
         console.log("Firestore indisponível, usando fallback:", error);
@@ -334,10 +408,11 @@ export const useDeleteStaff = () => {
     mutationFn: async (staffId) => {
       // Tentar deletar do Firestore primeiro
       try {
-        const result = await employeeFirestoreService.delete(staffId);
+        const result = await employeeFirestoreService.remove(staffId);
+        console.log("✅ Funcionário deletado com sucesso:", staffId);
         return result;
       } catch (error) {
-        console.log("Firestore indisponível, usando fallback:", error);
+        console.log("❌ Erro no Firestore, usando fallback:", error);
       }
 
       // Fallback para adminService
@@ -346,16 +421,20 @@ export const useDeleteStaff = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "staff"] });
     },
+    onError: (error) => {
+      console.error("❌ Erro ao deletar funcionário:", error);
+    },
   });
 };
 
 // Hook para obter todos os clientes
 export const useAllClients = (params = {}) => {
   // Fixar o email da empresa
-  const enterpriseEmail = "empresaadmin@xcortes.com";
+  const enterpriseEmail = useCurrentEnterpriseEmail();
 
   return useQuery({
     queryKey: ["admin", "clients", params, enterpriseEmail],
+    enabled: !!enterpriseEmail,
     queryFn: async () => {
       // Tentar buscar do Firestore primeiro
       try {

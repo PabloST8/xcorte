@@ -12,6 +12,10 @@ import { enterpriseBookingFirestoreService } from "../services/enterpriseBooking
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useCart } from "../contexts/useCart";
+import PaymentOverlay from "./PaymentOverlay";
+import { useAuth } from "../hooks/useAuth";
+import NotificationPopup from "./NotificationPopup";
+import { useNotification } from "../hooks/useNotification";
 
 // Props:
 // - open: boolean
@@ -31,6 +35,9 @@ export default function BookingOverlay({
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
   const { addItem } = useCart();
+  const { user: authUser } = useAuth();
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [selectedDate, setSelectedDate] = useState(""); // YYYY-MM-DD
   const [slots, setSlots] = useState([]);
@@ -38,6 +45,7 @@ export default function BookingOverlay({
   const [selectedTime, setSelectedTime] = useState("");
   const [availableDates, setAvailableDates] = useState([]); // YYYY-MM-DD[]
   const [loadingDates, setLoadingDates] = useState(false);
+  const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
 
   // Robust local date parser for either YYYY-MM-DD (input value) or DD/MM/YYYY (locale UI)
   const parseLocalDate = (dateStr) => {
@@ -61,8 +69,13 @@ export default function BookingOverlay({
       setSlots([]);
       setSelectedTime("");
       setAvailableDates([]);
+      // Limpar notificação quando fechar
+      hideNotification();
+    } else {
+      // Limpar notificação quando abrir
+      hideNotification();
     }
-  }, [open]);
+  }, [open, hideNotification]);
 
   // Seed initial selection when opening in edit mode
   useEffect(() => {
@@ -542,6 +555,84 @@ export default function BookingOverlay({
 
   // Navegação direta para appointment foi substituída por adicionar ao carrinho
 
+  // Função para agendar diretamente com pagamento
+  const handleScheduleNow = () => {
+    if (!canConfirm) return;
+    setShowPaymentOverlay(true);
+  };
+
+  // Função para adicionar ao carrinho e ir para serviços
+  const handleAddAndChooseMore = () => {
+    if (!canConfirm) return;
+
+    // Adicionar ao carrinho
+    addItem({
+      productId: product?.id,
+      serviceName: product?.name,
+      priceInCents: product?.priceInCents ?? product?.price ?? 0,
+      duration: Number(product?.duration) || 30,
+      employeeId: selectedEmployee?.id,
+      employeeName: selectedEmployee?.name,
+      date: selectedDate,
+      time: selectedTime,
+    });
+
+    // Fechar overlay atual
+    onClose();
+
+    // Navegar para página de serviços (aba Todos)
+    // A navegação será feita através de uma prop ou context
+    if (typeof window !== "undefined") {
+      // Vamos navegar para a página de serviços
+      window.location.href = getEnterpriseUrl("service-details?category=Todos");
+    }
+  };
+
+  // Função chamada quando pagamento é confirmado
+  const handlePaymentConfirm = async (result) => {
+    console.log("🎯 handlePaymentConfirm chamado com:", result);
+    if (result.success) {
+      // Criar agendamento no Firestore
+      try {
+        console.log("🔄 Criando agendamento...");
+        await enterpriseBookingFirestoreService.create(
+          currentEnterprise?.email,
+          {
+            clientName: authUser?.name || "Cliente",
+            clientEmail: authUser?.email || "",
+            clientPhone: authUser?.phone || "",
+            productId: product?.id,
+            productName: product?.name,
+            productPrice: product?.priceInCents ?? product?.price ?? 0,
+            productDuration: Number(product?.duration) || 30,
+            date: selectedDate,
+            startTime: selectedTime,
+            status: "scheduled",
+            staffName: selectedEmployee?.name,
+            staffId: selectedEmployee?.id,
+            paymentMethod: result.paymentMethod,
+            paymentId: result.paymentId,
+          }
+        );
+        console.log("✅ Agendamento criado, mostrando notificação...");
+        if (typeof window !== "undefined") {
+          showSuccess("Agendamento confirmado com sucesso!", 4000); // 4 segundos
+        }
+        // Aguardar um pouco antes de fechar para o usuário ver a notificação
+        setTimeout(() => {
+          hideNotification(); // Limpar notificação antes de fechar
+          onClose();
+        }, 2000);
+      } catch (err) {
+        console.log("❌ Erro ao criar agendamento:", err);
+        showError("Erro ao criar agendamento: " + (err?.message || err), 6000);
+      }
+    } else {
+      console.log("❌ Pagamento não foi bem-sucedido:", result);
+      showError("Falha no pagamento. Tente novamente.", 6000);
+    }
+  };
+
   if (!open) return null;
 
   const canConfirm = Boolean(
@@ -744,37 +835,25 @@ export default function BookingOverlay({
                     <button
                       type="button"
                       disabled={!canConfirm}
-                      onClick={() => {
-                        if (!canConfirm) return;
-                        addItem({
-                          productId: product?.id,
-                          serviceName: product?.name,
-                          priceInCents:
-                            product?.priceInCents ?? product?.price ?? 0,
-                          duration: Number(product?.duration) || 30,
-                          employeeId: selectedEmployee?.id,
-                          employeeName: selectedEmployee?.name,
-                          date: selectedDate,
-                          time: selectedTime,
-                        });
-                        if (typeof window !== "undefined") {
-                          alert("Agendamento adicionado ao carrinho.");
-                        }
-                      }}
+                      onClick={handleScheduleNow}
                       className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                         canConfirm
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"
                       }`}
                     >
-                      Adicionar ao carrinho
+                      Agendar agora
                     </button>
-                    <Link
-                      to={getEnterpriseUrl("cart")}
-                      className="block w-full text-center py-3 rounded-lg font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    <button
+                      type="button"
+                      disabled={!canConfirm}
+                      onClick={handleAddAndChooseMore}
+                      className={`w-full py-3 rounded-lg font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 ${
+                        !canConfirm ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
-                      Ir para o carrinho
-                    </Link>
+                      Adicionar e escolher mais serviços
+                    </button>
                   </>
                 )}
               </div>
@@ -782,6 +861,27 @@ export default function BookingOverlay({
           )}
         </div>
       </div>
+
+      {/* Payment Overlay */}
+      <PaymentOverlay
+        isOpen={showPaymentOverlay}
+        onClose={() => setShowPaymentOverlay(false)}
+        appointmentData={{
+          serviceName: product?.name,
+          priceInCents: product?.priceInCents ?? product?.price ?? 0,
+          employeeName: selectedEmployee?.name,
+          date: selectedDate,
+          time: selectedTime,
+        }}
+        onConfirm={handlePaymentConfirm}
+      />
+      <NotificationPopup
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
+      />
     </div>
   );
 }

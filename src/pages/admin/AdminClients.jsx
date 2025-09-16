@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Search, Filter, Users } from "lucide-react";
-import { useAllClients } from "../../hooks/useAdmin";
+import { useEnterpriseClients } from "../../hooks/useEnterpriseClients";
 import { formatPrice } from "../../types/api";
 
 export default function AdminClients() {
@@ -12,7 +12,7 @@ export default function AdminClients() {
     data: clients,
     isLoading,
     error,
-  } = useAllClients({
+  } = useEnterpriseClients({
     search: searchTerm,
     sortBy,
   });
