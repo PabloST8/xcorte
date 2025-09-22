@@ -1,31 +1,24 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import {
-  ArrowLeft,
-  Phone,
-  Calendar,
-  Star,
-  Edit,
-  Camera,
-  LogOut,
-} from "lucide-react";
+import { ArrowLeft, Phone, Calendar, Star, Edit, LogOut } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useUserAppointments } from "../hooks/useBarbershop";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { bookingService } from "../services/bookingService";
 import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
+import ModernPhotoUpload from "../components/ModernPhotoUpload";
+import { userPhotoProfileService } from "../services/userPhotoProfileService";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser, patchUser } = useAuth();
   const { currentEnterprise } = useEnterprise();
   const [isEditing, setIsEditing] = useState(false);
   const [fallbackAppointments, setFallbackAppointments] = useState([]);
   const [loadingFallback, setLoadingFallback] = useState(false);
 
-  console.log("🔍 Profile Debug - User:", user);
-  console.log("🔍 Profile Debug - CurrentEnterprise:", currentEnterprise);
+  // Debug logs removed
 
   const { data: appointments, isLoading } = useUserAppointments({
     enterpriseEmail: currentEnterprise?.email,
@@ -37,38 +30,100 @@ export default function Profile() {
     userPhone: user?.phone || user?.phoneNumber,
   });
 
-  console.log("🔍 Profile Debug - Appointments from API:", appointments);
-  console.log("🔍 Profile Debug - IsLoading:", isLoading);
-  console.log(
-    "🔍 Profile Debug - Fallback Appointments:",
-    fallbackAppointments
-  );
+  // Debug logs removed
 
   const { getEnterpriseUrl } = useEnterpriseNavigation();
 
+  /**
+   * Manipula a atualização da foto do usuário
+   */
+  const handlePhotoUpdate = async (photoData) => {
+    try {
+      // Sempre derive o ID como telefone numérico; fallback para email
+      const phoneDigits = String(user?.phone || user?.id || "").replace(
+        /\D/g,
+        ""
+      );
+      const userId = phoneDigits || user?.email;
+      if (!userId) return;
+
+      console.log("📸 handlePhotoUpdate - userId:", userId, "user:", user);
+
+      if (photoData) {
+        // 1) Atualiza localmente imediatamente (melhor UX e persiste no cookie)
+        const clientVersion = Date.now();
+        let clientVersioned = photoData.url;
+        try {
+          const u = new URL(photoData.url);
+          u.searchParams.set("v", String(clientVersion));
+          clientVersioned = u.toString();
+        } catch {
+          clientVersioned = `${photoData.url}${
+            photoData.url.includes("?") ? "&" : "?"
+          }v=${clientVersion}`;
+        }
+        console.log("📸 Atualizando foto localmente:", clientVersioned);
+        (patchUser || updateUser)?.({
+          photoURL: clientVersioned,
+          photoPath: photoData.path,
+          photoVersion: clientVersion,
+        });
+
+        // 2) Persiste no Firestore em segundo plano e revalida com versão do servidor
+        console.log("📸 Salvando metadados no Firestore com userId:", userId);
+        userPhotoProfileService
+          .setUserPhoto(userId, photoData)
+          .then(({ photoURL, photoPath, photoVersion }) => {
+            let versioned = photoURL;
+            try {
+              const u = new URL(photoURL);
+              u.searchParams.set("v", String(photoVersion));
+              versioned = u.toString();
+            } catch {
+              versioned = `${photoURL}${
+                photoURL.includes("?") ? "&" : "?"
+              }v=${photoVersion}`;
+            }
+            console.log("📸 Metadados salvos no Firestore, sincronizando:", {
+              versioned,
+              photoPath,
+              photoVersion,
+              userId,
+            });
+            (patchUser || updateUser)?.({
+              photoURL: versioned,
+              photoPath,
+              photoVersion,
+            });
+          })
+          .catch((err) => {
+            console.error("📸 Erro ao salvar metadados no Firestore:", err);
+            // manter estado local se Firestore falhar
+          });
+      } else {
+        // Remoção: zera local primeiro e tenta limpar no Firestore em segundo plano
+        console.log("📸 Removendo foto");
+        (patchUser || updateUser)?.({
+          photoURL: null,
+          photoPath: null,
+          photoVersion: null,
+        });
+        userPhotoProfileService.clearUserPhoto(userId).catch(() => {});
+      }
+    } catch (err) {
+      console.error("📸 Erro no handlePhotoUpdate:", err);
+    }
+  };
+
   // Fallback para carregar agendamentos quando a API principal não funciona
   React.useEffect(() => {
-    console.log("🔄 Fallback Effect triggered");
-    console.log("🔄 IsLoading:", isLoading);
-    console.log("🔄 Appointments length:", (appointments || []).length);
-    console.log("🔄 Current Enterprise Email:", currentEnterprise?.email);
-    console.log("🔄 User identifier check:", {
-      email: user?.email,
-      name: user?.name,
-      phone: user?.phone,
-      phoneNumber: user?.phoneNumber,
-    });
-
     if (isLoading) {
-      console.log("⏳ Still loading, skipping fallback");
       return;
     }
     if ((appointments || []).length > 0) {
-      console.log("✅ API has appointments, skipping fallback");
       return;
     }
     if (!currentEnterprise?.email) {
-      console.log("❌ No enterprise email, skipping fallback");
       return;
     }
     const hasIdentifier = !!(
@@ -78,32 +133,15 @@ export default function Profile() {
       user?.phoneNumber
     );
     if (!hasIdentifier) {
-      console.log("❌ No user identifier, skipping fallback");
       return;
     }
-
-    console.log("🚀 Starting fallback appointment search...");
     let cancelled = false;
     setLoadingFallback(true);
     (async () => {
       try {
-        console.log("📊 User data for search:", {
-          email: user?.email,
-          name: user?.name,
-          phone: user?.phone || user?.phoneNumber,
-        });
-        console.log("🏢 Enterprise data for search:", {
-          email: currentEnterprise?.email,
-          name: currentEnterprise?.name,
-        });
-
         // Tentar buscar do Firestore primeiro - BUSCAR EM TODAS AS EMPRESAS
         let firestoreAppointments = [];
         try {
-          console.log(
-            "🔍 Searching Firestore appointments in ALL enterprises..."
-          );
-
           // Lista de todas as empresas conhecidas
           const allEnterprises = [
             "empresaadmin@xcortes.com",
@@ -114,48 +152,25 @@ export default function Profile() {
           // Buscar em todas as empresas
           const allPromises = allEnterprises.map(async (enterpriseEmail) => {
             try {
-              console.log("🔍 Searching in enterprise:", enterpriseEmail);
               const bookings = await enterpriseBookingFirestoreService.list(
-                enterpriseEmail
-              );
-              console.log(
-                "📋 Found",
-                bookings.length,
-                "bookings in",
                 enterpriseEmail
               );
               return bookings.map((b) => ({
                 ...b,
                 sourceEnterprise: enterpriseEmail,
               }));
-            } catch (error) {
-              console.warn(
-                "❌ Error searching in",
-                enterpriseEmail,
-                ":",
-                error
-              );
+            } catch {
               return [];
             }
           });
 
           const allResults = await Promise.all(allPromises);
           firestoreAppointments = allResults.flat();
-
-          console.log(
-            "📋 Total Firestore appointments found across all enterprises:",
-            firestoreAppointments.length
-          );
-          console.log(
-            "📋 All Firestore appointments data:",
-            firestoreAppointments
-          );
-        } catch (error) {
-          console.warn("❌ Erro ao buscar do Firestore:", error);
+        } catch {
+          // Silenciar erros de fallback do Firestore
         }
 
         // Fallback para o bookingService (usado na UserAppointments) - APENAS SE A API ESTIVER FUNCIONANDO
-        console.log("🔍 Searching API appointments...");
         let apiAppointments = [];
         try {
           const unwrap = (val) =>
@@ -164,21 +179,16 @@ export default function Profile() {
           const allRaw = await bookingService.getBookings(
             currentEnterprise.email
           );
-          console.log("📋 All API appointments raw:", allRaw);
 
           const today = new Date().toISOString().split("T")[0];
           const todayRaw = await bookingService.getBookings(
             currentEnterprise.email,
             today
           );
-          console.log("📋 Today API appointments raw:", todayRaw);
 
           apiAppointments = [...unwrap(allRaw), ...unwrap(todayRaw)];
-        } catch (error) {
-          console.warn(
-            "⚠️ API appointments failed, using only Firestore data:",
-            error.message
-          );
+        } catch {
+          // Silenciar erros da API no fallback
           // Não é um erro crítico, apenas seguimos sem dados da API
         }
 
@@ -196,13 +206,9 @@ export default function Profile() {
           if (!map.has(key)) map.set(key, b);
         });
 
-        console.log("📊 Total appointments in map:", map.size);
-
         const uEmail = user?.email || "";
         const uName = user?.name || "";
         const uPhone = user?.phone || user?.phoneNumber || "";
-
-        console.log("🔍 Filtering by user data:", { uEmail, uName, uPhone });
 
         const merged = Array.from(map.values()).filter((b) => {
           const bEmail = b.clientEmail || b.email || "";
@@ -213,20 +219,11 @@ export default function Profile() {
           const nameMatch = uName && bName === uName;
           const phoneMatch = uPhone && bPhone === uPhone;
 
-          console.log("🔍 Checking appointment:", {
-            appointment: { bEmail, bName, bPhone },
-            matches: { emailMatch, nameMatch, phoneMatch },
-            willInclude: emailMatch || nameMatch || phoneMatch,
-          });
-
           return emailMatch || nameMatch || phoneMatch;
         });
-
-        console.log("✅ Filtered appointments:", merged.length);
-        console.log("✅ Filtered appointments data:", merged);
         if (!cancelled) setFallbackAppointments(merged);
-      } catch (error) {
-        console.error("❌ Fallback error:", error);
+      } catch {
+        // Silenciar erros de fallback
         if (!cancelled) setFallbackAppointments([]);
       } finally {
         if (!cancelled) setLoadingFallback(false);
@@ -275,9 +272,7 @@ export default function Profile() {
         }
       });
 
-      // Limpar localStorage completamente
-      localStorage.clear();
-      sessionStorage.clear();
+      // Remoção de storage local desabilitada por política: não usar localStorage/sessionStorage
 
       // Aguardar um pouco para garantir que o estado seja limpo
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -289,8 +284,7 @@ export default function Profile() {
 
       // Forçar navegação usando window.location para contornar possíveis problemas de cache
       window.location.href = loginUrl;
-    } catch (error) {
-      console.error("Erro no logout:", error);
+    } catch {
       // Mesmo com erro, redirecionar para login
       const timestamp = Date.now();
       const loginUrl = `${window.location.origin}/auth/login?t=${timestamp}`;
@@ -321,16 +315,32 @@ export default function Profile() {
         {/* Profile Card */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center space-x-4 mb-6">
-            <div className="relative">
-              <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">
-                  {user?.name?.charAt(0)?.toUpperCase() || "U"}
-                </span>
-              </div>
-              <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white">
-                <Camera className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Foto de perfil */}
+            {/** Deriva o ID do usuário como telefone numérico (preferência do sistema) **/}
+            {(() => {
+              const phoneDigits = String(user?.phone || user?.id || "").replace(
+                /\D/g,
+                ""
+              );
+              const userIdForPhoto = phoneDigits || user?.email || "user";
+              console.log("📸 Profile render - user photo data:", {
+                userIdForPhoto,
+                currentPhotoURL: user?.photoURL,
+                photoVersion: user?.photoVersion,
+                photoPath: user?.photoPath,
+              });
+              return (
+                <ModernPhotoUpload
+                  userId={userIdForPhoto}
+                  currentPhotoURL={user?.photoURL}
+                  onPhotoUpdated={handlePhotoUpdate}
+                  className="mb-4"
+                  showActions={false}
+                  showInfo={false}
+                />
+              );
+            })()}
+
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">
                 {user?.name || "Usuário"}
@@ -470,6 +480,9 @@ export default function Profile() {
             </Link>
           )}
         </div>
+
+        {/* Seção de testes removida */}
+
         {/* Quick Actions and Settings removed as requested */}
 
         {/* Logout Button */}

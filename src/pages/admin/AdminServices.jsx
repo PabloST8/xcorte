@@ -24,6 +24,7 @@ export default function AdminServices() {
     duration: 30, // minutos
     price: 25, // reais
     category: "",
+    code: "", // código/número do serviço
     isActive: true,
   });
 
@@ -101,6 +102,37 @@ export default function AdminServices() {
         return;
       }
 
+      // Validar nome duplicado
+      const nameExists = displayServices.some(
+        (service) =>
+          service.name.toLowerCase().trim() ===
+          newService.name.toLowerCase().trim()
+      );
+
+      if (nameExists) {
+        alert(
+          "Já existe um serviço com este nome. Por favor, escolha um nome diferente."
+        );
+        return;
+      }
+
+      // Validar código duplicado (se preenchido)
+      if (newService.code && newService.code.trim()) {
+        const codeExists = displayServices.some(
+          (service) =>
+            service.code &&
+            service.code.toLowerCase().trim() ===
+              newService.code.toLowerCase().trim()
+        );
+
+        if (codeExists) {
+          alert(
+            "Já existe um serviço com este código. Por favor, escolha um código diferente."
+          );
+          return;
+        }
+      }
+
       // Usar dados diretamente do newService (já em reais)
       await createServiceMutation.mutateAsync(newService);
 
@@ -111,6 +143,7 @@ export default function AdminServices() {
         duration: 30,
         price: 25,
         category: "",
+        code: "",
         isActive: true,
       });
       setPriceInput("2500"); // Reset para R$ 25,00
@@ -156,6 +189,7 @@ export default function AdminServices() {
       duration: service.duration || 30,
       price: service.price || 25,
       category: service.category || "",
+      code: service.code || "",
       isActive: service.isActive !== false,
     });
 
@@ -170,12 +204,36 @@ export default function AdminServices() {
     const price = service.price || 25;
     console.log("💰 Preço do serviço para edição:", price);
 
-    // TESTE: Removendo a conversão para ver se o problema está aqui
-    // const priceInCents = Math.round(price * 100);
-    // console.log('💰 Convertendo para centavos no input:', price, '→', priceInCents);
+    // Verificar se o preço já está em centavos ou em reais
+    // Se for maior que 100, provavelmente já está em centavos
+    // Se for menor que 100, está em reais e precisa converter
+    let priceInCents;
+    let priceInReais;
+    if (price > 100) {
+      // Já está em centavos
+      priceInCents = Math.round(price);
+      priceInReais = price / 100;
+    } else {
+      // Está em reais, converter para centavos
+      priceInReais = price;
+      priceInCents = Math.round(price * 100);
+    }
+    console.log(
+      "💰 Preço final para input:",
+      price,
+      "→",
+      priceInCents,
+      "→ reais:",
+      priceInReais
+    );
 
-    // Usando o preço direto sem conversão
-    setPriceInput(price.toString());
+    setPriceInput(priceInCents.toString());
+
+    // Atualizar o newService.price para garantir consistência
+    setNewService((prev) => ({
+      ...prev,
+      price: priceInReais,
+    }));
 
     setShowCreateModal(true);
   };
@@ -199,9 +257,57 @@ export default function AdminServices() {
         return;
       }
 
+      // Validar nome duplicado (apenas se o nome foi alterado)
+      if (
+        editingService &&
+        newService.name.toLowerCase().trim() !==
+          editingService.name.toLowerCase().trim()
+      ) {
+        const nameExists = displayServices.some(
+          (service) =>
+            service.id !== editingService.id &&
+            service.name.toLowerCase().trim() ===
+              newService.name.toLowerCase().trim()
+        );
+
+        if (nameExists) {
+          alert(
+            "Já existe um serviço com este nome. Por favor, escolha um nome diferente."
+          );
+          return;
+        }
+      }
+
+      // Validar código duplicado (apenas se o código foi alterado e está preenchido)
+      if (
+        editingService &&
+        newService.code &&
+        newService.code.trim() &&
+        newService.code.toLowerCase().trim() !==
+          (editingService.code || "").toLowerCase().trim()
+      ) {
+        const codeExists = displayServices.some(
+          (service) =>
+            service.id !== editingService.id &&
+            service.code &&
+            service.code.toLowerCase().trim() ===
+              newService.code.toLowerCase().trim()
+        );
+
+        if (codeExists) {
+          alert(
+            "Já existe um serviço com este código. Por favor, escolha um código diferente."
+          );
+          return;
+        }
+      }
+
       console.log("Dados do serviço a serem atualizados:", {
         serviceId: editingService.id,
         serviceData: newService,
+        originalPrice: editingService.price,
+        newPrice: newService.price,
+        priceInput: priceInput,
       });
 
       await updateServiceMutation.mutateAsync({
@@ -239,6 +345,7 @@ export default function AdminServices() {
       duration: 30,
       price: 25,
       category: "",
+      code: "",
       isActive: true,
     });
     setPriceInput("2500");
@@ -307,9 +414,16 @@ export default function AdminServices() {
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {service.name}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {service.name}
+                    </h3>
+                    {service.code && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        #{service.code}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-amber-600 mt-1">
                     {service.category}
                   </p>
@@ -412,6 +526,24 @@ export default function AdminServices() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Código/Número do Serviço
+                  </label>
+                  <input
+                    type="text"
+                    value={newService.code}
+                    onChange={(e) =>
+                      setNewService({ ...newService, code: e.target.value })
+                    }
+                    placeholder="Ex: 001, S01, CORTE001 (opcional)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Código único para identificação do serviço (opcional)
+                  </p>
                 </div>
 
                 <div>

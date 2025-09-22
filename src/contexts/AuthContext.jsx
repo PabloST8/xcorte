@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Cookies from "js-cookie";
 import { authService } from "../services/authService";
 import { firebaseAuthService } from "../services/firebaseAuthService";
@@ -10,6 +10,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Atualiza apenas dados do usuário (cookie user_data), sem tocar no token
+  const patchUser = (patch) => {
+    const updated = { ...(user || {}), ...patch };
+    setUser(updated);
+    Cookies.set("user_data", JSON.stringify(updated), { expires: 7 });
+  };
+  const patchUserRef = useRef(patchUser);
+  patchUserRef.current = patchUser;
 
   useEffect(() => {
     const initAuth = async () => {
@@ -41,6 +50,67 @@ export const AuthProvider = ({ children }) => {
 
           // Firebase Auth está desabilitado para desenvolvimento
           console.log("✅ Usuário autenticado sem Firebase Auth");
+
+          // Sincronizar campos de foto do Firestore para persistir após reload
+          try {
+            const idCandidate = parsedUser.phone || parsedUser.id || "";
+            const cleanPhone = String(idCandidate).replace(/\D/g, "");
+            const userDocId = cleanPhone || parsedUser.id || parsedUser.email;
+            console.log(
+              "📸 Tentando sincronizar foto do Firestore - userDocId:",
+              userDocId,
+              "parsedUser:",
+              parsedUser
+            );
+            if (userDocId) {
+              const userRef = doc(db, "users", String(userDocId));
+              const snap = await getDoc(userRef);
+              if (snap.exists()) {
+                const data = snap.data() || {};
+                console.log(
+                  "📸 Dados do usuário encontrados no Firestore:",
+                  data
+                );
+                if (data.photoURL) {
+                  let versioned = data.photoURL;
+                  try {
+                    const u = new URL(data.photoURL);
+                    if (data.photoVersion)
+                      u.searchParams.set("v", String(data.photoVersion));
+                    versioned = u.toString();
+                  } catch {
+                    if (data.photoVersion) {
+                      versioned = `${data.photoURL}${
+                        data.photoURL.includes("?") ? "&" : "?"
+                      }v=${data.photoVersion}`;
+                    }
+                  }
+                  // Atualiza somente se diferente para evitar loops
+                  if (parsedUser.photoURL !== versioned) {
+                    console.log(
+                      "📸 Sincronizando foto do Firestore:",
+                      versioned
+                    );
+                    patchUserRef.current?.({
+                      photoURL: versioned,
+                      photoPath: data.photoPath || null,
+                      photoVersion: data.photoVersion || null,
+                    });
+                  } else {
+                    console.log("📸 Foto já está sincronizada");
+                  }
+                } else {
+                  console.log("📸 Nenhuma foto encontrada no Firestore");
+                }
+              } else {
+                console.log(
+                  "📸 Documento do usuário não encontrado no Firestore"
+                );
+              }
+            }
+          } catch (syncErr) {
+            console.warn("📸 Falha ao sincronizar foto do Firestore:", syncErr);
+          }
         }
       } catch (error) {
         console.error("Erro ao verificar status de autenticação:", error);
@@ -127,6 +197,8 @@ export const AuthProvider = ({ children }) => {
       const cleanPhone = String(phone || "").replace(/\D/g, "");
       if (!cleanPhone) throw new Error("Telefone obrigatório");
 
+      console.log("📸 simplePhoneLogin - cleanPhone:", cleanPhone);
+
       const userRef = doc(db, "users", cleanPhone);
       const snap = await getDoc(userRef);
       if (!snap.exists()) {
@@ -137,7 +209,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       const data = snap.data() || {};
-      const userObj = {
+      console.log("📸 Dados carregados do Firestore no login:", data);
+
+      let userObj = {
         id: data.id || snap.id || cleanPhone,
         name: data.name || "Cliente",
         phone: data.phone || cleanPhone,
@@ -146,9 +220,30 @@ export const AuthProvider = ({ children }) => {
         ...data,
       };
 
+      // Se tem foto no Firestore, aplicar cache-busting
+      if (data.photoURL && data.photoVersion) {
+        let versioned = data.photoURL;
+        try {
+          const u = new URL(data.photoURL);
+          u.searchParams.set("v", String(data.photoVersion));
+          versioned = u.toString();
+        } catch {
+          versioned = `${data.photoURL}${
+            data.photoURL.includes("?") ? "&" : "?"
+          }v=${data.photoVersion}`;
+        }
+        userObj.photoURL = versioned;
+        console.log("📸 Foto carregada do Firestore no login:", versioned);
+      } else {
+        console.log(
+          "📸 Nenhuma foto encontrada no Firestore para este usuário"
+        );
+      }
+
       // Firebase Auth está desabilitado para desenvolvimento
       console.log("✅ Usuário autenticado sem Firebase Auth");
 
+      // Mantém token simples sem tocar ao atualizar apenas foto
       Cookies.set("auth_token", `simple-${userObj.id}`, { expires: 30 });
       Cookies.set("user_data", JSON.stringify(userObj), { expires: 30 });
       setUser(userObj);
@@ -156,6 +251,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return { success: true, user: userObj };
     } catch (error) {
+      console.error("📸 Erro no simplePhoneLogin:", error);
       return { success: false, error: error.message || "Falha no login" };
     }
   };
@@ -276,10 +372,7 @@ export const AuthProvider = ({ children }) => {
     Cookies.remove("user_data");
     Cookies.remove("current_enterprise");
 
-    // Limpar localStorage também por precaução
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("user_data");
-    localStorage.removeItem("current_enterprise");
+    // Política: não usar localStorage
 
     // Resetar estado
     setUser(null);
@@ -347,13 +440,44 @@ export const AuthProvider = ({ children }) => {
         credentials.email === "pablofafstar@gmail.com" &&
         credentials.password === "123123"
       ) {
-        const pabloUser = {
+        let pabloUser = {
           id: "pablo-1",
           name: "Pablo",
           email: credentials.email,
           role: "admin",
           enterpriseEmail: "pablofafstar@gmail.com", // Própria empresa
         };
+
+        // Tentar carregar dados do Pablo do Firestore
+        try {
+          const userRef = doc(db, "users", credentials.email);
+          const snap = await getDoc(userRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            pabloUser = { ...pabloUser, ...data };
+
+            // Aplicar cache-busting na foto se existir
+            if (data.photoURL && data.photoVersion) {
+              let versioned = data.photoURL;
+              try {
+                const u = new URL(data.photoURL);
+                u.searchParams.set("v", String(data.photoVersion));
+                versioned = u.toString();
+              } catch {
+                versioned = `${data.photoURL}${
+                  data.photoURL.includes("?") ? "&" : "?"
+                }v=${data.photoVersion}`;
+              }
+              pabloUser.photoURL = versioned;
+              console.log(
+                "📸 Foto do Pablo carregada no admin login:",
+                versioned
+              );
+            }
+          }
+        } catch (err) {
+          console.warn("Falha ao carregar dados do Pablo do Firestore:", err);
+        }
 
         updateUser(pabloUser);
         return { success: true, user: pabloUser };
@@ -433,6 +557,7 @@ export const AuthProvider = ({ children }) => {
     createAdminUser,
     checkAuthStatus,
     ensureFirebaseAuth,
+    patchUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

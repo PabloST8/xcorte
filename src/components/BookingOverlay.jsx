@@ -329,18 +329,59 @@ export default function BookingOverlay({
                     .map(Number);
                   return h * 60 + m;
                 };
+
+                // Filtrar apenas agendamentos do mesmo funcionário que não foram cancelados
+                const activeStatuses = [
+                  "scheduled",
+                  "confirmed",
+                  "in_progress",
+                  "agendado",
+                  "confirmado",
+                ];
+
                 bookedIntervals = (dayBookings || [])
-                  .filter(
-                    (b) => String(b.employeeId) === String(selectedEmployeeId)
-                  )
+                  .filter((b) => {
+                    const sameEmployee =
+                      String(b.employeeId) === String(selectedEmployeeId);
+                    const isActive =
+                      !b.status ||
+                      activeStatuses.includes(b.status.toLowerCase());
+
+                    console.log("🔍 Checking booking conflict:", {
+                      bookingId: b.id,
+                      employeeId: b.employeeId,
+                      selectedEmployeeId,
+                      status: b.status,
+                      sameEmployee,
+                      isActive,
+                      date: b.date,
+                      startTime: b.startTime,
+                      productName: b.productName,
+                    });
+
+                    return sameEmployee && isActive;
+                  })
                   .map((b) => {
                     const s = parseM(b.startTime);
                     const d = Number(b.productDuration || b.duration || 30);
                     let e = b.endTime ? parseM(b.endTime) : s + d;
                     if (e <= s) e = s + d;
+
+                    console.log("📅 Booked interval:", {
+                      booking: b.productName,
+                      startTime: b.startTime,
+                      startMinutes: s,
+                      endMinutes: e,
+                      duration: d,
+                    });
+
                     return [s, e];
                   });
-              } catch {
+              } catch (error) {
+                console.error(
+                  "❌ Error fetching bookings for conflict check:",
+                  error
+                );
                 bookedIntervals = [];
               }
             }
@@ -359,12 +400,43 @@ export default function BookingOverlay({
               const startM = hh * 60 + mm;
               const endM = startM + durSel;
               const past = nowMins >= 0 && startM <= nowMins;
-              const conflict = bookedIntervals.some(
-                ([s, e]) => startM < e && endM > s
-              );
+              const conflict = bookedIntervals.some(([s, e]) => {
+                // Verifica se há sobreposição: novo agendamento começa antes do fim de um existente
+                // E termina depois do início de um existente
+                const hasConflict = startM < e && endM > s;
+
+                if (hasConflict) {
+                  console.log("⚠️ Conflict detected:", {
+                    candidateTime: t,
+                    candidateStart: startM,
+                    candidateEnd: endM,
+                    existingStart: s,
+                    existingEnd: e,
+                    overlap: true,
+                  });
+                }
+
+                return hasConflict;
+              });
+
+              const isAvailable = !past && !conflict;
+
+              if (!isAvailable) {
+                console.log("❌ Time slot not available:", {
+                  time: t,
+                  past,
+                  conflict,
+                  reason: past
+                    ? "time_passed"
+                    : conflict
+                    ? "booking_conflict"
+                    : "unknown",
+                });
+              }
+
               return {
                 startTime: t,
-                isAvailable: !past && !conflict,
+                isAvailable,
               };
             });
           } catch {
@@ -565,26 +637,39 @@ export default function BookingOverlay({
   const handleAddAndChooseMore = () => {
     if (!canConfirm) return;
 
-    // Adicionar ao carrinho
-    addItem({
-      productId: product?.id,
-      serviceName: product?.name,
-      priceInCents: product?.priceInCents ?? product?.price ?? 0,
-      duration: Number(product?.duration) || 30,
-      employeeId: selectedEmployee?.id,
-      employeeName: selectedEmployee?.name,
-      date: selectedDate,
-      time: selectedTime,
-    });
+    try {
+      // Adicionar ao carrinho
+      addItem({
+        productId: product?.id,
+        serviceName: product?.name,
+        priceInCents: product?.priceInCents ?? product?.price ?? 0,
+        duration: Number(product?.duration) || 30,
+        employeeId: selectedEmployee?.id,
+        employeeName: selectedEmployee?.name,
+        date: selectedDate,
+        time: selectedTime,
+      });
 
-    // Fechar overlay atual
-    onClose();
+      // Fechar overlay atual
+      onClose();
 
-    // Navegar para página de serviços (aba Todos)
-    // A navegação será feita através de uma prop ou context
-    if (typeof window !== "undefined") {
-      // Vamos navegar para a página de serviços
-      window.location.href = getEnterpriseUrl("service-details?category=Todos");
+      // Navegar para página de serviços (aba Todos)
+      // A navegação será feita através de uma prop ou context
+      if (typeof window !== "undefined") {
+        // Vamos navegar para a página de serviços
+        window.location.href = getEnterpriseUrl(
+          "service-details?category=Todos"
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar item ao carrinho:", error);
+
+      // Verificar se é erro de duplicata
+      if (error?.type === "CART_DUPLICATE") {
+        showError(`❌ ${error.message}`, 6000);
+      } else {
+        showError("❌ Erro ao adicionar ao carrinho. Tente novamente.", 4000);
+      }
     }
   };
 
@@ -625,7 +710,32 @@ export default function BookingOverlay({
         }, 2000);
       } catch (err) {
         console.log("❌ Erro ao criar agendamento:", err);
-        showError("Erro ao criar agendamento: " + (err?.message || err), 6000);
+
+        // Tratamento específico para conflitos de agendamento
+        if (
+          err?.type === "BOOKING_CONFLICT" ||
+          err?.message?.includes("Conflito")
+        ) {
+          showError(
+            `❌ Conflito de agendamento: ${
+              err.message || "Este horário já está ocupado!"
+            }`,
+            8000
+          );
+        } else if (
+          err?.message?.includes("network") ||
+          err?.message?.includes("fetch")
+        ) {
+          showError(
+            "❌ Problema de conexão. Verifique sua internet e tente novamente.",
+            6000
+          );
+        } else {
+          showError(
+            "❌ Erro ao criar agendamento: " + (err?.message || err),
+            6000
+          );
+        }
       }
     } else {
       console.log("❌ Pagamento não foi bem-sucedido:", result);

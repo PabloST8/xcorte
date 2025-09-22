@@ -23,7 +23,34 @@ export const enterpriseProductFirestoreService = {
     return snap.docs.map((d) => {
       const data = d.data();
       // Se o campo id salvo estiver vazio ou inexistente, usar o id real do documento
-      return { ...data, id: data.id || d.id };
+      const result = { ...data, id: data.id || d.id };
+
+      console.log(
+        `[DEBUG] Produto: ${result.name}, Price original:`,
+        result.price,
+        typeof result.price
+      );
+
+      // Garantir que o price está em centavos para compatibilidade
+      // Se o price já está em centavos (>= 100), manter como está
+      // Se o price está em formato de reais (< 100), converter para centavos
+      if (result.price && result.price < 100 && result.price > 0) {
+        console.log(`[DEBUG] Convertendo ${result.price} reais para centavos`);
+        result.price = Math.round(result.price * 100);
+      } else if (result.price && result.price >= 100) {
+        console.log(`[DEBUG] Price já está em centavos: ${result.price}`);
+      }
+
+      // Adicionar priceInCents para compatibilidade com o frontend
+      result.priceInCents = result.price;
+
+      console.log(
+        `[DEBUG] Produto: ${result.name}, Price final:`,
+        result.price,
+        result.priceInCents
+      );
+
+      return result;
     });
   },
 

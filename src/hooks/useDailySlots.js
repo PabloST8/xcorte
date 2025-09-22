@@ -74,7 +74,39 @@ export function useDailySlots({
           dateStr
         );
         const booked = new Set();
-        (bookings || []).forEach((b) => b.startTime && booked.add(b.startTime));
+
+        // Considerar apenas agendamentos ativos (não cancelados)
+        const activeStatuses = [
+          "scheduled",
+          "confirmed",
+          "in_progress",
+          "agendado",
+          "confirmado",
+        ];
+
+        (bookings?.data || bookings || []).forEach((b) => {
+          if (b.startTime) {
+            const isActive =
+              !b.status || activeStatuses.includes(b.status.toLowerCase());
+
+            // Se há employeeId especificado, filtrar apenas por esse funcionário
+            const matchesEmployee =
+              !employeeId || String(b.employeeId) === String(employeeId);
+
+            if (isActive && matchesEmployee) {
+              booked.add(b.startTime);
+
+              console.log("🚫 Blocked time slot:", {
+                time: b.startTime,
+                employee: b.employeeId || b.staffName,
+                service: b.productName,
+                status: b.status,
+                client: b.clientName,
+              });
+            }
+          }
+        });
+
         const mapped = DEFAULT_TIME_SLOTS.map((t) => ({
           time: t,
           isAvailable: !booked.has(t),

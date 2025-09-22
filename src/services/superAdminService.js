@@ -1,5 +1,4 @@
 import { db } from "./firebase";
-import { superAdminAuthService } from "./superAdminAuthService";
 import {
   collection,
   doc,
@@ -21,6 +20,9 @@ class SuperAdminService {
 
   // Verificar se o usuário está autenticado como super admin
   async ensureAuthenticated() {
+    // Importação dinâmica para evitar dependência circular
+    const { superAdminAuthService } = await import("./superAdminAuthService");
+
     if (!superAdminAuthService.isAuthenticated()) {
       throw new Error("Usuário não autenticado");
     }

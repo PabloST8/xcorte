@@ -4,6 +4,7 @@ import { useEnterprise } from "./EnterpriseContext";
 import { userCartFirestoreService } from "../services/userCartFirestoreService";
 import { v4 as uuidv4 } from "uuid";
 import { CartContext } from "./CartContext";
+import { memoryStore } from "../services/memoryStore";
 
 const STORAGE_KEY = "xcorte_cart_v1";
 
@@ -18,7 +19,7 @@ export function CartProvider({ children }) {
     return user?.id || user?.uid || user?.email || null;
   }, [user]);
 
-  // Load cart: prefer Firestore when logged in, else localStorage
+  // Load cart: prefer Firestore when logged in, else in-memory fallback (no localStorage)
   useEffect(() => {
     const load = async () => {
       try {
@@ -35,8 +36,8 @@ export function CartProvider({ children }) {
             return; // remote loaded
           }
         }
-        // Fallback local
-        const raw = localStorage.getItem(STORAGE_KEY);
+        // Fallback: in-memory session storage
+        const raw = memoryStore.get(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           setItems(Array.isArray(parsed.items) ? parsed.items : []);
@@ -61,7 +62,7 @@ export function CartProvider({ children }) {
             isAuthenticated,
             cartUserId,
             enterpriseEmail: currentEnterprise.email,
-            itemsCount: items.length
+            itemsCount: items.length,
           });
           await userCartFirestoreService.setCart(
             cartUserId,
@@ -74,14 +75,11 @@ export function CartProvider({ children }) {
             isAuthenticated,
             cartUserId,
             enterpriseEmail: currentEnterprise?.email,
-            loaded
+            loaded,
           });
         }
-        // Always mirror to local as cache/fallback
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({ items, paymentMethod })
-        );
+        // Mirror to in-memory fallback (no persistence across reloads)
+        memoryStore.set(STORAGE_KEY, JSON.stringify({ items, paymentMethod }));
       } catch (e) {
         console.warn("❌ Falha ao salvar carrinho:", e);
       }
@@ -111,22 +109,75 @@ export function CartProvider({ children }) {
         time: item.time || item.startTime || "",
         notes: item.notes || "",
       };
+
+      // ⚠️ VERIFICAÇÃO DE DUPLICATAS NO CARRINHO ⚠️
+      const hasDuplicate = items.some((existingItem) => {
+        const sameEmployee =
+          existingItem.employeeId &&
+          newItem.employeeId &&
+          String(existingItem.employeeId) === String(newItem.employeeId);
+        const sameDate =
+          existingItem.date &&
+          newItem.date &&
+          existingItem.date === newItem.date;
+        const sameTime =
+          existingItem.time &&
+          newItem.time &&
+          existingItem.time === newItem.time;
+
+        const isDuplicate = sameEmployee && sameDate && sameTime;
+
+        if (isDuplicate) {
+          console.warn(
+            "🚫 Tentativa de adicionar item duplicado ao carrinho:",
+            {
+              existing: {
+                service: existingItem.serviceName,
+                employee: existingItem.employeeName,
+                date: existingItem.date,
+                time: existingItem.time,
+              },
+              new: {
+                service: newItem.serviceName,
+                employee: newItem.employeeName,
+                date: newItem.date,
+                time: newItem.time,
+              },
+            }
+          );
+        }
+
+        return isDuplicate;
+      });
+
+      if (hasDuplicate) {
+        // Lançar erro que será capturado pelo componente que chama addItem
+        const error = new Error(
+          `Você já tem um agendamento com este profissional no horário ${newItem.time} do dia ${newItem.date}. Escolha outro horário ou funcionário.`
+        );
+        error.type = "CART_DUPLICATE";
+        throw error;
+      }
+
       // debug
       console.debug("[Cart] addItem", newItem);
       setItems((prev) => {
         const next = [...prev, newItem];
         try {
-          localStorage.setItem(
+          memoryStore.set(
             STORAGE_KEY,
             JSON.stringify({ items: next, paymentMethod })
           );
         } catch (e) {
-          console.warn("Falha ao salvar carrinho no addItem:", e);
+          console.warn(
+            "Falha ao salvar carrinho (fallback memória) no addItem:",
+            e
+          );
         }
         return next;
       });
     },
-    [paymentMethod]
+    [paymentMethod, items]
   );
 
   const removeItem = useCallback(

@@ -1,4 +1,5 @@
 import { db, auth } from "./firebase";
+import { memoryStore } from "./memoryStore";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 // Função para garantir que o usuário esteja autenticado no Firebase Auth
@@ -7,9 +8,9 @@ async function ensureFirebaseAuth() {
     return auth.currentUser;
   }
 
-  // Para desenvolvimento: se login anônimo não estiver habilitado, usar localStorage
+  // Para desenvolvimento: se login anônimo não estiver habilitado, usar fallback em memória
   console.log(
-    "⚠️ Firebase Auth não disponível para carrinho. Usando localStorage para desenvolvimento."
+    "⚠️ Firebase Auth não disponível para carrinho. Usando fallback em memória para desenvolvimento."
   );
   return null; // Indicar que não há autenticação Firebase disponível
 }
@@ -33,22 +34,25 @@ export const userCartFirestoreService = {
     // Tentar autenticação Firebase
     const firebaseUser = await ensureFirebaseAuth();
 
-    // Se Firebase Auth não estiver disponível, usar localStorage
+    // Se Firebase Auth não estiver disponível, usar fallback em memória
     if (!firebaseUser) {
       const localKey = `cart_${userId}_${enterpriseEmail}`;
-      const stored = localStorage.getItem(localKey);
+      const stored = memoryStore.get(localKey);
       if (stored) {
         try {
           const data = JSON.parse(stored);
-          console.log("📦 Carrinho carregado do localStorage:", data);
+          console.log("📦 Carrinho carregado do fallback em memória:", data);
           return {
             items: Array.isArray(data.items) ? data.items : [],
             paymentMethod: data.paymentMethod || "card",
             updatedAt: data.updatedAt || null,
           };
         } catch (e) {
-          console.warn("⚠️ Erro ao carregar carrinho do localStorage:", e);
-          localStorage.removeItem(localKey);
+          console.warn(
+            "⚠️ Erro ao carregar carrinho do fallback em memória:",
+            e
+          );
+          memoryStore.remove(localKey);
         }
       }
       return null;
@@ -83,15 +87,18 @@ export const userCartFirestoreService = {
       updatedAt: new Date().toISOString(),
     };
 
-    // Se Firebase Auth não estiver disponível, usar localStorage
+    // Se Firebase Auth não estiver disponível, usar fallback em memória
     if (!firebaseUser) {
       const localKey = `cart_${userId}_${enterpriseEmail}`;
       try {
-        localStorage.setItem(localKey, JSON.stringify(payload));
-        console.log("✅ Carrinho salvo no localStorage:", payload);
+        memoryStore.set(localKey, JSON.stringify(payload));
+        console.log("✅ Carrinho salvo no fallback em memória:", payload);
         return true;
       } catch (error) {
-        console.error("❌ Erro ao salvar carrinho no localStorage:", error);
+        console.error(
+          "❌ Erro ao salvar carrinho no fallback em memória:",
+          error
+        );
         return false;
       }
     }

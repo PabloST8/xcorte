@@ -19,6 +19,9 @@ import {
   useServices,
 } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
+import StaffPhotoUpload from "../../components/StaffPhotoUpload";
+import StaffAvatar from "../../components/StaffAvatar";
+import staffPhotoService from "../../services/staffPhotoService";
 
 const WEEK_DAYS = [
   { key: "monday", label: "Seg", name: "Segunda" },
@@ -255,13 +258,29 @@ export default function AdminStaff() {
   };
 
   // Editar funcionário
-  const handleEditStaff = (employee) => {
+  const handleEditStaff = async (employee) => {
     setEditingStaff(employee);
     setIsEditMode(true);
+
+    // Carregar foto do Firestore se existir
+    let photoUrl = employee.avatarUrl;
+    try {
+      const photoData = await staffPhotoService.getStaffPhoto(
+        currentEnterprise?.email || "empresaadmin@xcortes.com",
+        employee.email
+      );
+      if (photoData?.url) {
+        photoUrl = photoData.url;
+      }
+    } catch {
+      console.log("Nenhuma foto encontrada no Firestore para este funcionário");
+    }
+
     // CORREÇÃO: Manter o enterpriseEmail original do funcionário
     // Também limpar habilidades órfãs antes de editar
     const cleanedEmployee = {
       ...employee,
+      avatarUrl: photoUrl,
       skills: getValidSkills(employee.skills || []),
     };
     setNewStaff(cleanedEmployee);
@@ -287,6 +306,19 @@ export default function AdminStaff() {
         id: editingStaff.id,
         ...newStaff,
       });
+
+      // Se há foto, salvar/atualizar metadados no Firestore
+      if (newStaff.avatarUrl && editingStaff?.email) {
+        await staffPhotoService.setStaffPhoto(
+          currentEnterprise?.email || "empresaadmin@xcortes.com",
+          editingStaff.email,
+          {
+            url: newStaff.avatarUrl,
+            uploadedAt: new Date().toISOString(),
+          }
+        );
+      }
+
       setShowCreateModal(false);
       setIsEditMode(false);
       setEditingStaff(null);
@@ -819,27 +851,21 @@ export default function AdminStaff() {
                   <p className="text-sm font-medium text-gray-700 mb-3">
                     Foto do Funcionário
                   </p>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                      {newStaff.avatarUrl ? (
-                        <img
-                          src={newStaff.avatarUrl}
-                          alt="Avatar"
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-2xl font-medium text-gray-600">
-                          {newStaff.name?.charAt(0)?.toUpperCase() || "U"}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Selecionar imagem
-                    </button>
-                  </div>
+                  <StaffPhotoUpload
+                    enterpriseEmail={
+                      currentEnterprise?.email || "empresaadmin@xcortes.com"
+                    }
+                    staffId={editingStaff?.email || newStaff?.email || "temp"}
+                    currentPhotoURL={newStaff.avatarUrl}
+                    onPhotoUpdated={(result) => {
+                      setNewStaff((prev) => ({
+                        ...prev,
+                        avatarUrl: result?.url || "",
+                      }));
+                    }}
+                    size="large"
+                    className="mb-4"
+                  />
                 </div>
 
                 {/* Basic Info */}

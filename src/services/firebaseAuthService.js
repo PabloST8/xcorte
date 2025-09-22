@@ -4,6 +4,7 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
@@ -108,7 +109,21 @@ export const firebaseAuthService = {
   getCurrentUserToken,
   subscribeAuth,
   async ensureAnonymous() {
-    // Firebase Auth desabilitado para desenvolvimento
-    console.log("⚠️ Firebase Auth não disponível");
+    try {
+      // Verificar se já está autenticado
+      if (auth.currentUser) {
+        console.log("✅ Usuário já autenticado:", auth.currentUser.uid);
+        return auth.currentUser;
+      }
+
+      // Fazer login anônimo
+      console.log("🔑 Iniciando autenticação anônima...");
+      const result = await signInAnonymously(auth);
+      console.log("✅ Autenticação anônima realizada:", result.user.uid);
+      return result.user;
+    } catch (error) {
+      console.error("❌ Erro na autenticação anônima:", error);
+      throw new Error(`Falha na autenticação: ${error.message}`);
+    }
   },
 };

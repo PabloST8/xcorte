@@ -41,32 +41,30 @@ const STATUS_CANONICAL = {
   no_show: "no_show",
 };
 
-// Funções para localStorage como fallback
+// Fallback em memória para desenvolvimento (no localStorage)
+import { memoryStore } from "./memoryStore";
 const STORAGE_PREFIX = "xcorte_bookings_";
 
-function getLocalStorageKey(enterpriseEmail) {
+function getMemKey(enterpriseEmail) {
   return `${STORAGE_PREFIX}${enterpriseEmail}`;
 }
 
-function getBookingsFromLocalStorage(enterpriseEmail) {
+function getBookingsFromMemory(enterpriseEmail) {
   try {
-    const stored = localStorage.getItem(getLocalStorageKey(enterpriseEmail));
-    return stored ? JSON.parse(stored) : [];
+    const raw = memoryStore.get(getMemKey(enterpriseEmail));
+    return raw ? JSON.parse(raw) : [];
   } catch (error) {
-    console.warn("Erro ao carregar agendamentos do localStorage:", error);
+    console.warn("Erro ao carregar agendamentos em memória:", error);
     return [];
   }
 }
 
-function saveBookingsToLocalStorage(enterpriseEmail, bookings) {
+function saveBookingsToMemory(enterpriseEmail, bookings) {
   try {
-    localStorage.setItem(
-      getLocalStorageKey(enterpriseEmail),
-      JSON.stringify(bookings)
-    );
+    memoryStore.set(getMemKey(enterpriseEmail), JSON.stringify(bookings));
     return true;
   } catch (error) {
-    console.error("Erro ao salvar agendamentos no localStorage:", error);
+    console.error("Erro ao salvar agendamentos em memória:", error);
     return false;
   }
 }
@@ -144,13 +142,13 @@ export const enterpriseBookingFirestoreService = {
       params,
     });
 
-    // Tentar Firebase primeiro, localStorage como fallback
+    // Tentar Firebase primeiro, memória como fallback em dev
     const firebaseUser = await ensureFirebaseAuth();
 
     if (!firebaseUser) {
-      console.log("📦 Carregando agendamentos do localStorage");
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
-      return filterBookingsLocally(localBookings, params);
+      console.log("📦 Carregando agendamentos do fallback em memória");
+      const mem = getBookingsFromMemory(enterpriseEmail);
+      return filterBookingsLocally(mem, params);
     }
 
     try {
@@ -187,9 +185,9 @@ export const enterpriseBookingFirestoreService = {
       // Aplicar filtros especiais client-side
       return filterBookingsLocally(data, params);
     } catch (error) {
-      console.warn("⚠️ Firestore falhou, usando localStorage:", error);
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
-      return filterBookingsLocally(localBookings, params);
+      console.warn("⚠️ Firestore falhou, usando fallback em memória:", error);
+      const mem = getBookingsFromMemory(enterpriseEmail);
+      return filterBookingsLocally(mem, params);
     }
   },
 
@@ -225,20 +223,36 @@ export const enterpriseBookingFirestoreService = {
       notes: String(bookingData.notes || "").trim(),
       staffName: String(bookingData.staffName || "").trim(),
       staffId: String(bookingData.staffId || "").trim(),
+      employeeId: String(
+        bookingData.employeeId || bookingData.staffId || ""
+      ).trim(),
       createdAt: now,
       updatedAt: now,
     };
 
+    // ⚠️ VERIFICAÇÃO DE CONFLITOS ⚠️
+    console.log("🔍 Verificando conflitos de agendamento...");
+    const conflictCheck = await checkBookingConflict(enterpriseEmail, payload);
+
+    if (conflictCheck.hasConflict) {
+      const error = new Error(
+        `Conflito de agendamento: ${conflictCheck.reason}`
+      );
+      error.type = "BOOKING_CONFLICT";
+      error.conflictDetails = conflictCheck.conflictingBooking;
+      throw error;
+    }
+
     if (!firebaseUser) {
-      // Usar localStorage
-      console.log("📦 Salvando agendamento no localStorage");
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      // Usar memória
+      console.log("📦 Salvando agendamento no fallback de memória");
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const newBooking = {
         id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...payload,
       };
       localBookings.push(newBooking);
-      saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      saveBookingsToMemory(enterpriseEmail, localBookings);
       return newBooking;
     }
 
@@ -247,14 +261,17 @@ export const enterpriseBookingFirestoreService = {
       const ref = await addDoc(bookingsRef(enterpriseEmail), payload);
       return { id: ref.id, ...payload };
     } catch (error) {
-      console.warn("⚠️ Firestore falhou, salvando no localStorage:", error);
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      console.warn(
+        "⚠️ Firestore falhou, salvando no fallback de memória:",
+        error
+      );
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const newBooking = {
         id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         ...payload,
       };
       localBookings.push(newBooking);
-      saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+      saveBookingsToMemory(enterpriseEmail, localBookings);
       return newBooking;
     }
   },
@@ -263,14 +280,14 @@ export const enterpriseBookingFirestoreService = {
     const firebaseUser = await ensureFirebaseAuth();
 
     if (!firebaseUser || bookingId.startsWith("local_")) {
-      // Usar localStorage
-      console.log("📦 Atualizando status no localStorage");
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      // Usar memória
+      console.log("📦 Atualizando status no fallback de memória");
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const bookingIndex = localBookings.findIndex((b) => b.id === bookingId);
       if (bookingIndex >= 0) {
         localBookings[bookingIndex].status = STATUS_CANONICAL[status] || status;
         localBookings[bookingIndex].updatedAt = new Date().toISOString();
-        saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+        saveBookingsToMemory(enterpriseEmail, localBookings);
       }
       return true;
     }
@@ -290,15 +307,15 @@ export const enterpriseBookingFirestoreService = {
       return true;
     } catch (error) {
       console.warn(
-        "⚠️ Firestore falhou para updateStatus, usando localStorage:",
+        "⚠️ Firestore falhou para updateStatus, usando fallback de memória:",
         error
       );
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const bookingIndex = localBookings.findIndex((b) => b.id === bookingId);
       if (bookingIndex >= 0) {
         localBookings[bookingIndex].status = STATUS_CANONICAL[status] || status;
         localBookings[bookingIndex].updatedAt = new Date().toISOString();
-        saveBookingsToLocalStorage(enterpriseEmail, localBookings);
+        saveBookingsToMemory(enterpriseEmail, localBookings);
       }
       return true;
     }
@@ -308,11 +325,11 @@ export const enterpriseBookingFirestoreService = {
     const firebaseUser = await ensureFirebaseAuth();
 
     if (!firebaseUser || bookingId.startsWith("local_")) {
-      // Usar localStorage
-      console.log("📦 Removendo agendamento do localStorage");
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      // Usar memória
+      console.log("📦 Removendo agendamento do fallback de memória");
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const filteredBookings = localBookings.filter((b) => b.id !== bookingId);
-      saveBookingsToLocalStorage(enterpriseEmail, filteredBookings);
+      saveBookingsToMemory(enterpriseEmail, filteredBookings);
       return true;
     }
 
@@ -328,13 +345,86 @@ export const enterpriseBookingFirestoreService = {
       return true;
     } catch (error) {
       console.warn(
-        "⚠️ Firestore falhou para remove, usando localStorage:",
+        "⚠️ Firestore falhou para remove, usando fallback de memória:",
         error
       );
-      const localBookings = getBookingsFromLocalStorage(enterpriseEmail);
+      const localBookings = getBookingsFromMemory(enterpriseEmail);
       const filteredBookings = localBookings.filter((b) => b.id !== bookingId);
-      saveBookingsToLocalStorage(enterpriseEmail, filteredBookings);
+      saveBookingsToMemory(enterpriseEmail, filteredBookings);
       return true;
     }
   },
 };
+
+// Função para verificar conflitos de agendamento (definida após o objeto principal)
+async function checkBookingConflict(enterpriseEmail, newBooking) {
+  try {
+    const { date, startTime, employeeId, productDuration } = newBooking;
+
+    if (!date || !startTime || !employeeId || !productDuration) {
+      return {
+        hasConflict: false,
+        reason: "Dados insuficientes para verificação",
+      };
+    }
+
+    // Buscar agendamentos do mesmo dia
+    const existingBookings = await enterpriseBookingFirestoreService.list(
+      enterpriseEmail,
+      { date }
+    );
+
+    // Converter horários para minutos para facilitar comparação
+    const parseTime = (timeStr) => {
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const newStart = parseTime(startTime);
+    const newEnd = newStart + Number(productDuration);
+
+    // Status que bloqueiam horários (não incluir cancelled, no_show, completed)
+    const blockingStatuses = [
+      "scheduled",
+      "confirmed",
+      "in_progress",
+      "agendado",
+      "confirmado",
+    ];
+
+    for (const booking of existingBookings) {
+      // Verificar apenas agendamentos do mesmo funcionário com status ativo
+      if (
+        String(booking.employeeId) === String(employeeId) &&
+        (!booking.status ||
+          blockingStatuses.includes(booking.status.toLowerCase()))
+      ) {
+        const existingStart = parseTime(booking.startTime);
+        const existingDuration = Number(
+          booking.productDuration || booking.duration || 30
+        );
+        const existingEnd = existingStart + existingDuration;
+
+        // Verificar sobreposição: novo agendamento sobrepõe com existente
+        if (newStart < existingEnd && newEnd > existingStart) {
+          return {
+            hasConflict: true,
+            reason: `Conflito com agendamento existente às ${booking.startTime} (${booking.productName})`,
+            conflictingBooking: {
+              id: booking.id,
+              startTime: booking.startTime,
+              productName: booking.productName,
+              clientName: booking.clientName,
+              status: booking.status,
+            },
+          };
+        }
+      }
+    }
+
+    return { hasConflict: false };
+  } catch (error) {
+    console.error("Erro ao verificar conflito de agendamento:", error);
+    return { hasConflict: false, reason: "Erro na verificação de conflito" };
+  }
+}

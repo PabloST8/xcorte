@@ -17,6 +17,9 @@ import {
   useDeleteStaff,
   useServices,
 } from "../../hooks/useAdmin";
+import StaffPhotoUpload from "../../components/StaffPhotoUpload";
+import StaffAvatar from "../../components/StaffAvatar";
+import staffPhotoService from "../../services/staffPhotoService";
 
 const WEEK_DAYS = [
   { key: "monday", label: "Seg", name: "Segunda" },
@@ -94,7 +97,20 @@ export default function AdminStaff() {
   const handleCreateStaff = async (e) => {
     e.preventDefault();
     try {
-      await createStaffMutation.mutateAsync(newStaff);
+      const createdStaff = await createStaffMutation.mutateAsync(newStaff);
+
+      // Se há foto, salvar metadados no Firestore
+      if (newStaff.avatarUrl && createdStaff?.id) {
+        await staffPhotoService.setStaffPhoto(
+          "empresaadmin@xcortes.com",
+          createdStaff.id,
+          {
+            url: newStaff.avatarUrl,
+            uploadedAt: new Date().toISOString(),
+          }
+        );
+      }
+
       setShowCreateModal(false);
       resetForm();
     } catch (error) {
@@ -103,11 +119,27 @@ export default function AdminStaff() {
   };
 
   // Editar funcionário
-  const handleEditStaff = (employee) => {
+  const handleEditStaff = async (employee) => {
     setEditingStaff(employee);
     setIsEditMode(true);
+
+    // Carregar foto do Firestore se existir
+    let photoUrl = employee.avatarUrl;
+    try {
+      const photoData = await staffPhotoService.getStaffPhoto(
+        "empresaadmin@xcortes.com",
+        employee.email
+      );
+      if (photoData?.url) {
+        photoUrl = photoData.url;
+      }
+    } catch {
+      console.log("Nenhuma foto encontrada no Firestore para este funcionário");
+    }
+
     setNewStaff({
       ...employee,
+      avatarUrl: photoUrl,
       enterpriseEmail: "empresaadmin@xcortes.com",
     });
     setShowCreateModal(true);
@@ -121,6 +153,19 @@ export default function AdminStaff() {
         id: editingStaff.id,
         ...newStaff,
       });
+
+      // Se há foto, salvar/atualizar metadados no Firestore
+      if (newStaff.avatarUrl && editingStaff?.email) {
+        await staffPhotoService.setStaffPhoto(
+          "empresaadmin@xcortes.com",
+          editingStaff.email,
+          {
+            url: newStaff.avatarUrl,
+            uploadedAt: new Date().toISOString(),
+          }
+        );
+      }
+
       setShowCreateModal(false);
       setIsEditMode(false);
       setEditingStaff(null);
@@ -328,19 +373,11 @@ export default function AdminStaff() {
               {/* Header with Avatar and Actions */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                    {employee.avatarUrl ? (
-                      <img
-                        src={employee.avatarUrl}
-                        alt={employee.name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-lg font-medium text-gray-600">
-                        {employee.name?.charAt(0)?.toUpperCase() || "U"}
-                      </span>
-                    )}
-                  </div>
+                  <StaffAvatar
+                    staffPhoto={employee.avatarUrl}
+                    staffName={employee.name}
+                    size="medium"
+                  />
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">
                       {employee.name}
@@ -479,27 +516,19 @@ export default function AdminStaff() {
                   <p className="text-sm font-medium text-gray-700 mb-3">
                     Foto do Funcionário
                   </p>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                      {newStaff.avatarUrl ? (
-                        <img
-                          src={newStaff.avatarUrl}
-                          alt="Avatar"
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-2xl font-medium text-gray-600">
-                          {newStaff.name?.charAt(0)?.toUpperCase() || "U"}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Selecionar imagem
-                    </button>
-                  </div>
+                  <StaffPhotoUpload
+                    enterpriseEmail="empresaadmin@xcortes.com"
+                    staffId={editingStaff?.email || newStaff?.email || "temp"}
+                    currentPhotoURL={newStaff.avatarUrl}
+                    onPhotoUpdated={(result) => {
+                      setNewStaff((prev) => ({
+                        ...prev,
+                        avatarUrl: result?.url || "",
+                      }));
+                    }}
+                    size="large"
+                    className="mb-4"
+                  />
                 </div>
 
                 {/* Basic Info */}

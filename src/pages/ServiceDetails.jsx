@@ -88,16 +88,43 @@ function Services() {
 
   const filteredServices = useMemo(() => {
     const list = Array.isArray(services) ? services : [];
-    return (
+    const filteredByCategory = (
       selectedCategory === "Todos"
         ? list
         : list.filter((s) => s.category === selectedCategory)
-    ).map((s) => ({
-      ...s,
-      icon: getServiceIcon(s.category),
-      priceInCents: s.priceInCents ?? s.price,
-    }));
-  }, [services, selectedCategory]);
+    ).map((s) => {
+      console.log(
+        `[ServiceDetails] Serviço: ${s.name}, priceInCents:`,
+        s.priceInCents,
+        "price:",
+        s.price,
+        "formatPrice result:",
+        formatPrice(s.priceInCents || 0)
+      );
+      return {
+        ...s,
+        icon: getServiceIcon(s.category),
+        priceInCents: s.priceInCents ?? s.price,
+      };
+    });
+
+    // Filtrar apenas serviços que têm profissionais vinculados
+    return filteredByCategory.filter((service) => {
+      // Verificar se há funcionários com skills específicas para este serviço
+      const hasSpecificEmployees =
+        Array.isArray(employees) &&
+        employees.some((employee) => {
+          const skills = Array.isArray(employee.skills) ? employee.skills : [];
+          return skills.some(
+            (skill) =>
+              String(skill.productId) === String(service.id) &&
+              skill.canPerform !== false
+          );
+        });
+
+      return hasSpecificEmployees;
+    });
+  }, [services, selectedCategory, employees]);
 
   const eligibleEmployeesForProduct = (product) => {
     const list = Array.isArray(employees) ? employees : [];
@@ -151,42 +178,55 @@ function Services() {
 
         {/* Services List */}
         <div className="space-y-4">
-          {isLoading
-            ? [...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-gray-50 rounded-xl animate-pulse"
-                />
-              ))
-            : filteredServices.map((service) => (
-                <button
-                  key={service.id}
-                  onClick={() => {
-                    setSelectedProduct(service);
-                    setOverlayOpen(true);
-                  }}
-                  className="w-full text-left flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-100 rounded-xl">
-                      {service.icon}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">
-                        {service.name}
-                      </h3>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
-                        <span>{formatDuration(service.duration || 30)}</span>
-                        <span>•</span>
-                        <span className="font-semibold">
-                          {formatPrice(service.priceInCents || 0)}
-                        </span>
-                      </div>
+          {isLoading ? (
+            [...Array(4)].map((_, i) => (
+              <div
+                key={i}
+                className="h-20 bg-gray-50 rounded-xl animate-pulse"
+              />
+            ))
+          ) : filteredServices.length === 0 ? (
+            <div className="text-center py-8">
+              <Scissors className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 mb-2">
+                Nenhum serviço disponível no momento
+              </p>
+              <p className="text-sm text-gray-500">
+                Os serviços ficam disponíveis quando há profissionais
+                especializados
+              </p>
+            </div>
+          ) : (
+            filteredServices.map((service) => (
+              <button
+                key={service.id}
+                onClick={() => {
+                  setSelectedProduct(service);
+                  setOverlayOpen(true);
+                }}
+                className="w-full text-left flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-blue-100 rounded-xl">
+                    {service.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {service.name}
+                    </h3>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <span>{formatDuration(service.duration || 30)}</span>
+                      <span>•</span>
+                      <span className="font-semibold">
+                        {formatPrice(service.priceInCents || 0)}
+                      </span>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
-                </button>
-              ))}
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+            ))
+          )}
         </div>
       </div>
 

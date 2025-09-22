@@ -26,8 +26,7 @@ function Name() {
       registeredAt: new Date().toISOString(),
     };
 
-    // Aqui você salvaria no backend/localStorage
-    localStorage.setItem("user", JSON.stringify(userData));
+    // Aqui você salvaria no backend (política: não usar localStorage)
 
     setTimeout(() => {
       setLoading(false);

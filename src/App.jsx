@@ -31,7 +31,6 @@ import AdminClients from "./pages/admin/AdminClients";
 import AdminServices from "./pages/admin/AdminServices";
 import AdminStaff from "./pages/admin/AdminStaff";
 import SuperAdmin from "./pages/SuperAdmin";
-import CreateSuperAdminButton from "./components/CreateSuperAdminButton";
 
 // Criar cliente do React Query
 const queryClient = new QueryClient({
@@ -279,7 +278,6 @@ function App() {
         <EnterpriseProvider>
           <CartProvider>
             <RouterProvider router={router} />
-            <CreateSuperAdminButton />
           </CartProvider>
         </EnterpriseProvider>
       </AuthProvider>

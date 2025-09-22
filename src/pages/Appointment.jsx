@@ -141,8 +141,31 @@ function Appointment() {
         });
       }
     } catch (error) {
-      setError("Erro ao criar agendamento. Tente novamente.");
       console.error("Create appointment error:", error);
+
+      // Verificar se é erro de conflito de agendamento
+      if (
+        error?.type === "BOOKING_CONFLICT" ||
+        error?.message?.includes("Conflito")
+      ) {
+        setError(
+          `❌ ${
+            error.message ||
+            "Este horário já está ocupado para o profissional selecionado."
+          }`
+        );
+      } else if (
+        error?.message?.includes("network") ||
+        error?.message?.includes("fetch")
+      ) {
+        setError(
+          "❌ Problema de conexão. Verifique sua internet e tente novamente."
+        );
+      } else if (error?.message) {
+        setError(`❌ ${error.message}`);
+      } else {
+        setError("❌ Erro ao criar agendamento. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }

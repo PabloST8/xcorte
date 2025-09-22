@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { CartContext } from "./CartContext";
+import { memoryStore } from "../services/memoryStore";
 const STORAGE_KEY = "xcorte_cart_v1";
 
 export function CartProvider({ children }) {
@@ -8,7 +9,7 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = memoryStore.get(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         setItems(Array.isArray(parsed.items) ? parsed.items : []);
@@ -21,10 +22,7 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ items, paymentMethod })
-      );
+      memoryStore.set(STORAGE_KEY, JSON.stringify({ items, paymentMethod }));
     } catch (e) {
       console.warn("Falha ao salvar carrinho no storage:", e);
     }

@@ -2,6 +2,7 @@
 // Estrutura: enterprises/{email} com subcoleções: products, employees, bookings
 import { db } from "./firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { memoryStore } from "./memoryStore";
 
 // Cache simples para evitar múltiplas requisições
 const cache = {
@@ -10,17 +11,20 @@ const cache = {
   TTL: 30000, // Reduzido para 30 segundos para debug
 };
 
-// Fallback para localStorage quando Firestore não está disponível
-function getEnterprisesFromLocalStorage() {
+// Fallback em memória (sem localStorage)
+function getEnterprisesFromMemory() {
   try {
-    const stored = localStorage.getItem("xcorte_enterprises");
+    const stored = memoryStore.get("xcorte_enterprises");
     if (stored) {
       const parsed = JSON.parse(stored);
-      console.log("📦 Empresas carregadas do localStorage:", parsed.length);
+      console.log(
+        "📦 Empresas carregadas do fallback em memória:",
+        parsed.length
+      );
       return parsed;
     }
   } catch (error) {
-    console.warn("Erro ao carregar empresas do localStorage:", error);
+    console.warn("Erro ao carregar empresas do fallback em memória:", error);
   }
 
   // Dados de exemplo para desenvolvimento
@@ -39,14 +43,11 @@ function getEnterprisesFromLocalStorage() {
     },
   ];
 
-  // Salvar dados de exemplo no localStorage
+  // Salvar dados de exemplo no fallback em memória
   try {
-    localStorage.setItem(
-      "xcorte_enterprises",
-      JSON.stringify(defaultEnterprises)
-    );
+    memoryStore.set("xcorte_enterprises", JSON.stringify(defaultEnterprises));
   } catch (e) {
-    console.warn("Erro ao salvar empresas no localStorage:", e);
+    console.warn("Erro ao salvar empresas no fallback em memória:", e);
   }
 
   return defaultEnterprises;
@@ -61,7 +62,7 @@ export const publicEnterpriseFirestoreService = {
       return cache.enterprises;
     }
 
-    // Tentar Firestore primeiro, localStorage como fallback
+    // Tentar Firestore primeiro, fallback em memória
     try {
       console.log("🔍 Buscando empresas no Firestore...");
       const snap = await getDocs(collection(db, "enterprises"));
@@ -83,16 +84,16 @@ export const publicEnterpriseFirestoreService = {
       return enterprises;
     } catch (e) {
       console.warn(
-        "❌ Falha ao listar enterprises no Firestore público, usando localStorage:",
+        "❌ Falha ao listar enterprises no Firestore público, usando fallback em memória:",
         e
       );
 
-      // Usar localStorage como fallback
-      const localEnterprises = getEnterprisesFromLocalStorage();
-      cache.enterprises = localEnterprises;
+      // Usar fallback em memória
+      const memoryEnterprises = getEnterprisesFromMemory();
+      cache.enterprises = memoryEnterprises;
       cache.timestamp = now;
 
-      return localEnterprises;
+      return memoryEnterprises;
     }
   },
   async getServices(email) {
@@ -103,7 +104,10 @@ export const publicEnterpriseFirestoreService = {
       );
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
-      console.warn("❌ Falha getServices Firestore, usando localStorage:", e);
+      console.warn(
+        "❌ Falha getServices Firestore, usando fallback em memória:",
+        e
+      );
 
       // Fallback para localStorage com dados de exemplo
       const defaultServices = [
@@ -124,18 +128,21 @@ export const publicEnterpriseFirestoreService = {
       ];
 
       try {
-        const stored = localStorage.getItem(`xcorte_services_${email}`);
+        const stored = memoryStore.get(`xcorte_services_${email}`);
         if (stored) {
           return JSON.parse(stored);
         } else {
-          localStorage.setItem(
+          memoryStore.set(
             `xcorte_services_${email}`,
             JSON.stringify(defaultServices)
           );
           return defaultServices;
         }
       } catch (storageError) {
-        console.warn("Erro no localStorage para serviços:", storageError);
+        console.warn(
+          "Erro no fallback em memória para serviços:",
+          storageError
+        );
         return defaultServices;
       }
     }
@@ -159,7 +166,10 @@ export const publicEnterpriseFirestoreService = {
       );
       return sub.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
-      console.warn("❌ Falha getStaff subcoleção, usando localStorage:", e);
+      console.warn(
+        "❌ Falha getStaff subcoleção, usando fallback em memória:",
+        e
+      );
 
       // Fallback para localStorage com dados de exemplo
       const defaultStaff = [
@@ -173,18 +183,21 @@ export const publicEnterpriseFirestoreService = {
       ];
 
       try {
-        const stored = localStorage.getItem(`xcorte_staff_${email}`);
+        const stored = memoryStore.get(`xcorte_staff_${email}`);
         if (stored) {
           return JSON.parse(stored);
         } else {
-          localStorage.setItem(
+          memoryStore.set(
             `xcorte_staff_${email}`,
             JSON.stringify(defaultStaff)
           );
           return defaultStaff;
         }
       } catch (storageError) {
-        console.warn("Erro no localStorage para funcionários:", storageError);
+        console.warn(
+          "Erro no fallback em memória para funcionários:",
+          storageError
+        );
         return defaultStaff;
       }
     }
@@ -205,13 +218,13 @@ export const publicEnterpriseFirestoreService = {
         .slice(0, limit);
     } catch (e) {
       console.warn(
-        "❌ Falha getUpcomingBookings Firestore, usando localStorage:",
+        "❌ Falha getUpcomingBookings Firestore, usando fallback em memória:",
         e
       );
 
-      // Usar dados do localStorage de agendamentos
+      // Usar dados do fallback em memória de agendamentos
       try {
-        const stored = localStorage.getItem(`xcorte_bookings_${email}`);
+        const stored = memoryStore.get(`xcorte_bookings_${email}`);
         if (stored) {
           const bookings = JSON.parse(stored);
           const todayStr = new Date().toISOString().split("T")[0];
@@ -224,7 +237,7 @@ export const publicEnterpriseFirestoreService = {
         }
       } catch (storageError) {
         console.warn(
-          "Erro no localStorage para agendamentos próximos:",
+          "Erro no fallback em memória para agendamentos próximos:",
           storageError
         );
       }

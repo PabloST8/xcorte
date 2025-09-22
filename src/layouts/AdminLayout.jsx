@@ -17,7 +17,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
-  const { syncEnterpriseWithUser } = useEnterprise();
+  const { currentEnterprise, syncEnterpriseWithUser } = useEnterprise();
 
   // Sincronizar empresa com usuário admin logado
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function AdminLayout() {
         <div className="fixed top-0 left-0 w-64 h-full bg-white shadow-lg">
           <div className="flex items-center justify-between p-4 border-b">
             <h2 className="text-lg font-semibold text-gray-900">
-              X-Corte Admin
+              {currentEnterprise?.name || "Admin"} Admin
             </h2>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -133,7 +133,9 @@ export default function AdminLayout() {
         <div className="flex min-h-0 flex-1 flex-col bg-white shadow">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex items-center flex-shrink-0 px-4">
-              <h2 className="text-xl font-bold text-gray-900">X-Corte Admin</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {currentEnterprise?.name || "Admin"} Admin
+              </h2>
             </div>
             <nav className="mt-8 flex-1">
               <div className="space-y-1">
@@ -197,7 +199,7 @@ export default function AdminLayout() {
               <Menu className="w-6 h-6" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">
-              X-Corte Admin
+              {currentEnterprise?.name || "Admin"} Admin
             </h1>
             <button
               onClick={handleLogout}

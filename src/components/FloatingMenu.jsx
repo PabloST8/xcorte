@@ -1,12 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, User, Calendar, Menu, ShoppingCart } from "lucide-react";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { useCart } from "../contexts/useCart";
 
 export default function FloatingMenu() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { items } = useCart();
+  const menuRef = useRef(null);
+
+  // Componente para ícone do carrinho com contador
+  const CartIconWithBadge = () => (
+    <div className="relative">
+      <ShoppingCart className="w-6 h-6" />
+      {items.length > 0 && (
+        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+          {items.length > 99 ? "99+" : items.length}
+        </span>
+      )}
+    </div>
+  );
+
+  // Fechar menu quando clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
 
   const menuItems = [
     {
@@ -16,7 +48,7 @@ export default function FloatingMenu() {
     },
     {
       label: "Carrinho",
-      icon: <ShoppingCart className="w-6 h-6" />,
+      icon: <CartIconWithBadge />,
       to: getEnterpriseUrl("cart"),
     },
     {
@@ -32,7 +64,10 @@ export default function FloatingMenu() {
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div
+      ref={menuRef}
+      className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3"
+    >
       {open && (
         <div className="flex flex-col items-end gap-3 mb-2 animate-fade-in">
           {menuItems.map((item) => (

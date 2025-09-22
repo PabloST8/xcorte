@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules para Sistema de Fotos de Usuário
+// Atualizado em setembro de 2025 para suportar autenticação anônima
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Regras para fotos de usuários
+    match /user-photos/{userId}/{allPaths=**} {
+      // Leitura: Qualquer um pode ver as fotos (incluindo anônimos)
+      allow read: if true;
+      
+      // Escrita: Usuários autenticados podem fazer upload
+      // Inclui usuários anônimos que foram autenticados
+      allow write: if request.auth != null 
+        && (
+          // Usuário próprio pode modificar suas fotos
+          request.auth.uid == userId
+          // OU usuário anônimo pode fazer upload
+          || request.auth.token.firebase.sign_in_provider == 'anonymous'
+        )
+        // Validações do arquivo
+        && request.resource.size < 5 * 1024 * 1024 // Máximo 5MB
+        && request.resource.contentType.matches('image/.*'); // Apenas imagens
+      
+      // Delete: Apenas o próprio usuário ou administradores
+      allow delete: if request.auth != null 
+        && (
+          request.auth.uid == userId
+          || request.auth.token.admin == true
+        );
+    }
+    
+    // Para desenvolvimento: Permite tudo temporariamente
+    // REMOVER EM PRODUÇÃO!
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

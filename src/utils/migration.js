@@ -13,18 +13,10 @@ export const migrateStaff = () => {
   return staffMembers.map((member) => DataAdapters.employeeToAPI(member));
 };
 
-// Migrar agendamentos existentes (se houver no localStorage)
+// Migrar agendamentos existentes (sem uso de localStorage por política)
 export const migrateBookings = () => {
-  const savedBookings = localStorage.getItem("bookings");
-  if (!savedBookings) return [];
-
-  try {
-    const bookings = JSON.parse(savedBookings);
-    return bookings.map((booking) => DataAdapters.bookingToAPI(booking));
-  } catch (error) {
-    console.error("Erro ao migrar agendamentos:", error);
-    return [];
-  }
+  console.log("ℹ️ Política ativa: sem leitura de localStorage em migração.");
+  return [];
 };
 
 // Função para executar todas as migrações
