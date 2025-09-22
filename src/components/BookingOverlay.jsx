@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   X,
   Calendar as CalendarIcon,
@@ -16,6 +16,7 @@ import PaymentOverlay from "./PaymentOverlay";
 import { useAuth } from "../hooks/useAuth";
 import NotificationPopup from "./NotificationPopup";
 import { useNotification } from "../hooks/useNotification";
+import { formatDateBR } from "../utils/dateUtils";
 
 // Props:
 // - open: boolean
@@ -36,6 +37,7 @@ export default function BookingOverlay({
   const { currentEnterprise } = useEnterprise();
   const { addItem } = useCart();
   const { user: authUser } = useAuth();
+  const navigate = useNavigate();
   const { notification, showSuccess, showError, hideNotification } =
     useNotification();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
@@ -635,9 +637,28 @@ export default function BookingOverlay({
 
   // Função para adicionar ao carrinho e ir para serviços
   const handleAddAndChooseMore = () => {
-    if (!canConfirm) return;
+    console.log("🛒 [BookingOverlay] handleAddAndChooseMore chamado");
+    console.log("🛒 [BookingOverlay] canConfirm:", canConfirm);
+    console.log("🛒 [BookingOverlay] Dados para adicionar:", {
+      productId: product?.id,
+      serviceName: product?.name,
+      priceInCents: product?.priceInCents ?? product?.price ?? 0,
+      duration: Number(product?.duration) || 30,
+      employeeId: selectedEmployee?.id,
+      employeeName: selectedEmployee?.name,
+      date: selectedDate,
+      time: selectedTime,
+    });
+
+    if (!canConfirm) {
+      console.log(
+        "🚫 [BookingOverlay] Não pode confirmar - canConfirm é false"
+      );
+      return;
+    }
 
     try {
+      console.log("🛒 [BookingOverlay] Chamando addItem...");
       // Adicionar ao carrinho
       addItem({
         productId: product?.id,
@@ -650,19 +671,18 @@ export default function BookingOverlay({
         time: selectedTime,
       });
 
+      console.log("🛒 [BookingOverlay] addItem executado com sucesso");
+
       // Fechar overlay atual
       onClose();
 
-      // Navegar para página de serviços (aba Todos)
-      // A navegação será feita através de uma prop ou context
-      if (typeof window !== "undefined") {
-        // Vamos navegar para a página de serviços
-        window.location.href = getEnterpriseUrl(
-          "service-details?category=Todos"
-        );
-      }
+      // Navegar para página de serviços usando React Router
+      navigate(getEnterpriseUrl("service-details?category=Todos"));
     } catch (error) {
-      console.error("Erro ao adicionar item ao carrinho:", error);
+      console.error(
+        "🚫 [BookingOverlay] Erro ao adicionar item ao carrinho:",
+        error
+      );
 
       // Verificar se é erro de duplicata
       if (error?.type === "CART_DUPLICATE") {
@@ -748,6 +768,16 @@ export default function BookingOverlay({
   const canConfirm = Boolean(
     selectedEmployeeId && selectedDate && selectedTime
   );
+
+  // Debug para canConfirm
+  console.log("🔍 [BookingOverlay] Estado de confirmação:", {
+    canConfirm,
+    selectedEmployeeId,
+    selectedDate,
+    selectedTime,
+    selectedEmployee: selectedEmployee?.name,
+    product: product?.name,
+  });
 
   const saveSelection = () => {
     if (!canConfirm) return;
@@ -858,7 +888,7 @@ export default function BookingOverlay({
                   "Sex",
                   "Sáb",
                 ][dt.getDay()];
-                const label = `${weekday} ${d.slice(5).replace("-", "/")}`; // MM-DD -> MM/DD
+                const label = `${weekday} ${formatDateBR(d).slice(0, 5)}`; // dd/mm formato brasileiro
                 return (
                   <button
                     key={d}

@@ -3,6 +3,7 @@ import { Users, Calendar, DollarSign, Clock } from "lucide-react";
 import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
+import { formatDateBR } from "../../utils/dateUtils";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
@@ -145,9 +146,7 @@ export default function AdminDashboard() {
                       </p>
                       {appointment.date && (
                         <p className="text-sm text-gray-600">
-                          {new Date(appointment.date).toLocaleDateString(
-                            "pt-BR"
-                          )}
+                          {formatDateBR(appointment.date)}
                         </p>
                       )}
                     </div>

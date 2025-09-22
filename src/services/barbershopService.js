@@ -2,6 +2,8 @@ import api from "./api";
 import { productService } from "./productService";
 // import { enterpriseService } from "./enterpriseService"; // DESABILITADO
 import { publicEnterpriseFirestoreService } from "./publicEnterpriseFirestoreService";
+import { firestoreAppointmentsService } from "./firestoreAppointmentsService";
+import { USE_REMOTE_API } from "../config";
 
 // Serviços da Barbearia (usando os novos serviços da API)
 export const barbershopService = {
@@ -242,21 +244,39 @@ export const barbershopService = {
 export const appointmentService = {
   // Criar agendamento
   async createAppointment(appointmentData) {
-    try {
-      const response = await api.post("/appointments", appointmentData);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    if (USE_REMOTE_API) {
+      try {
+        const response = await api.post("/appointments", appointmentData);
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || error.message;
+      }
+    } else {
+      // Usar Firestore quando API estiver desabilitada
+      console.log(
+        "🔄 API desabilitada, usando Firestore para criar agendamento"
+      );
+      return await firestoreAppointmentsService.createAppointment(
+        appointmentData
+      );
     }
   },
 
   // Obter agendamentos do usuário
   async getUserAppointments(params = {}) {
-    try {
-      const response = await api.get("/appointments/user", { params });
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error.message;
+    if (USE_REMOTE_API) {
+      try {
+        const response = await api.get("/appointments/user", { params });
+        return response.data;
+      } catch (error) {
+        throw error.response?.data || error.message;
+      }
+    } else {
+      // Usar Firestore quando API estiver desabilitada
+      console.log(
+        "🔄 API desabilitada, usando Firestore para buscar agendamentos"
+      );
+      return await firestoreAppointmentsService.getAppointments(params);
     }
   },
 

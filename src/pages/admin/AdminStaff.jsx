@@ -18,6 +18,7 @@ import {
   useDeleteStaff,
   useServices,
 } from "../../hooks/useAdmin";
+import { formatDateBR } from "../../utils/dateUtils";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import StaffPhotoUpload from "../../components/StaffPhotoUpload";
 import StaffAvatar from "../../components/StaffAvatar";
@@ -671,10 +672,7 @@ export default function AdminStaff() {
                   </p>
                   {employee.blockedUntil && (
                     <p className="text-xs text-red-600">
-                      Até:{" "}
-                      {new Date(employee.blockedUntil).toLocaleDateString(
-                        "pt-BR"
-                      )}
+                      Até: {formatDateBR(employee.blockedUntil)}
                     </p>
                   )}
                 </div>

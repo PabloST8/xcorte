@@ -23,6 +23,7 @@ import AdminLogin from "./pages/AdminLogin";
 import Profile from "./pages/Profile";
 import Empresa from "./pages/Empresa";
 import DebugEnterprises from "./pages/DebugEnterprises";
+import MyAppointments from "./pages/MyAppointments";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -152,6 +153,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "my-appointments",
+        element: (
+          <ProtectedRoute>
+            <MyAppointments />
           </ProtectedRoute>
         ),
       },

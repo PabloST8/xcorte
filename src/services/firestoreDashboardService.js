@@ -12,6 +12,11 @@ import { db } from "./firebase";
 export const firestoreDashboardService = {
   // Buscar estatísticas do dashboard a partir do Firestore
   async getDashboardStats(enterpriseEmail = "empresaadmin@xcortes.com") {
+    console.log(
+      "📊 [Dashboard] Iniciando busca de estatísticas para:",
+      enterpriseEmail
+    );
+
     try {
       const stats = {
         todayAppointments: 0,
@@ -32,6 +37,7 @@ export const firestoreDashboardService = {
         // Primeiro tentar a estrutura de subcoleção
         let appointments = [];
         try {
+          console.log("📊 [Dashboard] Tentando buscar da subcoleção...");
           const bookingsRef = collection(
             db,
             "enterprises",
@@ -44,10 +50,14 @@ export const firestoreDashboardService = {
             ...doc.data(),
           }));
           console.log(
-            `Encontrados ${appointments.length} agendamentos na subcoleção para ${enterpriseEmail}`
+            `📊 [Dashboard] Encontrados ${appointments.length} agendamentos na subcoleção para ${enterpriseEmail}`,
+            appointments
           );
-        } catch {
-          console.log("Tentando buscar agendamentos na coleção global...");
+        } catch (subError) {
+          console.log("📊 [Dashboard] Erro na subcoleção:", subError);
+          console.log(
+            "📊 [Dashboard] Tentando buscar agendamentos na coleção global..."
+          );
           // Fallback para coleção global
           const appointmentsQuery = query(
             collection(db, "bookings"),
@@ -61,39 +71,60 @@ export const firestoreDashboardService = {
             ...doc.data(),
           }));
           console.log(
-            `Encontrados ${appointments.length} agendamentos na coleção global para ${enterpriseEmail}`
+            `📊 [Dashboard] Encontrados ${appointments.length} agendamentos na coleção global para ${enterpriseEmail}`,
+            appointments
           );
         }
 
         // Calcular agendamentos de hoje
         const today = new Date();
-        const todayStart = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate()
-        );
-        const todayEnd = new Date(
-          today.getFullYear(),
-          today.getMonth(),
-          today.getDate() + 1
-        );
+        const todayString = today.toISOString().split("T")[0]; // Formato YYYY-MM-DD
 
-        stats.todayAppointments = appointments.filter((apt) => {
-          const aptDate = apt.date ? new Date(apt.date) : null;
-          return aptDate && aptDate >= todayStart && aptDate < todayEnd;
-        }).length;
+        console.log("📊 [Dashboard] Data de hoje:", {
+          today: today.toISOString(),
+          todayString: todayString,
+        });
+
+        const todayAppointmentsList = appointments.filter((apt) => {
+          // Comparar diretamente as strings de data no formato YYYY-MM-DD
+          const isToday = apt.date === todayString;
+
+          console.log("📊 [Dashboard] Verificando agendamento:", {
+            id: apt.id,
+            date: apt.date,
+            todayString,
+            isToday,
+            clientName: apt.clientName,
+          });
+
+          return isToday;
+        });
+
+        stats.todayAppointments = todayAppointmentsList.length;
+        console.log(
+          "📊 [Dashboard] Agendamentos de hoje:",
+          stats.todayAppointments,
+          todayAppointmentsList
+        );
 
         // Calcular receita do mês atual
-        const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const nextMonth = new Date(
-          today.getFullYear(),
-          today.getMonth() + 1,
-          1
-        );
+        const thisMonth =
+          today.getFullYear() +
+          "-" +
+          String(today.getMonth() + 1).padStart(2, "0"); // Formato YYYY-MM
+        console.log("📊 [Dashboard] Mês atual:", thisMonth);
 
         const monthlyAppointments = appointments.filter((apt) => {
-          const aptDate = apt.date ? new Date(apt.date) : null;
-          return aptDate && aptDate >= thisMonth && aptDate < nextMonth;
+          const isThisMonth = apt.date && apt.date.startsWith(thisMonth);
+
+          console.log("📊 [Dashboard] Verificando mês:", {
+            id: apt.id,
+            date: apt.date,
+            thisMonth,
+            isThisMonth,
+          });
+
+          return isThisMonth;
         });
 
         stats.monthlyRevenue = monthlyAppointments.reduce((total, apt) => {
@@ -122,12 +153,34 @@ export const firestoreDashboardService = {
         );
 
         // Próximos agendamentos (próximos 5)
+        console.log("📊 [Dashboard] Buscando próximos agendamentos...");
         const futureAppointments = appointments
           .filter((apt) => {
-            const aptDate = apt.date ? new Date(apt.date) : null;
-            return aptDate && aptDate > today;
+            // Comparar datas como strings, considerando agendamentos futuros (incluindo hoje à tarde)
+            const isFuture = apt.date && apt.date >= todayString;
+
+            console.log("📊 [Dashboard] Verificando se é futuro:", {
+              id: apt.id,
+              date: apt.date,
+              todayString,
+              isFuture,
+              clientName: apt.clientName,
+            });
+
+            return isFuture;
+          })
+          .sort((a, b) => {
+            // Ordenar por data e hora
+            const dateA = a.date + " " + (a.startTime || "00:00");
+            const dateB = b.date + " " + (b.startTime || "00:00");
+            return dateA.localeCompare(dateB);
           })
           .slice(0, 5);
+
+        console.log(
+          "📊 [Dashboard] Agendamentos futuros encontrados:",
+          futureAppointments
+        );
 
         stats.upcomingAppointments = futureAppointments.map((apt) => ({
           id: apt.id,
@@ -137,6 +190,11 @@ export const firestoreDashboardService = {
           date: apt.date,
           status: apt.status || "AGENDADO",
         }));
+
+        console.log(
+          "📊 [Dashboard] Próximos agendamentos formatados:",
+          stats.upcomingAppointments
+        );
       } catch (appointmentError) {
         console.log("Erro ao buscar agendamentos:", appointmentError);
         // Continuar sem agendamentos
@@ -200,6 +258,7 @@ export const firestoreDashboardService = {
         stats.totalClients = 0;
       }
 
+      console.log("📊 [Dashboard] Estatísticas finais:", stats);
       return { success: true, data: stats };
     } catch (error) {
       console.error("Erro ao buscar estatísticas do dashboard:", error);

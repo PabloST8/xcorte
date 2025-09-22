@@ -18,6 +18,7 @@ import { useNotification } from "../hooks/useNotification";
 import { superAdminAuthService } from "../services/superAdminAuthService";
 import SuperAdminLogin from "../components/SuperAdminLogin";
 import NotificationPopup from "../components/NotificationPopup";
+import { formatDateBR } from "../utils/dateUtils";
 
 const SuperAdmin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -434,9 +435,7 @@ const SuperAdmin = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {enterprise.createdAt
-                          ? new Date(
-                              enterprise.createdAt.seconds * 1000
-                            ).toLocaleDateString("pt-BR")
+                          ? formatDateBR(new Date(enterprise.createdAt.seconds * 1000))
                           : "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

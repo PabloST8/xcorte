@@ -7,6 +7,7 @@ import {
 } from "../../hooks/useAdmin";
 import { BOOKING_STATUS, formatPrice } from "../../types/api.js";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
+import { formatDateTableBR, formatTimeBR } from "../../utils/dateUtils";
 
 export default function AdminAppointments() {
   const [dateFilter, setDateFilter] = useState("all");
@@ -248,10 +249,10 @@ export default function AdminAppointments() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {appointment.date}
+                      {formatDateTableBR(appointment.date)}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {appointment.startTime || appointment.time}
+                      {formatTimeBR(appointment.startTime || appointment.time)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

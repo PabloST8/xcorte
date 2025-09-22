@@ -2,7 +2,7 @@
 // Campos principais: clientName, clientEmail, clientPhone, productId, productName,
 // productPrice (centavos), productDuration (min), date (YYYY-MM-DD), startTime, endTime,
 // status (scheduled|confirmed|in_progress|completed|cancelled|no_show), notes, createdAt, updatedAt
-import { db, auth } from "./firebase";
+import { db } from "./firebase";
 import {
   collection,
   getDocs,
@@ -16,14 +16,12 @@ import {
 
 // Função para garantir que o usuário esteja autenticado no Firebase Auth
 async function ensureFirebaseAuth() {
-  if (auth.currentUser) {
-    return auth.currentUser;
-  }
-
+  // Para agendamentos, vamos usar Firestore direto sem Firebase Auth
+  // já que o usuário está autenticado no contexto da aplicação
   console.log(
-    "⚠️ Firebase Auth não disponível para agendamentos. Usando dados locais."
+    "🔍 Usando Firestore direto para agendamentos (sem Firebase Auth)"
   );
-  return null; // Indicar que Firebase Auth não está disponível
+  return { uid: "app-user" }; // Simular user para usar Firestore
 }
 
 function bookingsRef(email) {
@@ -192,7 +190,16 @@ export const enterpriseBookingFirestoreService = {
   },
 
   async create(enterpriseEmail, bookingData) {
+    console.log("🔍 [enterpriseBookingFirestore] create chamado:", {
+      enterpriseEmail,
+      bookingData,
+    });
+
     const firebaseUser = await ensureFirebaseAuth();
+    console.log(
+      "🔍 [enterpriseBookingFirestore] Firebase Auth resultado:",
+      firebaseUser ? "disponível" : "não disponível"
+    );
 
     const now = new Date().toISOString();
     const parseTime = (t) => {
@@ -230,11 +237,21 @@ export const enterpriseBookingFirestoreService = {
       updatedAt: now,
     };
 
+    console.log("🔍 [enterpriseBookingFirestore] Payload preparado:", payload);
+
     // ⚠️ VERIFICAÇÃO DE CONFLITOS ⚠️
     console.log("🔍 Verificando conflitos de agendamento...");
     const conflictCheck = await checkBookingConflict(enterpriseEmail, payload);
+    console.log(
+      "🔍 [enterpriseBookingFirestore] Resultado verificação de conflitos:",
+      conflictCheck
+    );
 
     if (conflictCheck.hasConflict) {
+      console.error(
+        "❌ [enterpriseBookingFirestore] Conflito detectado:",
+        conflictCheck
+      );
       const error = new Error(
         `Conflito de agendamento: ${conflictCheck.reason}`
       );
@@ -243,36 +260,31 @@ export const enterpriseBookingFirestoreService = {
       throw error;
     }
 
-    if (!firebaseUser) {
-      // Usar memória
-      console.log("📦 Salvando agendamento no fallback de memória");
-      const localBookings = getBookingsFromMemory(enterpriseEmail);
-      const newBooking = {
-        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...payload,
-      };
-      localBookings.push(newBooking);
-      saveBookingsToMemory(enterpriseEmail, localBookings);
-      return newBooking;
-    }
+    console.log(
+      "� [enterpriseBookingFirestore] Sempre usando Firestore direto"
+    );
 
     try {
-      console.log("💾 Firestore payload preparado:", payload);
+      console.log(
+        "💾 [enterpriseBookingFirestore] Tentando salvar no Firestore..."
+      );
+      console.log(
+        "💾 [enterpriseBookingFirestore] Firestore payload:",
+        payload
+      );
       const ref = await addDoc(bookingsRef(enterpriseEmail), payload);
-      return { id: ref.id, ...payload };
+      const savedBooking = { id: ref.id, ...payload };
+      console.log(
+        "✅ [enterpriseBookingFirestore] Agendamento salvo no Firestore:",
+        savedBooking
+      );
+      return savedBooking;
     } catch (error) {
-      console.warn(
-        "⚠️ Firestore falhou, salvando no fallback de memória:",
+      console.error(
+        "❌ [enterpriseBookingFirestore] Erro ao salvar no Firestore:",
         error
       );
-      const localBookings = getBookingsFromMemory(enterpriseEmail);
-      const newBooking = {
-        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...payload,
-      };
-      localBookings.push(newBooking);
-      saveBookingsToMemory(enterpriseEmail, localBookings);
-      return newBooking;
+      throw error; // Propagar o erro em vez de usar fallback
     }
   },
 

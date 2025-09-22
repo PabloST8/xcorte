@@ -1,38 +1,14 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Phone, Calendar, Star, Edit, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Phone, Edit, LogOut } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { useEnterprise } from "../contexts/EnterpriseContext";
-import { useUserAppointments } from "../hooks/useBarbershop";
-import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
-import { bookingService } from "../services/bookingService";
-import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
 import ModernPhotoUpload from "../components/ModernPhotoUpload";
 import { userPhotoProfileService } from "../services/userPhotoProfileService";
 
 export default function Profile() {
   const navigate = useNavigate();
   const { user, logout, updateUser, patchUser } = useAuth();
-  const { currentEnterprise } = useEnterprise();
   const [isEditing, setIsEditing] = useState(false);
-  const [fallbackAppointments, setFallbackAppointments] = useState([]);
-  const [loadingFallback, setLoadingFallback] = useState(false);
-
-  // Debug logs removed
-
-  const { data: appointments, isLoading } = useUserAppointments({
-    enterpriseEmail: currentEnterprise?.email,
-    clientEmail: user?.email,
-    clientName: user?.name,
-    clientPhone: user?.phone || user?.phoneNumber,
-    userEmail: user?.email,
-    userName: user?.name,
-    userPhone: user?.phone || user?.phoneNumber,
-  });
-
-  // Debug logs removed
-
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   /**
    * Manipula a atualização da foto do usuário
@@ -114,148 +90,6 @@ export default function Profile() {
       console.error("📸 Erro no handlePhotoUpdate:", err);
     }
   };
-
-  // Fallback para carregar agendamentos quando a API principal não funciona
-  React.useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-    if ((appointments || []).length > 0) {
-      return;
-    }
-    if (!currentEnterprise?.email) {
-      return;
-    }
-    const hasIdentifier = !!(
-      user?.email ||
-      user?.name ||
-      user?.phone ||
-      user?.phoneNumber
-    );
-    if (!hasIdentifier) {
-      return;
-    }
-    let cancelled = false;
-    setLoadingFallback(true);
-    (async () => {
-      try {
-        // Tentar buscar do Firestore primeiro - BUSCAR EM TODAS AS EMPRESAS
-        let firestoreAppointments = [];
-        try {
-          // Lista de todas as empresas conhecidas
-          const allEnterprises = [
-            "empresaadmin@xcortes.com",
-            "pablofafstar@gmail.com",
-            "admin@teste.com",
-          ];
-
-          // Buscar em todas as empresas
-          const allPromises = allEnterprises.map(async (enterpriseEmail) => {
-            try {
-              const bookings = await enterpriseBookingFirestoreService.list(
-                enterpriseEmail
-              );
-              return bookings.map((b) => ({
-                ...b,
-                sourceEnterprise: enterpriseEmail,
-              }));
-            } catch {
-              return [];
-            }
-          });
-
-          const allResults = await Promise.all(allPromises);
-          firestoreAppointments = allResults.flat();
-        } catch {
-          // Silenciar erros de fallback do Firestore
-        }
-
-        // Fallback para o bookingService (usado na UserAppointments) - APENAS SE A API ESTIVER FUNCIONANDO
-        let apiAppointments = [];
-        try {
-          const unwrap = (val) =>
-            Array.isArray(val) ? val : Array.isArray(val?.data) ? val.data : [];
-
-          const allRaw = await bookingService.getBookings(
-            currentEnterprise.email
-          );
-
-          const today = new Date().toISOString().split("T")[0];
-          const todayRaw = await bookingService.getBookings(
-            currentEnterprise.email,
-            today
-          );
-
-          apiAppointments = [...unwrap(allRaw), ...unwrap(todayRaw)];
-        } catch {
-          // Silenciar erros da API no fallback
-          // Não é um erro crítico, apenas seguimos sem dados da API
-        }
-
-        const map = new Map();
-
-        // Adicionar agendamentos do Firestore
-        firestoreAppointments.forEach((b) => {
-          const key = `${b.id || b._id || b.date}-${b.startTime || b.start}`;
-          if (!map.has(key)) map.set(key, b);
-        });
-
-        // Adicionar agendamentos da API (se houver)
-        apiAppointments.forEach((b) => {
-          const key = `${b.id || b._id || b.date}-${b.startTime || b.start}`;
-          if (!map.has(key)) map.set(key, b);
-        });
-
-        const uEmail = user?.email || "";
-        const uName = user?.name || "";
-        const uPhone = user?.phone || user?.phoneNumber || "";
-
-        const merged = Array.from(map.values()).filter((b) => {
-          const bEmail = b.clientEmail || b.email || "";
-          const bName = b.clientName || b.name || "";
-          const bPhone = b.clientPhone || b.phone || "";
-
-          const emailMatch = uEmail && bEmail === uEmail;
-          const nameMatch = uName && bName === uName;
-          const phoneMatch = uPhone && bPhone === uPhone;
-
-          return emailMatch || nameMatch || phoneMatch;
-        });
-        if (!cancelled) setFallbackAppointments(merged);
-      } catch {
-        // Silenciar erros de fallback
-        if (!cancelled) setFallbackAppointments([]);
-      } finally {
-        if (!cancelled) setLoadingFallback(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      setLoadingFallback(false);
-    };
-  }, [
-    appointments,
-    isLoading,
-    currentEnterprise?.email,
-    currentEnterprise?.name,
-    user?.email,
-    user?.name,
-    user?.phone,
-    user?.phoneNumber,
-  ]);
-
-  // Usar agendamentos da API ou fallback
-  const allAppointments =
-    appointments?.length > 0 ? appointments : fallbackAppointments;
-
-  // Ordenar agendamentos por data (mais recentes primeiro)
-  const sortedAppointments = allAppointments?.sort((a, b) => {
-    const dateA = new Date(`${a.date} ${a.startTime || a.time || "00:00"}`);
-    const dateB = new Date(`${b.date} ${b.startTime || b.time || "00:00"}`);
-    return dateB - dateA; // ordem decrescente (mais recente primeiro)
-  });
-
-  const recentAppointments = sortedAppointments?.slice(0, 3) || [];
 
   const handleLogout = async () => {
     try {
@@ -345,8 +179,7 @@ export default function Profile() {
               <h2 className="text-xl font-bold text-gray-900">
                 {user?.name || "Usuário"}
               </h2>
-              <div className="flex items-center mt-2">
-                <Star className="w-4 h-4 text-yellow-500 mr-1" />
+              <div className="mt-2">
                 <span className="text-sm text-gray-600">
                   Cliente desde{" "}
                   {user?.createdAt
@@ -365,120 +198,7 @@ export default function Profile() {
                 {user?.phone || "(11) 99999-9999"}
               </span>
             </div>
-            <div className="flex items-center space-x-3">
-              <Calendar className="w-5 h-5 text-gray-400" />
-              <span className="text-gray-900">
-                {allAppointments?.length || 0} agendamentos realizados
-              </span>
-            </div>
           </div>
-        </div>
-
-        {/* Recent Appointments */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Agendamentos Recentes
-          </h3>
-
-          {isLoading || loadingFallback ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, index) => (
-                <div key={index} className="animate-pulse">
-                  <div className="h-16 bg-gray-200 rounded-lg"></div>
-                </div>
-              ))}
-            </div>
-          ) : recentAppointments.length > 0 ? (
-            <div className="space-y-3">
-              {recentAppointments.map((appointment, index) => {
-                // Formatação da data
-                const formatDate = (dateStr) => {
-                  if (!dateStr) return "Data não informada";
-                  try {
-                    const [year, month, day] = dateStr.split("-");
-                    return `${day}/${month}/${year}`;
-                  } catch {
-                    return dateStr;
-                  }
-                };
-
-                // Formatação do status
-                const formatStatus = (status) => {
-                  const statusMap = {
-                    scheduled: "Agendado",
-                    confirmed: "Confirmado",
-                    in_progress: "Em andamento",
-                    completed: "Concluído",
-                    cancelled: "Cancelado",
-                    no_show: "Não compareceu",
-                  };
-                  return statusMap[status] || status || "Agendado";
-                };
-
-                return (
-                  <div
-                    key={appointment.id || appointment._id || index}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {appointment.serviceName ||
-                          appointment.productName ||
-                          appointment.service ||
-                          "Serviço"}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {appointment.staffName ||
-                          appointment.employeeName ||
-                          appointment.professional ||
-                          "Profissional"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatDate(appointment.date)}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {appointment.startTime ||
-                          appointment.time ||
-                          "Horário não informado"}
-                      </p>
-                      <p className="text-xs text-green-600">
-                        {formatStatus(appointment.status)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">Nenhum agendamento ainda</p>
-              <p className="text-sm text-gray-500 mb-4">
-                Que tal agendar seu primeiro corte?
-              </p>
-              <Link
-                to={getEnterpriseUrl(
-                  "service-details?category=Todos&title=Serviços"
-                )}
-                className="inline-block bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg transition-colors font-medium"
-              >
-                Fazer Primeiro Agendamento
-              </Link>
-            </div>
-          )}
-
-          {recentAppointments.length > 0 && (
-            <Link
-              to={getEnterpriseUrl(
-                "service-details?category=Todos&title=Serviços"
-              )}
-              className="block text-center mt-4 text-amber-600 hover:text-amber-700 font-medium text-sm"
-            >
-              Fazer Novo Agendamento
-            </Link>
-          )}
         </div>
 
         {/* Seção de testes removida */}

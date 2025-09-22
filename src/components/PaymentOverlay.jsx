@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { paymentService } from "../services/paymentService";
 import NotificationPopup from "./NotificationPopup";
 import { useNotification } from "../hooks/useNotification";
+import { formatDateBR } from "../utils/dateUtils";
 
 function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
   const [selectedPayment, setSelectedPayment] = useState("card");
@@ -86,7 +87,7 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
               </p>
               <p>
                 <span className="font-medium">Data:</span>{" "}
-                {appointmentData?.date}
+                {appointmentData?.date ? formatDateBR(new Date(`${appointmentData.date}T00:00:00`)) : ''}
               </p>
               <p>
                 <span className="font-medium">Horário:</span>{" "}

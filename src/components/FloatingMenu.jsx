@@ -57,9 +57,9 @@ export default function FloatingMenu() {
       to: getEnterpriseUrl("profile"),
     },
     {
-      label: "Agendamento",
+      label: "Meus Agendamentos",
       icon: <Calendar className="w-6 h-6" />,
-      to: getEnterpriseUrl("service-details?category=Todos&title=Serviços"),
+      to: getEnterpriseUrl("my-appointments"),
     },
   ];
 

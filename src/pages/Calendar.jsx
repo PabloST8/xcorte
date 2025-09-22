@@ -14,6 +14,7 @@ import { formatPrice } from "../types/api.js";
 import { allServices, staffMembers } from "../data/services.js";
 import NotificationPopup from "../components/NotificationPopup";
 import { useNotification } from "../hooks/useNotification";
+import { formatDateBR } from "../utils/dateUtils";
 
 function Calendar() {
   const { getEnterpriseUrl } = useEnterpriseNavigation();
@@ -294,12 +295,7 @@ function Calendar() {
               Selecione o horário
             </h2>
             <p className="text-gray-600 mb-6">
-              {selectedDate?.toLocaleDateString("pt-BR", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatDateBR(selectedDate)}
             </p>
 
             <div className="grid grid-cols-3 gap-3">
@@ -436,7 +432,7 @@ function Calendar() {
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-600">Data:</span>
                 <span className="font-medium">
-                  {selectedDate?.toLocaleDateString("pt-BR")}
+                  {formatDateBR(selectedDate)}
                 </span>
               </div>
 

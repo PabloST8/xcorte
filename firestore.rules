@@ -1,93 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite leitura pública das empresas e seus dados
-    // Super Admin pode fazer tudo com enterprises
-    match /enterprises/{enterpriseId} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-         request.auth.token.email == 'pablofafstar@gmail.com');
-      
-      // Permite leitura pública dos serviços da empresa
-      match /products/{productId} {
-        allow read: if true;
-      }
-      
-      // Permite leitura pública dos funcionários da empresa
-      match /employees/{employeeId} {
-        allow read: if true;
-      }
-      
-      // Agendamentos requerem autenticação para leitura e escrita
-      match /bookings/{bookingId} {
-        allow read, write: if request.auth != null;
-      }
-      
-      // Permite leitura de outros dados da empresa
-      match /{document=**} {
-        allow read: if true;
-        allow write: if request.auth != null;
-      }
-    }
-    
-    // Permite leitura/escrita para usuários autenticados em suas próprias informações
-    // TEMPORÁRIO: Permite criação de usuários sem autenticação para desenvolvimento
-    match /users/{userId} {
-      allow read: if true;
-      // DEV ONLY: permitir escrita sem auth para viabilizar protótipo de upload de foto
-      // Em produção, RESTRINJA para: request.auth != null && request.auth.uid == userId
-      allow write: if true;
-      allow create: if true; // Permite criação sem autenticação
-    }
-    
-    // Permite acesso ao carrinho para usuários autenticados
-    match /carts/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Permite acesso a carrinhos por usuário e empresa
-    match /userCarts/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /enterprises/{enterpriseId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-    
-    // Permite acesso a carrinhos por sessão (para usuários não autenticados)
-    match /session_carts/{sessionId} {
-      allow read, write: if true;
-    }
-    
-    // Permite leitura/escrita para agendamentos do usuário
-    match /appointments/{appointmentId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // Administradores podem acessar dados administrativos
-    match /admin/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-    
-    // Permite escrita/leitura em outras coleções para usuários autenticados
+    // DESENVOLVIMENTO: Permite tudo sem autenticação
     match /{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-    
-    // Regras específicas para Super Admin
-    match /enterprises/{enterpriseId} {
-      allow create, update, delete: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-         request.auth.token.email == 'pablofafstar@gmail.com');
-    }
-    
-    // Super Admin pode acessar todos os dados
-    match /super_admin/{document=**} {
-      allow read, write: if request.auth != null && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin' ||
-         request.auth.token.email == 'pablofafstar@gmail.com');
+      allow read, write: if true;
     }
   }
 }

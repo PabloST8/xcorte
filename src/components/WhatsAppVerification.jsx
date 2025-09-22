@@ -3,7 +3,6 @@ import { MessageCircle, Clock, Shield, AlertCircle, Bug } from "lucide-react";
 import {
   sendVerificationCode,
   verifyVerificationCode,
-  testDirectConnection,
 } from "../services/whatsappAPI";
 
 const WhatsAppVerification = ({
@@ -135,21 +134,6 @@ const WhatsAppVerification = ({
     setError("");
     setStep("send");
     setCodeSent(false);
-  };
-
-  // Teste direto (debug)
-  const handleTestDirect = async () => {
-    setLoading(true);
-    console.log("🔬 Iniciando teste direto...");
-
-    try {
-      const result = await testDirectConnection(phoneNumber);
-      console.log("🔬 Resultado do teste direto:", result);
-    } catch (error) {
-      console.error("🔬 Erro no teste direto:", error);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Input do código com formatação

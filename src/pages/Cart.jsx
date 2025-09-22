@@ -14,6 +14,7 @@ import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import BookingOverlay from "../components/BookingOverlay";
 import NotificationPopup from "../components/NotificationPopup";
 import { useNotification } from "../hooks/useNotification";
+import { formatDateBR } from "../utils/dateUtils";
 
 function Cart() {
   const {
@@ -32,7 +33,6 @@ function Cart() {
     notification,
     showSuccess,
     showError,
-    showWarning,
     hideNotification,
   } = useNotification();
   const [searchParams] = useSearchParams();
@@ -48,6 +48,10 @@ function Cart() {
 
   // Legacy compatibility: if someone navigates to /cart with query params from old links, add a draft item
   useEffect(() => {
+    console.log("🛒 [Cart] Estado atual dos itens:", items);
+    console.log("🛒 [Cart] Quantidade de itens:", items?.length || 0);
+    console.log("🛒 [Cart] useCart hook funcionando:", !!useCart);
+
     const service = searchParams.get("service");
     const price = searchParams.get("price"); // in reais
     const durationStr = searchParams.get("duration"); // e.g., "30 min"
@@ -68,7 +72,7 @@ function Cart() {
       // Clean URL to avoid re-adding on refresh
       navigate(getEnterpriseUrl("cart"), { replace: true });
     }
-  }, [searchParams, addItem, navigate, getEnterpriseUrl]);
+  }, [items, searchParams, addItem, navigate, getEnterpriseUrl]);
 
   useEffect(() => {
     if (!currentEnterprise?.email) return;
@@ -225,8 +229,9 @@ function Cart() {
       for (const it of items) {
         // Validação local de expediente do funcionário
         if (!isWithinWorkHours(it)) {
+          const dateObj = new Date(`${it.date}T00:00:00`);
           showError(
-            `Este profissional não trabalha no horário ${it.date} ${it.time}. Escolha outro horário.`
+            `Este profissional não trabalha no horário ${formatDateBR(dateObj)} ${it.time}. Escolha outro horário.`
           );
           setSubmitting(false);
           return;
@@ -285,8 +290,9 @@ function Cart() {
             if (looksLikeSchedule) {
               const empLabel =
                 it.employeeName || it.employeeId || "funcionário";
+              const dateObj = new Date(`${it.date}T00:00:00`);
               showError(
-                `O horário ${it.date} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
+                `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
               );
               setSubmitting(false);
               return;
@@ -317,12 +323,18 @@ function Cart() {
         if (isValidEmail(clientEmail)) payload.clientEmail = clientEmail;
         // Criação: em sessão simples, ir direto ao Firestore; caso contrário, tenta API e cai para Firestore quando fizer sentido
         if (isSimpleSession) {
+          console.log(
+            "🔍 [Cart] Sessão simples - criando no Firestore diretamente"
+          );
+          console.log("🔍 [Cart] Payload para Firestore:", payload);
           try {
-            await enterpriseBookingFirestoreService.create(
+            const result = await enterpriseBookingFirestoreService.create(
               currentEnterprise.email,
               payload
             );
+            console.log("✅ [Cart] Agendamento criado no Firestore:", result);
           } catch (fbErr) {
+            console.error("❌ [Cart] Erro ao criar no Firestore:", fbErr);
             const m2 = (
               (typeof fbErr === "object" &&
                 (fbErr.message || fbErr.error || fbErr.msg)) ||
@@ -335,8 +347,9 @@ function Cart() {
             ) {
               const empLabel =
                 it.employeeName || it.employeeId || "funcionário";
+              const dateObj = new Date(`${it.date}T00:00:00`);
               showError(
-                `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+                `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
               );
               setSubmitting(false);
               return;
@@ -367,8 +380,9 @@ function Cart() {
               ) {
                 const empLabel =
                   it.employeeName || it.employeeId || "funcionário";
+                const dateObj = new Date(`${it.date}T00:00:00`);
                 showError(
-                  `O horário ${it.date} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+                  `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
                 );
                 setSubmitting(false);
                 return;
@@ -378,6 +392,9 @@ function Cart() {
           }
         }
       }
+      console.log(
+        "✅ [Cart] Todos os agendamentos foram processados com sucesso"
+      );
       clear();
       showSuccess("Agendamentos confirmados!");
     } catch (e) {
@@ -393,7 +410,13 @@ function Cart() {
   const formatItemLine = (it) => {
     const emp = employees.find((e) => String(e.id) === String(it.employeeId));
     const empName = it.employeeName || emp?.name || "";
-    const when = it.date && it.time ? `${it.date} ${it.time}` : "Sem data/hora";
+    
+    let when = "Sem data/hora";
+    if (it.date && it.time) {
+      const dateObj = new Date(`${it.date}T00:00:00`);
+      when = `${formatDateBR(dateObj)} ${it.time}`;
+    }
+    
     return `${empName ? empName + " • " : ""}${when}`;
   };
 

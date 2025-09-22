@@ -6,6 +6,7 @@ import {
   doc,
   deleteDoc,
   updateDoc,
+  addDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -286,6 +287,55 @@ export const firestoreAppointmentsService = {
       };
     } catch (error) {
       console.error("❌ Erro ao atualizar status do agendamento:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  },
+
+  // Criar novo agendamento
+  async createAppointment(appointmentData) {
+    try {
+      console.log("🔄 Criando agendamento no Firestore:", appointmentData);
+
+      const { enterpriseEmail, ...bookingData } = appointmentData;
+
+      if (!enterpriseEmail) {
+        throw new Error("enterpriseEmail é obrigatório");
+      }
+
+      // Adicionar timestamps
+      const appointmentToSave = {
+        ...bookingData,
+        enterpriseEmail,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: bookingData.status || "scheduled",
+      };
+
+      // Salvar na subcoleção da empresa
+      const bookingsRef = collection(
+        db,
+        "enterprises",
+        enterpriseEmail,
+        "bookings"
+      );
+
+      const docRef = await addDoc(bookingsRef, appointmentToSave);
+
+      console.log("✅ Agendamento criado com sucesso:", docRef.id);
+
+      return {
+        success: true,
+        data: {
+          id: docRef.id,
+          ...appointmentToSave,
+        },
+        message: "Agendamento criado com sucesso",
+      };
+    } catch (error) {
+      console.error("❌ Erro ao criar agendamento:", error);
       return {
         success: false,
         error: error.message,

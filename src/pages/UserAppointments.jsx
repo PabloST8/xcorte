@@ -12,6 +12,7 @@ import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useUserAppointments } from "../hooks/useBarbershop";
 import { useAppointmentsRefresh } from "../hooks/useAppointmentsRefresh";
 import { bookingService } from "../services/bookingService";
+import { formatDateLongBR } from "../utils/dateUtils";
 
 export default function UserAppointments() {
   const navigate = useNavigate();
@@ -150,11 +151,8 @@ export default function UserAppointments() {
           employeeName,
           dateObj,
           dateDisplay: dateObj
-            ? dateObj.toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-              })
-            : dateStr,
+            ? formatDateLongBR(dateObj)
+            : formatDateLongBR(dateStr),
           start,
           end,
           status,

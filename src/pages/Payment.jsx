@@ -8,6 +8,7 @@ import {
 import { ChevronLeft, Plus, MoreHorizontal } from "lucide-react";
 import { paymentService } from "../services/paymentService";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { formatDateBR } from "../utils/dateUtils";
 
 function Payment() {
   const [selectedPayment, setSelectedPayment] = useState("card");
@@ -43,7 +44,7 @@ function Payment() {
           appointment.productDuration ||
           appointment.duration,
         staff: appointment.staff?.name || appointment.staffName || "",
-        date: dateObj ? dateObj.toLocaleDateString() : dateStr,
+        date: dateObj ? formatDateBR(dateObj) : formatDateBR(dateStr),
         time: dateObj
           ? dateObj.toLocaleTimeString([], {
               hour: "2-digit",
@@ -130,7 +131,7 @@ function Payment() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Data e Hora:</span>
                   <span className="font-medium">
-                    {appointmentData.date} às {appointmentData.time}
+                    {formatDateBR(new Date(`${appointmentData.date}T00:00:00`))} às {appointmentData.time}
                   </span>
                 </div>
               )}

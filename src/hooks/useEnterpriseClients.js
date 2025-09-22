@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { firestoreAppointmentsService } from "../services/firestoreAppointmentsService";
 import { firestoreClientsService } from "../services/firestoreClientsService";
 import { useEnterprise } from "../contexts/EnterpriseContext";
+import { formatDateBR } from "../utils/dateUtils";
 
 export const useEnterpriseClients = () => {
   const { currentEnterprise } = useEnterprise();
@@ -111,10 +112,10 @@ export const useEnterpriseClients = () => {
           });
 
         const lastAppointment = sortedAppointments[0]
-          ? new Date(
+          ? formatDateBR(
               sortedAppointments[0].date ||
                 sortedAppointments[0].appointmentDate
-            ).toLocaleDateString("pt-BR")
+            )
           : "Nunca";
 
         return {

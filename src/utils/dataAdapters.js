@@ -5,6 +5,7 @@ import {
   parsePrice,
   BOOKING_STATUS,
 } from "../types/api.js";
+import { formatDateBR } from "./dateUtils";
 
 // Utilitários para conversão entre formatos antigos e API
 export const DataAdapters = {
@@ -219,8 +220,7 @@ export const DateHelpers = {
   },
 
   formatToDisplay: (dateString) => {
-    const date = new Date(dateString + "T00:00:00");
-    return date.toLocaleDateString("pt-BR");
+    return formatDateBR(dateString);
   },
 
   isToday: (dateString) => {
