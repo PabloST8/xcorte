@@ -15,8 +15,10 @@ class WhatsAppAPI {
       console.log("📦 Corpo da requisição:", JSON.stringify(requestBody));
 
       // Determina a URL base dependendo do ambiente
-      const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-      const apiUrl = isProduction 
+      const isProduction =
+        !window.location.hostname.includes("localhost") &&
+        !window.location.hostname.includes("127.0.0.1");
+      const apiUrl = isProduction
         ? "https://x-corte-api.codxis.com.br/api/sendCode"
         : "/api/sendCode";
 
@@ -24,9 +26,9 @@ class WhatsAppAPI {
 
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          ...(isProduction && { "Origin": window.location.origin })
+          ...(isProduction && { Origin: window.location.origin }),
         },
         body: JSON.stringify(requestBody),
       });
@@ -101,8 +103,10 @@ class WhatsAppAPI {
       console.log("🔍 Verificando código:", userCode, "para:", phoneNumber);
 
       // Determina a URL base dependendo do ambiente
-      const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
-      const apiUrl = isProduction 
+      const isProduction =
+        !window.location.hostname.includes("localhost") &&
+        !window.location.hostname.includes("127.0.0.1");
+      const apiUrl = isProduction
         ? "https://x-corte-api.codxis.com.br/api/verifyCode"
         : "/api/verifyCode";
 
@@ -110,9 +114,9 @@ class WhatsAppAPI {
 
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          ...(isProduction && { "Origin": window.location.origin })
+          ...(isProduction && { Origin: window.location.origin }),
         },
         body: JSON.stringify({ phoneNumber, userCode }),
       });
@@ -141,7 +145,8 @@ class WhatsAppAPI {
         return {
           success: false,
           error: errorData.error || `Erro ${response.status}`,
-          message: errorData.message || `Erro do servidor: ${response.statusText}`,
+          message:
+            errorData.message || `Erro do servidor: ${response.statusText}`,
         };
       }
 
