@@ -14,9 +14,20 @@ class WhatsAppAPI {
       const requestBody = { phoneNumber };
       console.log("📦 Corpo da requisição:", JSON.stringify(requestBody));
 
-      const response = await fetch("/api/sendCode", {
+      // Determina a URL base dependendo do ambiente
+      const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+      const apiUrl = isProduction 
+        ? "https://x-corte-api.codxis.com.br/api/sendCode"
+        : "/api/sendCode";
+
+      console.log("🌐 Usando URL:", apiUrl);
+
+      const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(isProduction && { "Origin": window.location.origin })
+        },
         body: JSON.stringify(requestBody),
       });
 
@@ -30,21 +41,24 @@ class WhatsAppAPI {
         Object.fromEntries(response.headers.entries())
       );
 
+      // Primeiro, vamos ler a resposta como texto para verificar se é JSON válido
+      const responseText = await response.text();
+      console.log("📝 Resposta como texto:", responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Erro do servidor (texto completo):", errorText);
+        console.error("❌ Erro do servidor (texto completo):", responseText);
 
         // Tenta fazer parse se for JSON
         let errorData;
         try {
-          errorData = JSON.parse(errorText);
+          errorData = JSON.parse(responseText);
           console.log("📄 Erro parseado como JSON:", errorData);
         } catch (parseError) {
           console.log(
             "⚠️ Não foi possível parsear como JSON:",
             parseError.message
           );
-          errorData = { message: errorText };
+          errorData = { message: responseText };
         }
 
         return {
@@ -55,9 +69,21 @@ class WhatsAppAPI {
         };
       }
 
-      const result = await response.json();
-      console.log("✅ Resultado:", result);
-      return result;
+      // Tenta parsear a resposta de sucesso como JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log("✅ Resultado:", result);
+        return result;
+      } catch (parseError) {
+        console.error("💥 Erro ao parsear JSON de sucesso:", parseError);
+        console.error("💥 Resposta que causou erro:", responseText);
+        return {
+          success: false,
+          error: "Resposta inválida",
+          message: "Servidor retornou resposta inválida. Tente novamente.",
+        };
+      }
     } catch (error) {
       console.error("💥 Erro em sendCode:", error);
       console.error("💥 Stack trace:", error.stack);
@@ -74,9 +100,20 @@ class WhatsAppAPI {
     try {
       console.log("🔍 Verificando código:", userCode, "para:", phoneNumber);
 
-      const response = await fetch("/api/verifyCode", {
+      // Determina a URL base dependendo do ambiente
+      const isProduction = !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1');
+      const apiUrl = isProduction 
+        ? "https://x-corte-api.codxis.com.br/api/verifyCode"
+        : "/api/verifyCode";
+
+      console.log("🌐 Usando URL:", apiUrl);
+
+      const response = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(isProduction && { "Origin": window.location.origin })
+        },
         body: JSON.stringify({ phoneNumber, userCode }),
       });
 
@@ -86,20 +123,42 @@ class WhatsAppAPI {
         response.statusText
       );
 
+      // Primeiro, vamos ler a resposta como texto para verificar se é JSON válido
+      const responseText = await response.text();
+      console.log("📝 Resposta como texto:", responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Erro na verificação:", errorText);
+        console.error("❌ Erro na verificação:", responseText);
+
+        // Tenta fazer parse se for JSON
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = { message: responseText };
+        }
 
         return {
           success: false,
-          error: `Erro ${response.status}`,
-          message: `Erro do servidor: ${response.statusText}`,
+          error: errorData.error || `Erro ${response.status}`,
+          message: errorData.message || `Erro do servidor: ${response.statusText}`,
         };
       }
 
-      const result = await response.json();
-      console.log("✅ Resultado da verificação:", result);
-      return result;
+      // Tenta parsear a resposta de sucesso como JSON
+      try {
+        const result = JSON.parse(responseText);
+        console.log("✅ Resultado da verificação:", result);
+        return result;
+      } catch (parseError) {
+        console.error("💥 Erro ao parsear JSON de sucesso:", parseError);
+        console.error("💥 Resposta que causou erro:", responseText);
+        return {
+          success: false,
+          error: "Resposta inválida",
+          message: "Servidor retornou resposta inválida. Tente novamente.",
+        };
+      }
     } catch (error) {
       console.error("💥 Erro em verifyCode:", error);
       return {
