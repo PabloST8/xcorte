@@ -435,7 +435,9 @@ const SuperAdmin = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {enterprise.createdAt
-                          ? formatDateBR(new Date(enterprise.createdAt.seconds * 1000))
+                          ? formatDateBR(
+                              new Date(enterprise.createdAt.seconds * 1000)
+                            )
                           : "-"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

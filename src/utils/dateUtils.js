@@ -9,14 +9,14 @@
  */
 export const formatDateBR = (dateInput) => {
   if (!dateInput) return "Data não informada";
-  
+
   try {
     let date;
-    
-    if (typeof dateInput === 'string') {
+
+    if (typeof dateInput === "string") {
       // Se for string no formato YYYY-MM-DD, criar Date sem problemas de timezone
       if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateInput.split('-');
+        const [year, month, day] = dateInput.split("-");
         date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       } else {
         date = new Date(dateInput);
@@ -24,18 +24,18 @@ export const formatDateBR = (dateInput) => {
     } else {
       date = new Date(dateInput);
     }
-    
+
     if (isNaN(date.getTime())) {
       return dateInput.toString();
     }
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
   } catch (error) {
-    console.warn('Erro ao formatar data:', error, dateInput);
+    console.warn("Erro ao formatar data:", error, dateInput);
     return dateInput?.toString() || "Data inválida";
   }
 };
@@ -49,11 +49,14 @@ export const formatDateBR = (dateInput) => {
 export const formatDateTimeBR = (dateInput, timeInput) => {
   const formattedDate = formatDateBR(dateInput);
   const formattedTime = timeInput || "Horário não informado";
-  
-  if (formattedDate === "Data não informada" || formattedDate === "Data inválida") {
+
+  if (
+    formattedDate === "Data não informada" ||
+    formattedDate === "Data inválida"
+  ) {
     return formattedDate;
   }
-  
+
   return `${formattedDate} às ${formattedTime}`;
 };
 
@@ -64,13 +67,13 @@ export const formatDateTimeBR = (dateInput, timeInput) => {
  */
 export const formatDateLongBR = (dateInput) => {
   if (!dateInput) return "Data não informada";
-  
+
   try {
     let date;
-    
-    if (typeof dateInput === 'string') {
+
+    if (typeof dateInput === "string") {
       if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateInput.split('-');
+        const [year, month, day] = dateInput.split("-");
         date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       } else {
         date = new Date(dateInput);
@@ -78,19 +81,19 @@ export const formatDateLongBR = (dateInput) => {
     } else {
       date = new Date(dateInput);
     }
-    
+
     if (isNaN(date.getTime())) {
       return dateInput.toString();
     }
-    
-    return date.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+
+    return date.toLocaleDateString("pt-BR", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   } catch (error) {
-    console.warn('Erro ao formatar data por extenso:', error, dateInput);
+    console.warn("Erro ao formatar data por extenso:", error, dateInput);
     return dateInput?.toString() || "Data inválida";
   }
 };
@@ -102,13 +105,13 @@ export const formatDateLongBR = (dateInput) => {
  */
 export const formatDateTableBR = (dateInput) => {
   if (!dateInput) return "-";
-  
+
   try {
     let date;
-    
-    if (typeof dateInput === 'string') {
+
+    if (typeof dateInput === "string") {
       if (dateInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateInput.split('-');
+        const [year, month, day] = dateInput.split("-");
         date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       } else {
         date = new Date(dateInput);
@@ -116,15 +119,15 @@ export const formatDateTableBR = (dateInput) => {
     } else {
       date = new Date(dateInput);
     }
-    
+
     if (isNaN(date.getTime())) {
       return "-";
     }
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
     const year = date.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
   } catch {
     return "-";
@@ -138,12 +141,12 @@ export const formatDateTableBR = (dateInput) => {
  */
 export const formatTimeBR = (timeInput) => {
   if (!timeInput) return "Horário não informado";
-  
+
   // Se já está no formato HH:mm, retornar
-  if (typeof timeInput === 'string' && timeInput.match(/^\d{2}:\d{2}/)) {
+  if (typeof timeInput === "string" && timeInput.match(/^\d{2}:\d{2}/)) {
     return timeInput.slice(0, 5); // Pegar apenas HH:mm
   }
-  
+
   return timeInput.toString();
 };
 
@@ -161,9 +164,9 @@ export const getCurrentDateBR = () => {
  */
 export const getCurrentDateTimeBR = () => {
   const now = new Date();
-  const time = now.toLocaleTimeString('pt-BR', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  const time = now.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
   return formatDateTimeBR(now, time);
 };

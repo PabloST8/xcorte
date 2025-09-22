@@ -232,7 +232,11 @@ export function CartProvider({ children }) {
         // Lançar erro que será capturado pelo componente que chama addItem
         const dateObj = new Date(`${newItem.date}T00:00:00`);
         const error = new Error(
-          `Você já tem um agendamento com este profissional no horário ${newItem.time} do dia ${formatDateBR(dateObj)}. Escolha outro horário ou funcionário.`
+          `Você já tem um agendamento com este profissional no horário ${
+            newItem.time
+          } do dia ${formatDateBR(
+            dateObj
+          )}. Escolha outro horário ou funcionário.`
         );
         error.type = "CART_DUPLICATE";
         throw error;

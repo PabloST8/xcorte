@@ -131,7 +131,8 @@ function Payment() {
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Data e Hora:</span>
                   <span className="font-medium">
-                    {formatDateBR(new Date(`${appointmentData.date}T00:00:00`))} às {appointmentData.time}
+                    {formatDateBR(new Date(`${appointmentData.date}T00:00:00`))}{" "}
+                    às {appointmentData.time}
                   </span>
                 </div>
               )}

@@ -29,12 +29,8 @@ function Cart() {
   const { currentEnterprise } = useEnterprise();
   const { user, isAuthenticated, ensureFirebaseAuth } = useAuth();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
-  const {
-    notification,
-    showSuccess,
-    showError,
-    hideNotification,
-  } = useNotification();
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -231,7 +227,9 @@ function Cart() {
         if (!isWithinWorkHours(it)) {
           const dateObj = new Date(`${it.date}T00:00:00`);
           showError(
-            `Este profissional não trabalha no horário ${formatDateBR(dateObj)} ${it.time}. Escolha outro horário.`
+            `Este profissional não trabalha no horário ${formatDateBR(
+              dateObj
+            )} ${it.time}. Escolha outro horário.`
           );
           setSubmitting(false);
           return;
@@ -292,7 +290,9 @@ function Cart() {
                 it.employeeName || it.employeeId || "funcionário";
               const dateObj = new Date(`${it.date}T00:00:00`);
               showError(
-                `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
+                `O horário ${formatDateBR(
+                  dateObj
+                )} ${startTime} com ${empLabel} não está disponível: ${msg}.\nEdite o item e escolha outro horário.`
               );
               setSubmitting(false);
               return;
@@ -349,7 +349,9 @@ function Cart() {
                 it.employeeName || it.employeeId || "funcionário";
               const dateObj = new Date(`${it.date}T00:00:00`);
               showError(
-                `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+                `O horário ${formatDateBR(
+                  dateObj
+                )} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
               );
               setSubmitting(false);
               return;
@@ -382,7 +384,9 @@ function Cart() {
                   it.employeeName || it.employeeId || "funcionário";
                 const dateObj = new Date(`${it.date}T00:00:00`);
                 showError(
-                  `O horário ${formatDateBR(dateObj)} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
+                  `O horário ${formatDateBR(
+                    dateObj
+                  )} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
                 );
                 setSubmitting(false);
                 return;
@@ -410,13 +414,13 @@ function Cart() {
   const formatItemLine = (it) => {
     const emp = employees.find((e) => String(e.id) === String(it.employeeId));
     const empName = it.employeeName || emp?.name || "";
-    
+
     let when = "Sem data/hora";
     if (it.date && it.time) {
       const dateObj = new Date(`${it.date}T00:00:00`);
       when = `${formatDateBR(dateObj)} ${it.time}`;
     }
-    
+
     return `${empName ? empName + " • " : ""}${when}`;
   };
 

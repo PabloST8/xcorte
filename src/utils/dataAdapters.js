@@ -73,21 +73,20 @@ export const DataAdapters = {
       date: oldBooking.date || new Date().toISOString().split("T")[0],
       startTime: oldBooking.startTime || oldBooking.time || "09:00",
       endTime: oldBooking.endTime || "09:30",
-      status:
-        (() => {
-          if (!oldBooking.status) return BOOKING_STATUS.AGENDADO;
-          const legacyMap = {
-            pending: BOOKING_STATUS.AGENDADO,
-            confirmed: BOOKING_STATUS.CONFIRMADO,
-            completed: BOOKING_STATUS.CONCLUIDO,
-            cancelled: BOOKING_STATUS.CANCELADO,
-            canceled: BOOKING_STATUS.CANCELADO,
-          };
-            const normalized = legacyMap[oldBooking.status] || oldBooking.status;
-            return Object.values(BOOKING_STATUS).includes(normalized)
-              ? normalized
-              : BOOKING_STATUS.AGENDADO;
-        })(),
+      status: (() => {
+        if (!oldBooking.status) return BOOKING_STATUS.AGENDADO;
+        const legacyMap = {
+          pending: BOOKING_STATUS.AGENDADO,
+          confirmed: BOOKING_STATUS.CONFIRMADO,
+          completed: BOOKING_STATUS.CONCLUIDO,
+          cancelled: BOOKING_STATUS.CANCELADO,
+          canceled: BOOKING_STATUS.CANCELADO,
+        };
+        const normalized = legacyMap[oldBooking.status] || oldBooking.status;
+        return Object.values(BOOKING_STATUS).includes(normalized)
+          ? normalized
+          : BOOKING_STATUS.AGENDADO;
+      })(),
       notes: oldBooking.notes || "",
       createdAt: oldBooking.createdAt || new Date().toISOString(),
       updatedAt: oldBooking.updatedAt || new Date().toISOString(),

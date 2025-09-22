@@ -87,7 +87,9 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
               </p>
               <p>
                 <span className="font-medium">Data:</span>{" "}
-                {appointmentData?.date ? formatDateBR(new Date(`${appointmentData.date}T00:00:00`)) : ''}
+                {appointmentData?.date
+                  ? formatDateBR(new Date(`${appointmentData.date}T00:00:00`))
+                  : ""}
               </p>
               <p>
                 <span className="font-medium">Horário:</span>{" "}
