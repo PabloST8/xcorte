@@ -15,12 +15,13 @@ class WhatsAppAPI {
       console.log("📦 Corpo da requisição:", JSON.stringify(requestBody));
 
       // Determina a URL base dependendo do ambiente
-      const isProduction =
-        !window.location.hostname.includes("localhost") &&
-        !window.location.hostname.includes("127.0.0.1");
-      const apiUrl = isProduction
-        ? "https://x-corte-api.codxis.com.br/api/sendCode"
-        : "/api/sendCode";
+      const isDevelopment =
+        window.location.hostname.includes("localhost") ||
+        window.location.hostname.includes("127.0.0.1") ||
+        window.location.port === "4000";
+      const apiUrl = isDevelopment
+        ? "/api/sendCode"
+        : "https://x-corte-api.codxis.com.br/api/sendCode";
 
       console.log("🌐 Usando URL:", apiUrl);
 
@@ -28,7 +29,7 @@ class WhatsAppAPI {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isProduction && { Origin: window.location.origin }),
+          ...(isDevelopment ? {} : { Origin: window.location.origin }),
         },
         body: JSON.stringify(requestBody),
       });
@@ -103,12 +104,13 @@ class WhatsAppAPI {
       console.log("🔍 Verificando código:", userCode, "para:", phoneNumber);
 
       // Determina a URL base dependendo do ambiente
-      const isProduction =
-        !window.location.hostname.includes("localhost") &&
-        !window.location.hostname.includes("127.0.0.1");
-      const apiUrl = isProduction
-        ? "https://x-corte-api.codxis.com.br/api/verifyCode"
-        : "/api/verifyCode";
+      const isDevelopment =
+        window.location.hostname.includes("localhost") ||
+        window.location.hostname.includes("127.0.0.1") ||
+        window.location.port === "4000";
+      const apiUrl = isDevelopment
+        ? "/api/verifyCode"
+        : "https://x-corte-api.codxis.com.br/api/verifyCode";
 
       console.log("🌐 Usando URL:", apiUrl);
 
@@ -116,7 +118,7 @@ class WhatsAppAPI {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isProduction && { Origin: window.location.origin }),
+          ...(isDevelopment ? {} : { Origin: window.location.origin }),
         },
         body: JSON.stringify({ phoneNumber, userCode }),
       });
