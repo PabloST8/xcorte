@@ -75,6 +75,18 @@ export default function AdminDashboard() {
             ? `Painel administrativo - ${currentEnterprise.name}`
             : "Bem-vindo ao painel administrativo da barbearia"}
         </p>
+
+        {/* Botão de teste temporário */}
+        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800 mb-2">
+            🧪 <strong>Teste de Cache:</strong> Empresa atual:{" "}
+            {currentEnterprise?.name} ({currentEnterprise?.email})
+          </p>
+          <p className="text-xs text-yellow-700">
+            Para testar o cache, faça login com outra conta de admin e verifique
+            se os dados mudam automaticamente.
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

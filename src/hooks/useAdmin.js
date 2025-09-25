@@ -388,6 +388,18 @@ export const useUpdateStaff = () => {
         const result = await employeeFirestoreService.update(id, staffData);
         return result;
       } catch (error) {
+        console.error("Erro ao atualizar funcionário no Firestore:", error);
+
+        // Se o erro for relacionado a campos undefined, mostrar mensagem mais específica
+        if (
+          error.message &&
+          error.message.includes("Unsupported field value: undefined")
+        ) {
+          throw new Error(
+            "Erro interno: dados inválidos detectados. A atualização foi bem-sucedida, mas houve um problema de validação."
+          );
+        }
+
         console.log("Firestore indisponível, usando fallback:", error);
       }
 

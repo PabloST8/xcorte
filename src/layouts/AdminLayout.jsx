@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -12,12 +12,16 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
   const { currentEnterprise, syncEnterpriseWithUser } = useEnterprise();
+  const queryClient = useQueryClient();
+  const previousEnterpriseRef = useRef(null);
+  const previousUserRef = useRef(null);
 
   // Sincronizar empresa com usuário admin logado
   useEffect(() => {
@@ -31,12 +35,32 @@ export default function AdminLayout() {
       hasEnterpriseEmail: !!user?.enterpriseEmail,
     });
 
-    if (user && user.role === "admin" && user.enterpriseEmail) {
-      console.log(
-        `🔄 Admin logado: ${user.email}, sincronizando empresa: ${user.enterpriseEmail}`
-      );
+    if (user && user.role === "admin") {
+      console.log(`🔄 Admin logado: ${user.email}, sincronizando empresa...`);
       console.log("📋 Dados completos do usuário:", user);
-      syncEnterpriseWithUser(user);
+
+      // Se não tem enterpriseEmail, tentar usar o próprio email como fallback
+      let userForSync = user;
+      if (
+        !user.enterpriseEmail &&
+        (user.email === "pablofafstar@gmail.com" ||
+          user.email === "empresaadmin@xcortes.com")
+      ) {
+        console.log(
+          "� Definindo enterpriseEmail baseado no email do usuário:",
+          user.email
+        );
+        userForSync = { ...user, enterpriseEmail: user.email };
+      }
+
+      if (userForSync.enterpriseEmail) {
+        syncEnterpriseWithUser(userForSync);
+      } else {
+        console.log(
+          "⚠️ Não foi possível definir enterpriseEmail para:",
+          user.email
+        );
+      }
     } else {
       console.log("⚠️ Usuário não tem dados suficientes para sincronização:", {
         user,
@@ -49,6 +73,173 @@ export default function AdminLayout() {
       }
     }
   }, [user, syncEnterpriseWithUser]);
+
+  // Monitorar mudanças no usuário logado
+  useEffect(() => {
+    console.log("👤 AdminLayout - Mudança no usuário detectada:", {
+      currentUser: user?.email,
+      currentUserEnterprise: user?.enterpriseEmail,
+      previousUser: previousUserRef.current?.email,
+      previousUserEnterprise: previousUserRef.current?.enterpriseEmail,
+      hasChanged:
+        user?.enterpriseEmail !== previousUserRef.current?.enterpriseEmail,
+    });
+
+    // Se mudou o enterpriseEmail do usuário, força reload
+    if (
+      user?.enterpriseEmail &&
+      previousUserRef.current?.enterpriseEmail &&
+      user.enterpriseEmail !== previousUserRef.current.enterpriseEmail
+    ) {
+      console.log(
+        `🔄 AdminLayout - Usuário mudou de empresa: ${previousUserRef.current.enterpriseEmail} → ${user.enterpriseEmail}, forçando reload IMEDIATO...`
+      );
+
+      if (queryClient) {
+        queryClient.clear();
+      }
+
+      // Reload imediato sem setTimeout
+      window.location.reload();
+    }
+
+    previousUserRef.current = user;
+  }, [user, queryClient]);
+
+  // Adicionar listener para mudanças na empresa via storage/cookies
+  useEffect(() => {
+    console.log(
+      "🔧 AdminLayout - Configurando listener para mudanças de empresa..."
+    );
+
+    const handleStorageChange = (e) => {
+      console.log(
+        "💾 AdminLayout - Mudança detectada no storage:",
+        e.key,
+        e.newValue
+      );
+
+      if (e.key === "current_enterprise" && e.newValue) {
+        try {
+          const newEnterprise = JSON.parse(e.newValue);
+          console.log(
+            "🏢 AdminLayout - Nova empresa detectada via storage:",
+            newEnterprise.name,
+            newEnterprise.email
+          );
+
+          if (
+            currentEnterprise?.email &&
+            newEnterprise.email !== currentEnterprise.email
+          ) {
+            console.log(
+              "🔄 AdminLayout - Forçando reload IMEDIATO por mudança de empresa via storage..."
+            );
+            window.location.reload();
+          }
+        } catch (error) {
+          console.error(
+            "❌ AdminLayout - Erro ao processar mudança de storage:",
+            error
+          );
+        }
+      }
+    };
+
+    // Monitorar mudanças nos cookies também
+    const checkCookieChanges = () => {
+      const cookieEnterprise = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("current_enterprise="));
+
+      if (cookieEnterprise) {
+        try {
+          const enterpriseData = JSON.parse(
+            decodeURIComponent(cookieEnterprise.split("=")[1])
+          );
+          if (
+            currentEnterprise?.email &&
+            enterpriseData.email !== currentEnterprise.email
+          ) {
+            console.log(
+              "🍪 AdminLayout - Mudança detectada via cookie, forçando reload IMEDIATO..."
+            );
+            window.location.reload();
+          }
+        } catch (error) {
+          console.log("⚠️ AdminLayout - Erro ao verificar cookie:", error);
+        }
+      }
+    };
+
+    // Verificar cookies a cada 1 segundo (mais frequente)
+    const cookieInterval = setInterval(checkCookieChanges, 1000);
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      console.log("🧹 AdminLayout - Limpando listeners...");
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(cookieInterval);
+    };
+  }, [currentEnterprise]);
+
+  // Monitorar mudanças na empresa atual e invalidar cache quando necessário
+  useEffect(() => {
+    console.log("🏢 AdminLayout - useEffect empresa disparado:", {
+      currentEnterprise: currentEnterprise?.name,
+      email: currentEnterprise?.email,
+      previous: previousEnterpriseRef.current?.name,
+      previousEmail: previousEnterpriseRef.current?.email,
+      hasChanged:
+        currentEnterprise?.email !== previousEnterpriseRef.current?.email,
+    });
+
+    // Se mudou de empresa, invalida o cache
+    if (
+      currentEnterprise?.email &&
+      previousEnterpriseRef.current?.email &&
+      currentEnterprise.email !== previousEnterpriseRef.current.email &&
+      queryClient
+    ) {
+      console.log(
+        `🗑️ AdminLayout - Invalidando cache por mudança de empresa: ${previousEnterpriseRef.current.email} → ${currentEnterprise.email}`
+      );
+
+      try {
+        // Método mais agressivo: limpar todo o cache
+        queryClient.clear();
+
+        console.log("✅ AdminLayout - Cache limpo com sucesso!");
+        console.log("🔄 AdminLayout - Forçando reload IMEDIATO...");
+
+        // Forçar reload IMEDIATO sem setTimeout
+        window.location.reload();
+      } catch (error) {
+        console.error("❌ AdminLayout - Erro ao limpar cache:", error);
+        // Mesmo com erro, força reload
+        console.log("🔄 AdminLayout - Forçando reload por erro...");
+        window.location.reload();
+      }
+    } else {
+      console.log("⚠️ AdminLayout - Não vai fazer reload:", {
+        hasCurrentEmail: !!currentEnterprise?.email,
+        hasPreviousEmail: !!previousEnterpriseRef.current?.email,
+        emailsAreDifferent:
+          currentEnterprise?.email !== previousEnterpriseRef.current?.email,
+        hasQueryClient: !!queryClient,
+      });
+    }
+
+    // Atualizar referência da empresa anterior
+    if (currentEnterprise) {
+      console.log(
+        "📌 AdminLayout - Atualizando referência da empresa:",
+        currentEnterprise.email
+      );
+      previousEnterpriseRef.current = currentEnterprise;
+    }
+  }, [currentEnterprise, queryClient]);
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -136,6 +327,14 @@ export default function AdminLayout() {
               <h2 className="text-xl font-bold text-gray-900">
                 {currentEnterprise?.name || "Admin"} Admin
               </h2>
+              {/* Botão temporário de atualização */}
+              <button
+                onClick={() => window.location.reload()}
+                className="ml-4 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
+                title="Atualizar dados da empresa"
+              >
+                🔄 Refresh
+              </button>
             </div>
             <nav className="mt-8 flex-1">
               <div className="space-y-1">

@@ -49,7 +49,82 @@ function Home() {
         const list = await employeeFirestoreService.list(
           currentEnterprise.email
         );
-        setEmployees(Array.isArray(list) ? list : []);
+
+        console.log("🏠 HOME - Funcionários carregados (RAW):", list);
+
+        // Lista de nomes genéricos que devem ser filtrados
+        const genericNames = [
+          "Funcionário",
+          "funcionário",
+          "FUNCIONÁRIO",
+          "Staff",
+          "Employee",
+          "",
+        ];
+
+        // Filtrar funcionários válidos com os mesmos critérios da página Staff
+        const validEmployees = (Array.isArray(list) ? list : []).filter(
+          (emp) => {
+            const hasValidName =
+              emp &&
+              emp.name &&
+              emp.name.trim() !== "" &&
+              !genericNames.includes(emp.name.trim()) &&
+              emp.name.length > 2;
+
+            const hasValidEmail =
+              emp &&
+              emp.email &&
+              emp.email.trim() !== "" &&
+              emp.email.includes("@");
+
+            const hasValidPosition =
+              emp && emp.position && emp.position.trim() !== "";
+
+            const isActive = emp && emp.isActive !== false;
+            const hasValidId = emp && emp.id && emp.id.trim() !== "";
+
+            const isValid =
+              hasValidName &&
+              hasValidEmail &&
+              hasValidPosition &&
+              isActive &&
+              hasValidId;
+
+            if (!isValid) {
+              console.warn(`🏠 HOME - Funcionário inválido REJEITADO:`, {
+                id: emp?.id,
+                name: emp?.name,
+                email: emp?.email,
+                position: emp?.position,
+                isActive: emp?.isActive,
+                validations: {
+                  hasValidName,
+                  hasValidEmail,
+                  hasValidPosition,
+                  hasValidId,
+                  isActive,
+                },
+              });
+            } else {
+              console.log(`🏠 HOME - Funcionário válido ACEITO:`, {
+                id: emp.id,
+                name: emp.name,
+                email: emp.email,
+                position: emp.position,
+              });
+            }
+
+            return isValid;
+          }
+        );
+
+        console.log(
+          `🏠 HOME - ${validEmployees.length} funcionários válidos de ${
+            list?.length || 0
+          } total`
+        );
+        setEmployees(validEmployees);
       } catch (e) {
         console.error("Erro ao carregar funcionários:", e);
         setEmployees([]);
@@ -244,36 +319,67 @@ function Home() {
                     <div className="w-16 h-4 bg-gray-200 rounded mx-auto" />
                   </div>
                 ))
-              : employees.slice(0, 3).map((member) => (
-                  <Link
-                    key={member.id}
-                    to={getEnterpriseUrl(
-                      `staff-detail?id=${encodeURIComponent(member.id)}`
-                    )}
-                    className="text-center hover:opacity-80 transition-opacity"
-                  >
-                    <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-3 bg-gray-200">
-                      {member.avatarUrl ? (
-                        <img
-                          src={member.avatarUrl}
-                          alt={member.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            const fallback = e.currentTarget.nextElementSibling;
-                            if (fallback) fallback.classList.remove("hidden");
-                          }}
-                        />
-                      ) : null}
-                      <div className="w-full h-full bg-gray-300 rounded-2xl hidden items-center justify-center text-gray-600 text-xs">
-                        Foto
+              : employees
+                  .filter((member) => {
+                    // Filtro final de segurança na renderização da HOME
+                    const genericNames = [
+                      "Funcionário",
+                      "funcionário",
+                      "FUNCIONÁRIO",
+                      "Staff",
+                      "Employee",
+                      "",
+                    ];
+                    const isValidForDisplay =
+                      member &&
+                      member.name &&
+                      member.name.trim() !== "" &&
+                      !genericNames.includes(member.name.trim()) &&
+                      member.name.length > 2 &&
+                      member.email &&
+                      member.email.includes("@");
+
+                    if (!isValidForDisplay) {
+                      console.error(
+                        `🏠 HOME - RENDERIZAÇÃO BLOQUEADA - Funcionário inválido:`,
+                        member
+                      );
+                    }
+
+                    return isValidForDisplay;
+                  })
+                  .slice(0, 3)
+                  .map((member) => (
+                    <Link
+                      key={member.id}
+                      to={getEnterpriseUrl(
+                        `staff-detail?id=${encodeURIComponent(member.id)}`
+                      )}
+                      className="text-center hover:opacity-80 transition-opacity"
+                    >
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-3 bg-gray-200">
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            alt={member.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              const fallback =
+                                e.currentTarget.nextElementSibling;
+                              if (fallback) fallback.classList.remove("hidden");
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-full h-full bg-gray-300 rounded-2xl hidden items-center justify-center text-gray-600 text-xs">
+                          Foto
+                        </div>
                       </div>
-                    </div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      {member.name || "Funcionário"}
-                    </h3>
-                  </Link>
-                ))}
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {member.name || "Funcionário"}
+                      </h3>
+                    </Link>
+                  ))}
           </div>
         </div>
 

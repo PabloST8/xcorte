@@ -28,22 +28,35 @@ export const AuthProvider = ({ children }) => {
 
         if (token && userData) {
           let parsedUser = JSON.parse(userData);
-          // Corrigir enterpriseEmail para admin do Pablo
-          if (
-            parsedUser.email === "pablofafstar@gmail.com" &&
-            (!parsedUser.enterpriseEmail ||
-              parsedUser.enterpriseEmail !== "pablofafstar@gmail.com")
-          ) {
-            parsedUser = {
-              ...parsedUser,
-              enterpriseEmail: "pablofafstar@gmail.com",
-            };
-            Cookies.set("user_data", JSON.stringify(parsedUser), {
-              expires: 7,
-            });
-            console.log(
-              "🛠️ Corrigido enterpriseEmail para admin Pablo ao restaurar do cookie"
-            );
+          // Corrigir enterpriseEmail para admins
+          if (parsedUser.role === "admin") {
+            let correctEnterpriseEmail = null;
+
+            // Pablo admin -> sua própria empresa
+            if (parsedUser.email === "pablofafstar@gmail.com") {
+              correctEnterpriseEmail = "pablofafstar@gmail.com";
+            }
+            // Admin da XCortes -> empresa XCortes
+            else if (parsedUser.email === "empresaadmin@xcortes.com") {
+              correctEnterpriseEmail = "empresaadmin@xcortes.com";
+            }
+
+            if (
+              correctEnterpriseEmail &&
+              (!parsedUser.enterpriseEmail ||
+                parsedUser.enterpriseEmail !== correctEnterpriseEmail)
+            ) {
+              parsedUser = {
+                ...parsedUser,
+                enterpriseEmail: correctEnterpriseEmail,
+              };
+              Cookies.set("user_data", JSON.stringify(parsedUser), {
+                expires: 7,
+              });
+              console.log(
+                `🛠️ Corrigido enterpriseEmail para ${parsedUser.email} -> ${correctEnterpriseEmail}`
+              );
+            }
           }
           setUser(parsedUser);
           setIsAuthenticated(true);
@@ -428,7 +441,7 @@ export const AuthProvider = ({ children }) => {
           name: "Administrador",
           email: credentials.email,
           role: "admin",
-          enterpriseEmail: "pablofafstar@gmail.com", // Admin gerencia a Barbearia do Pablo
+          enterpriseEmail: "empresaadmin@xcortes.com", // Admin gerencia a XCortes
         };
 
         updateUser(adminUser);

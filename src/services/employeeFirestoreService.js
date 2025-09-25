@@ -10,6 +10,7 @@ import {
   where,
   serverTimestamp,
 } from "firebase/firestore";
+import { removeUndefinedFields } from "../utils/firebaseUtils";
 
 // Coleção raiz: employees
 // Schema:
@@ -53,7 +54,11 @@ export const employeeFirestoreService = {
 
   async update(id, data) {
     const ref = doc(db, "employees", id);
-    await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+
+    // Remover campos undefined para evitar erro do Firestore
+    const cleanData = removeUndefinedFields(data);
+
+    await updateDoc(ref, { ...cleanData, updatedAt: serverTimestamp() });
     return { id, ...data };
   },
 

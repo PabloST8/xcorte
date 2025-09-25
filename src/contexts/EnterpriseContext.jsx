@@ -8,6 +8,7 @@ import React, {
 import { publicEnterpriseFirestoreService } from "../services/publicEnterpriseFirestoreService";
 import Cookies from "js-cookie";
 import { useAuth } from "../hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 const EnterpriseContext = createContext();
 
@@ -26,6 +27,7 @@ export const EnterpriseProvider = ({ children }) => {
   const [enterprises, setEnterprises] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Email da empresa padrão - usando empresaadmin@xcortes.com
   const DEFAULT_ENTERPRISE_EMAIL = "empresaadmin@xcortes.com";
@@ -198,10 +200,127 @@ export const EnterpriseProvider = ({ children }) => {
   };
 
   const selectEnterprise = (enterprise) => {
+    console.log(
+      "🔄 selectEnterprise chamado com:",
+      enterprise?.name,
+      enterprise?.email
+    );
+    console.log(
+      "🔄 Empresa atual:",
+      currentEnterprise?.name,
+      currentEnterprise?.email
+    );
+    console.log(
+      "🔄 Empresas são diferentes?",
+      enterprise?.email !== currentEnterprise?.email
+    );
+
     setCurrentEnterprise(enterprise);
     Cookies.set("current_enterprise", JSON.stringify(enterprise), {
       expires: 30,
     });
+
+    // Invalidar cache do React Query quando mudar de empresa
+    if (queryClient && enterprise?.email !== currentEnterprise?.email) {
+      console.log(
+        "🗑️ Invalidando cache do React Query para nova empresa:",
+        enterprise?.email
+      );
+      console.log("🗑️ QueryClient disponível:", !!queryClient);
+
+      // Verificar queries existentes antes da invalidação
+      const allQueries = queryClient.getQueriesData();
+      console.log(
+        "📋 Total de queries no cache antes da invalidação:",
+        allQueries.length
+      );
+
+      // Método mais agressivo: remover queries antigas e invalidar
+      try {
+        // 1. Remover todas as queries de admin da empresa anterior
+        if (
+          currentEnterprise?.email &&
+          currentEnterprise.email !== enterprise.email
+        ) {
+          console.log(
+            "🗑️ Removendo queries da empresa anterior:",
+            currentEnterprise.email
+          );
+          queryClient.removeQueries({
+            predicate: (query) => {
+              const hasOldEmail = query.queryKey.includes(
+                currentEnterprise.email
+              );
+              if (hasOldEmail) {
+                console.log(
+                  "🗑️ Removendo query com email antigo:",
+                  query.queryKey
+                );
+              }
+              return hasOldEmail;
+            },
+          });
+        }
+
+        // 2. Invalidar todas as queries de admin
+        console.log("🗑️ Invalidando todas as queries de admin...");
+        const invalidateResult = queryClient.invalidateQueries({
+          predicate: (query) => {
+            const shouldInvalidate =
+              query.queryKey.includes("admin") ||
+              query.queryKey.includes("staff") ||
+              query.queryKey.includes("employees") ||
+              query.queryKey.includes("products") ||
+              query.queryKey.includes("services") ||
+              query.queryKey.includes("appointments");
+
+            if (shouldInvalidate) {
+              console.log("🗑️ Invalidando query:", query.queryKey);
+            }
+
+            return shouldInvalidate;
+          },
+        });
+
+        console.log("✅ Invalidação concluída, resultado:", invalidateResult);
+
+        // 3. Forçar refetch das queries da nova empresa
+        setTimeout(() => {
+          console.log(
+            "🔄 Forçando refetch para nova empresa:",
+            enterprise.email
+          );
+          queryClient.refetchQueries({
+            predicate: (query) => {
+              const shouldRefetch =
+                query.queryKey.includes("admin") &&
+                query.queryKey.includes(enterprise.email);
+              if (shouldRefetch) {
+                console.log("🔄 Refetch query:", query.queryKey);
+              }
+              return shouldRefetch;
+            },
+          });
+        }, 200);
+      } catch (error) {
+        console.error("❌ Erro durante invalidação do cache:", error);
+      }
+
+      // Verificar queries após invalidação
+      setTimeout(() => {
+        const queriesAfter = queryClient.getQueriesData();
+        console.log(
+          "📋 Total de queries no cache após invalidação:",
+          queriesAfter.length
+        );
+      }, 300);
+    } else if (!queryClient) {
+      console.error("❌ QueryClient não está disponível para invalidação!");
+    } else {
+      console.log(
+        "⚠️ Não invalidando cache - empresas são iguais ou não há mudança"
+      );
+    }
   };
 
   const createEnterprise = async (_enterpriseData) => {
@@ -248,17 +367,129 @@ export const EnterpriseProvider = ({ children }) => {
         console.log(
           `🔄 Sincronizando empresa: ${targetEnterprise.name} (${targetEnterprise.email})`
         );
+        console.log(
+          "🔄 Empresa anterior:",
+          currentEnterprise?.name,
+          currentEnterprise?.email
+        );
+        console.log(
+          "🔄 Empresa nova:",
+          targetEnterprise.name,
+          targetEnterprise.email
+        );
+
         setCurrentEnterprise(targetEnterprise);
         Cookies.set("current_enterprise", JSON.stringify(targetEnterprise), {
           expires: 30,
         });
+
+        // Invalidar cache do React Query quando sincronizar automaticamente
+        if (queryClient) {
+          console.log(
+            "🗑️ Invalidando cache do React Query para empresa sincronizada:",
+            targetEnterprise.email
+          );
+          console.log("🗑️ QueryClient disponível:", !!queryClient);
+
+          // Verificar queries existentes antes da invalidação
+          const allQueries = queryClient.getQueriesData();
+          console.log(
+            "📋 Total de queries no cache antes da invalidação:",
+            allQueries.length
+          );
+
+          // Método mais agressivo: remover queries antigas e invalidar
+          try {
+            // 1. Remover todas as queries de admin da empresa anterior
+            if (
+              currentEnterprise?.email &&
+              currentEnterprise.email !== targetEnterprise.email
+            ) {
+              console.log(
+                "🗑️ Removendo queries da empresa anterior:",
+                currentEnterprise.email
+              );
+              queryClient.removeQueries({
+                predicate: (query) => {
+                  const hasOldEmail = query.queryKey.includes(
+                    currentEnterprise.email
+                  );
+                  if (hasOldEmail) {
+                    console.log(
+                      "🗑️ Removendo query com email antigo:",
+                      query.queryKey
+                    );
+                  }
+                  return hasOldEmail;
+                },
+              });
+            }
+
+            // 2. Invalidar todas as queries de admin
+            console.log("🗑️ Invalidando todas as queries de admin...");
+            const invalidateResult = queryClient.invalidateQueries({
+              predicate: (query) => {
+                const shouldInvalidate =
+                  query.queryKey.includes("admin") ||
+                  query.queryKey.includes("staff") ||
+                  query.queryKey.includes("employees") ||
+                  query.queryKey.includes("products") ||
+                  query.queryKey.includes("services") ||
+                  query.queryKey.includes("appointments");
+
+                if (shouldInvalidate) {
+                  console.log("🗑️ Invalidando query:", query.queryKey);
+                }
+
+                return shouldInvalidate;
+              },
+            });
+
+            console.log(
+              "✅ Invalidação concluída, resultado:",
+              invalidateResult
+            );
+
+            // 3. Forçar refetch das queries da nova empresa
+            setTimeout(() => {
+              console.log(
+                "🔄 Forçando refetch para nova empresa:",
+                targetEnterprise.email
+              );
+              queryClient.refetchQueries({
+                predicate: (query) => {
+                  const shouldRefetch =
+                    query.queryKey.includes("admin") &&
+                    query.queryKey.includes(targetEnterprise.email);
+                  if (shouldRefetch) {
+                    console.log("🔄 Refetch query:", query.queryKey);
+                  }
+                  return shouldRefetch;
+                },
+              });
+            }, 200);
+          } catch (error) {
+            console.error("❌ Erro durante invalidação do cache:", error);
+          }
+
+          // Verificar queries após invalidação
+          setTimeout(() => {
+            const queriesAfter = queryClient.getQueriesData();
+            console.log(
+              "📋 Total de queries no cache após invalidação:",
+              queriesAfter.length
+            );
+          }, 300);
+        } else {
+          console.error("❌ QueryClient não está disponível para invalidação!");
+        }
       } else if (!targetEnterprise) {
         console.warn("⚠️ Empresa não encontrada:", user.enterpriseEmail);
       } else {
         console.log("✅ Empresa já está correta:", currentEnterprise?.name);
       }
     },
-    [enterprises, currentEnterprise]
+    [enterprises, currentEnterprise, queryClient]
   );
 
   const value = {

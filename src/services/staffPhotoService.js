@@ -56,14 +56,22 @@ const staffPhotoService = {
     }
 
     console.log("📸 Atualizando documento com metadados da foto...");
-    await updateDoc(ref, {
+
+    // Preparar dados para atualização, removendo campos undefined
+    const updateData = {
       photoURL: photo.url,
-      photoPath: photo.path,
       photoVersion: version,
       photoUpdatedAt: serverTimestamp(),
       // Manter também o campo avatarUrl para compatibilidade
       avatarUrl: photo.url,
-    });
+    };
+
+    // Só incluir photoPath se ele existir
+    if (photo.path) {
+      updateData.photoPath = photo.path;
+    }
+
+    await updateDoc(ref, updateData);
 
     console.log(
       "📸 Metadados da foto do funcionário salvos com sucesso no Firestore"

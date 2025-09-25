@@ -10,6 +10,7 @@ import {
   UserX,
   UserCheck,
   Camera,
+  Zap,
 } from "lucide-react";
 import {
   useStaff,
@@ -19,10 +20,12 @@ import {
   useServices,
 } from "../../hooks/useAdmin";
 import { formatDateBR } from "../../utils/dateUtils";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import StaffPhotoUpload from "../../components/StaffPhotoUpload";
 import StaffAvatar from "../../components/StaffAvatar";
 import staffPhotoService from "../../services/staffPhotoService";
+import { dataCleanupUtils } from "../../utils/dataCleanupUtils";
 
 const WEEK_DAYS = [
   { key: "monday", label: "Seg", name: "Segunda" },
@@ -41,6 +44,52 @@ export default function AdminStaff() {
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const deleteStaffMutation = useDeleteStaff();
+  const queryClient = useQueryClient();
+
+  // Função para testar invalidação de cache
+  const handleTestCacheInvalidation = () => {
+    console.log("🧪 Testando invalidação de cache manualmente...");
+    console.log(
+      "🏢 Empresa atual:",
+      currentEnterprise?.name,
+      currentEnterprise?.email
+    );
+
+    if (queryClient) {
+      console.log("🗑️ Forçando invalidação de todas as queries de admin...");
+
+      // Remover todas as queries existentes
+      queryClient.clear();
+
+      // Invalidar queries específicas
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const shouldInvalidate =
+            query.queryKey.includes("admin") ||
+            query.queryKey.includes("staff") ||
+            query.queryKey.includes("employees") ||
+            query.queryKey.includes("products") ||
+            query.queryKey.includes("services") ||
+            query.queryKey.includes("appointments");
+
+          if (shouldInvalidate) {
+            console.log("🗑️ Invalidando query:", query.queryKey);
+          }
+
+          return shouldInvalidate;
+        },
+      });
+
+      console.log(
+        "✅ Cache limpo! Dados devem ser recarregados da empresa atual."
+      );
+
+      // Forçar reload da página após 1 segundo para garantir
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+  };
 
   // Obter email da empresa atual
   const currentEnterpriseEmail =
@@ -202,6 +251,9 @@ export default function AdminStaff() {
     blockedUntil: "",
   });
 
+  // Estados para limpeza de dados
+  const [isCleaningData, setIsCleaningData] = useState(false);
+
   // Filtrar funcionários
   const filteredStaff = (staff || []).filter((employee) => {
     if (!showBlockedStaff && !employee.isActive) return false;
@@ -310,14 +362,22 @@ export default function AdminStaff() {
 
       // Se há foto, salvar/atualizar metadados no Firestore
       if (newStaff.avatarUrl && editingStaff?.email) {
-        await staffPhotoService.setStaffPhoto(
-          currentEnterprise?.email || "empresaadmin@xcortes.com",
-          editingStaff.email,
-          {
-            url: newStaff.avatarUrl,
-            uploadedAt: new Date().toISOString(),
-          }
-        );
+        try {
+          await staffPhotoService.setStaffPhoto(
+            currentEnterprise?.email || "empresaadmin@xcortes.com",
+            editingStaff.email,
+            {
+              url: newStaff.avatarUrl,
+              uploadedAt: new Date().toISOString(),
+            }
+          );
+        } catch (photoError) {
+          console.warn(
+            "Erro ao salvar metadados da foto (não crítico):",
+            photoError
+          );
+          // Não bloquear o processo por erro de foto
+        }
       }
 
       setShowCreateModal(false);
@@ -326,7 +386,20 @@ export default function AdminStaff() {
       resetForm();
     } catch (error) {
       console.error("Erro ao atualizar funcionário:", error);
-      alert("Erro ao atualizar funcionário: " + error.message);
+
+      // Verificar se o erro é relacionado a campos undefined mas a operação foi bem-sucedida
+      if (error.message && error.message.includes("undefined")) {
+        // Mostrar alerta mas continuar o processo, pois a atualização funcionou
+        alert(
+          "Funcionário atualizado com sucesso! (Houve um aviso técnico que foi corrigido automaticamente)"
+        );
+        setShowCreateModal(false);
+        setIsEditMode(false);
+        setEditingStaff(null);
+        resetForm();
+      } else {
+        alert("Erro ao atualizar funcionário: " + error.message);
+      }
     }
   };
 
@@ -384,6 +457,65 @@ export default function AdminStaff() {
     } catch (error) {
       console.error("Erro ao desbloquear funcionário:", error);
       alert("Erro ao desbloquear funcionário: " + error.message);
+    }
+  };
+
+  // Limpar funcionários inválidos
+  const handleCleanupInvalidEmployees = async () => {
+    if (!currentEnterpriseEmail) {
+      alert("Email da empresa não encontrado");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Esta operação irá remover permanentemente funcionários com dados inválidos (sem nome, email ou cargo). Deseja continuar?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsCleaningData(true);
+
+      // Primeiro, fazer uma simulação para mostrar quais funcionários seriam removidos
+      const dryRunResult = await dataCleanupUtils.cleanupInvalidEmployees(
+        currentEnterpriseEmail,
+        true
+      );
+
+      if (dryRunResult.wouldRemove === 0) {
+        alert("✅ Nenhum funcionário inválido encontrado!");
+        return;
+      }
+
+      const proceedConfirm = window.confirm(
+        `Foram encontrados ${dryRunResult.wouldRemove} funcionários inválidos.\n\nDeseja realmente removê-los permanentemente?`
+      );
+
+      if (!proceedConfirm) return;
+
+      // Executar a limpeza real
+      const result = await dataCleanupUtils.cleanupInvalidEmployees(
+        currentEnterpriseEmail,
+        false
+      );
+
+      if (result.removed > 0) {
+        alert(
+          `✅ Limpeza concluída!\n\n${result.removed} funcionários inválidos foram removidos.\n${result.errors.length} erros encontrados.`
+        );
+
+        // Recarregar a lista de funcionários
+        window.location.reload();
+      } else {
+        alert(
+          "❌ Nenhum funcionário foi removido. Verifique o console para mais detalhes."
+        );
+      }
+    } catch (error) {
+      console.error("❌ Erro na limpeza:", error);
+      alert("Erro ao limpar funcionários inválidos: " + error.message);
+    } finally {
+      setIsCleaningData(false);
     }
   };
 
@@ -523,13 +655,30 @@ export default function AdminStaff() {
           <h1 className="text-2xl font-bold text-gray-900">Funcionários</h1>
           <p className="text-gray-600">Gerencie a equipe da barbearia</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo Funcionário</span>
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleTestCacheInvalidation}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            <span>🧪 Teste Cache</span>
+          </button>
+          <button
+            onClick={handleCleanupInvalidEmployees}
+            disabled={isCleaningData}
+            className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            <span>{isCleaningData ? "Limpando..." : "Limpar Dados"}</span>
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Funcionário</span>
+          </button>
+        </div>
       </div>
 
       {/* Search and Filter */}

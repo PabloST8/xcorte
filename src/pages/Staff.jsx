@@ -8,6 +8,8 @@ import { ChevronLeft, Search } from "lucide-react";
 import BookingOverlay from "../components/BookingOverlay";
 
 function Staff() {
+  console.log("📄 PÁGINA STAFF CARREGADA - Iniciando componente Staff");
+
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
   const [searchParams] = useSearchParams();
@@ -35,7 +37,98 @@ function Staff() {
           employeeFirestoreService.list(currentEnterprise.email),
           enterpriseProductFirestoreService.list(currentEnterprise.email),
         ]);
-        setEmployees(Array.isArray(emps) ? emps : []);
+
+        // Debug: log dos funcionários para identificar registros inválidos
+        console.log("🔍 Funcionários carregados (RAW):", emps);
+
+        // Debug detalhado de cada funcionário
+        (emps || []).forEach((emp, index) => {
+          console.log(`🔍 Funcionário ${index}:`, {
+            id: emp?.id,
+            name: emp?.name,
+            email: emp?.email,
+            position: emp?.position,
+            isActive: emp?.isActive,
+            specialty: emp?.specialty,
+            fullData: emp,
+          });
+        });
+
+        // Filtrar funcionários válidos com critérios mais rigorosos
+        const validEmployees = (emps || []).filter((emp) => {
+          // Lista de nomes genéricos que devem ser filtrados
+          const genericNames = [
+            "Funcionário",
+            "funcionário",
+            "FUNCIONÁRIO",
+            "Staff",
+            "Employee",
+            "",
+          ];
+
+          // Validações mais rigorosas
+          const hasValidName =
+            emp &&
+            emp.name &&
+            emp.name.trim() !== "" &&
+            !genericNames.includes(emp.name.trim()) &&
+            emp.name.length > 2; // Nome deve ter mais de 2 caracteres
+
+          const hasValidEmail =
+            emp &&
+            emp.email &&
+            emp.email.trim() !== "" &&
+            emp.email.includes("@"); // Email deve ter @
+
+          const isActive = emp && emp.isActive !== false;
+
+          const hasValidPosition =
+            emp && emp.position && emp.position.trim() !== "";
+
+          const hasValidId = emp && emp.id && emp.id.trim() !== "";
+
+          const isValid =
+            hasValidName &&
+            hasValidEmail &&
+            isActive &&
+            hasValidPosition &&
+            hasValidId;
+
+          if (!isValid) {
+            console.warn(`❌ Funcionário inválido REJEITADO:`, {
+              id: emp?.id,
+              name: emp?.name,
+              email: emp?.email,
+              position: emp?.position,
+              isActive: emp?.isActive,
+              validations: {
+                hasValidName,
+                hasValidEmail,
+                hasValidPosition,
+                hasValidId,
+                isActive,
+              },
+              fullData: emp,
+            });
+          } else {
+            console.log(`✅ Funcionário válido ACEITO:`, {
+              id: emp.id,
+              name: emp.name,
+              email: emp.email,
+              position: emp.position,
+            });
+          }
+
+          return isValid;
+        });
+
+        console.log(
+          `✅ ${validEmployees.length} funcionários válidos de ${
+            emps?.length || 0
+          } total`
+        );
+
+        setEmployees(validEmployees);
         setServices(Array.isArray(prods) ? prods : []);
       } finally {
         setIsLoading(false);
@@ -52,14 +145,78 @@ function Staff() {
   }, [services]);
 
   const filteredStaff = useMemo(() => {
-    if (selectedCategory === "Todos") return employees;
+    console.log(
+      `🔍 FILTRO FINAL: Processando ${employees.length} funcionários`
+    );
+
+    // Lista de nomes genéricos que devem ser filtrados
+    const genericNames = [
+      "Funcionário",
+      "funcionário",
+      "FUNCIONÁRIO",
+      "Staff",
+      "Employee",
+      "",
+    ];
+
+    // Primeiro filtrar funcionários válidos com critérios rigorosos
+    const validEmployees = employees.filter((emp) => {
+      const hasValidName =
+        emp &&
+        emp.name &&
+        emp.name.trim() !== "" &&
+        !genericNames.includes(emp.name.trim()) &&
+        emp.name.length > 2;
+
+      const hasValidEmail =
+        emp && emp.email && emp.email.trim() !== "" && emp.email.includes("@");
+
+      const hasValidPosition =
+        emp && emp.position && emp.position.trim() !== "";
+
+      const isActive = emp && emp.isActive !== false;
+      const hasValidId = emp && emp.id && emp.id.trim() !== "";
+
+      const isValid =
+        hasValidName &&
+        hasValidEmail &&
+        hasValidPosition &&
+        isActive &&
+        hasValidId;
+
+      if (!isValid && emp) {
+        console.warn(`❌ FILTRO FINAL - Funcionário rejeitado:`, {
+          id: emp.id,
+          name: emp.name,
+          email: emp.email,
+          position: emp.position,
+          isActive: emp.isActive,
+          validations: {
+            hasValidName,
+            hasValidEmail,
+            hasValidPosition,
+            hasValidId,
+            isActive,
+          },
+        });
+      }
+
+      return isValid;
+    });
+
+    console.log(
+      `✅ FILTRO FINAL: ${validEmployees.length} funcionários válidos de ${employees.length}`
+    );
+
+    if (selectedCategory === "Todos") return validEmployees;
+
     // Se um funcionário tem skills com produtos de uma categoria específica, mantém
     const productIdsInCat = new Set(
       (services || [])
         .filter((s) => s.category === selectedCategory)
         .map((s) => s.id)
     );
-    return employees.filter((e) =>
+    return validEmployees.filter((e) =>
       Array.isArray(e.skills)
         ? e.skills.some((sk) => productIdsInCat.has(sk.productId))
         : true
@@ -137,83 +294,114 @@ function Staff() {
                   className="h-28 bg-gray-50 rounded-xl animate-pulse"
                 />
               ))
-            : filteredStaff.map((staff) => {
-                const staffServices = getStaffServices(staff);
+            : filteredStaff
+                .filter((staff) => {
+                  // Filtro final de segurança extremamente rigoroso
+                  const genericNames = [
+                    "Funcionário",
+                    "funcionário",
+                    "FUNCIONÁRIO",
+                    "Staff",
+                    "Employee",
+                    "",
+                  ];
+                  const isValidForDisplay =
+                    staff &&
+                    staff.name &&
+                    staff.name.trim() !== "" &&
+                    !genericNames.includes(staff.name.trim()) &&
+                    staff.name.length > 2 &&
+                    staff.email &&
+                    staff.email.includes("@");
 
-                return (
-                  <div key={staff.id} className="p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-                        <img
-                          src={staff.avatarUrl || staff.image}
-                          alt={staff.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                            e.target.nextSibling.style.display = "flex";
-                          }}
-                        />
-                        <div className="w-full h-full bg-blue-100 rounded-full hidden items-center justify-center text-blue-600 font-bold text-lg">
-                          {staff.name.charAt(0)}
+                  if (!isValidForDisplay) {
+                    console.error(
+                      `🚫 RENDERIZAÇÃO BLOQUEADA - Funcionário inválido:`,
+                      staff
+                    );
+                  }
+
+                  return isValidForDisplay;
+                })
+                .map((staff) => {
+                  const staffServices = getStaffServices(staff);
+
+                  return (
+                    <div key={staff.id} className="p-4 bg-gray-50 rounded-xl">
+                      <div className="flex items-start space-x-4">
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                          <img
+                            src={staff.avatarUrl || staff.image}
+                            alt={staff.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display = "flex";
+                            }}
+                          />
+                          <div className="w-full h-full bg-blue-100 rounded-full hidden items-center justify-center text-blue-600 font-bold text-lg">
+                            {staff?.name?.charAt(0) || "F"}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="mb-3">
-                          <h3 className="font-semibold text-gray-900">
-                            {staff.name}
-                          </h3>
-                          {staff.specialty && (
-                            <p className="text-sm text-gray-600">
-                              {staff.specialty}
+                        <div className="flex-1 min-w-0">
+                          <div className="mb-3">
+                            <h3 className="font-semibold text-gray-900">
+                              {staff.name}
+                            </h3>
+                            {staff.specialty && (
+                              <p className="text-sm text-gray-600">
+                                {staff.specialty}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-600 mt-1">
+                              Dias: {formatWorkDays(staff)}
                             </p>
-                          )}
-                          <p className="text-xs text-gray-600 mt-1">
-                            Dias: {formatWorkDays(staff)}
-                          </p>
-                        </div>
+                          </div>
 
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {staffServices.slice(0, 2).map((service) => (
-                            <span
-                              key={service.id}
-                              className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
-                            >
-                              {service.name}
-                            </span>
-                          ))}
-                          {staffServices.length > 2 && (
-                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                              +{staffServices.length - 2} mais
-                            </span>
-                          )}
-                        </div>
+                          <div className="flex flex-wrap gap-1 mb-4">
+                            {staffServices.slice(0, 2).map((service) => (
+                              <span
+                                key={service.id}
+                                className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                              >
+                                {service.name}
+                              </span>
+                            ))}
+                            {staffServices.length > 2 && (
+                              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                +{staffServices.length - 2} mais
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="flex space-x-2">
-                          <Link
-                            to={getEnterpriseUrl(`staff-detail?id=${staff.id}`)}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-center text-sm font-medium"
-                          >
-                            Ver Perfil
-                          </Link>
-                          {staffServices[0] && (
-                            <button
-                              onClick={() => {
-                                setSelectedProduct(staffServices[0]);
-                                setSelectedStaff(staff);
-                                setOverlayOpen(true);
-                              }}
-                              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-center text-sm font-medium"
+                          <div className="flex space-x-2">
+                            <Link
+                              to={getEnterpriseUrl(
+                                `staff-detail?id=${staff.id}`
+                              )}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-center text-sm font-medium"
                             >
-                              Agendar
-                            </button>
-                          )}
+                              Ver Perfil
+                            </Link>
+                            {staffServices[0] && (
+                              <button
+                                onClick={() => {
+                                  setSelectedProduct(staffServices[0]);
+                                  setSelectedStaff(staff);
+                                  setOverlayOpen(true);
+                                }}
+                                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-center text-sm font-medium"
+                              >
+                                Agendar
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
         </div>
 
         {/* Fallback quando não há funcionários na categoria */}
