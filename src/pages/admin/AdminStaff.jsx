@@ -20,12 +20,10 @@ import {
   useServices,
 } from "../../hooks/useAdmin";
 import { formatDateBR } from "../../utils/dateUtils";
-import { useQueryClient } from "@tanstack/react-query";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import StaffPhotoUpload from "../../components/StaffPhotoUpload";
 import StaffAvatar from "../../components/StaffAvatar";
 import staffPhotoService from "../../services/staffPhotoService";
-import { dataCleanupUtils } from "../../utils/dataCleanupUtils";
 
 const WEEK_DAYS = [
   { key: "monday", label: "Seg", name: "Segunda" },
@@ -44,52 +42,6 @@ export default function AdminStaff() {
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const deleteStaffMutation = useDeleteStaff();
-  const queryClient = useQueryClient();
-
-  // Função para testar invalidação de cache
-  const handleTestCacheInvalidation = () => {
-    console.log("🧪 Testando invalidação de cache manualmente...");
-    console.log(
-      "🏢 Empresa atual:",
-      currentEnterprise?.name,
-      currentEnterprise?.email
-    );
-
-    if (queryClient) {
-      console.log("🗑️ Forçando invalidação de todas as queries de admin...");
-
-      // Remover todas as queries existentes
-      queryClient.clear();
-
-      // Invalidar queries específicas
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const shouldInvalidate =
-            query.queryKey.includes("admin") ||
-            query.queryKey.includes("staff") ||
-            query.queryKey.includes("employees") ||
-            query.queryKey.includes("products") ||
-            query.queryKey.includes("services") ||
-            query.queryKey.includes("appointments");
-
-          if (shouldInvalidate) {
-            console.log("🗑️ Invalidando query:", query.queryKey);
-          }
-
-          return shouldInvalidate;
-        },
-      });
-
-      console.log(
-        "✅ Cache limpo! Dados devem ser recarregados da empresa atual."
-      );
-
-      // Forçar reload da página após 1 segundo para garantir
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    }
-  };
 
   // Obter email da empresa atual
   const currentEnterpriseEmail =
@@ -250,9 +202,6 @@ export default function AdminStaff() {
     reason: "Férias",
     blockedUntil: "",
   });
-
-  // Estados para limpeza de dados
-  const [isCleaningData, setIsCleaningData] = useState(false);
 
   // Filtrar funcionários
   const filteredStaff = (staff || []).filter((employee) => {
@@ -460,65 +409,6 @@ export default function AdminStaff() {
     }
   };
 
-  // Limpar funcionários inválidos
-  const handleCleanupInvalidEmployees = async () => {
-    if (!currentEnterpriseEmail) {
-      alert("Email da empresa não encontrado");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Esta operação irá remover permanentemente funcionários com dados inválidos (sem nome, email ou cargo). Deseja continuar?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setIsCleaningData(true);
-
-      // Primeiro, fazer uma simulação para mostrar quais funcionários seriam removidos
-      const dryRunResult = await dataCleanupUtils.cleanupInvalidEmployees(
-        currentEnterpriseEmail,
-        true
-      );
-
-      if (dryRunResult.wouldRemove === 0) {
-        alert("✅ Nenhum funcionário inválido encontrado!");
-        return;
-      }
-
-      const proceedConfirm = window.confirm(
-        `Foram encontrados ${dryRunResult.wouldRemove} funcionários inválidos.\n\nDeseja realmente removê-los permanentemente?`
-      );
-
-      if (!proceedConfirm) return;
-
-      // Executar a limpeza real
-      const result = await dataCleanupUtils.cleanupInvalidEmployees(
-        currentEnterpriseEmail,
-        false
-      );
-
-      if (result.removed > 0) {
-        alert(
-          `✅ Limpeza concluída!\n\n${result.removed} funcionários inválidos foram removidos.\n${result.errors.length} erros encontrados.`
-        );
-
-        // Recarregar a lista de funcionários
-        window.location.reload();
-      } else {
-        alert(
-          "❌ Nenhum funcionário foi removido. Verifique o console para mais detalhes."
-        );
-      }
-    } catch (error) {
-      console.error("❌ Erro na limpeza:", error);
-      alert("Erro ao limpar funcionários inválidos: " + error.message);
-    } finally {
-      setIsCleaningData(false);
-    }
-  };
-
   // Reset form
   const resetForm = () => {
     setNewStaff({
@@ -656,21 +546,6 @@ export default function AdminStaff() {
           <p className="text-gray-600">Gerencie a equipe da barbearia</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={handleTestCacheInvalidation}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-          >
-            <Zap className="w-4 h-4" />
-            <span>🧪 Teste Cache</span>
-          </button>
-          <button
-            onClick={handleCleanupInvalidEmployees}
-            disabled={isCleaningData}
-            className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-          >
-            <Zap className="w-4 h-4" />
-            <span>{isCleaningData ? "Limpando..." : "Limpar Dados"}</span>
-          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"

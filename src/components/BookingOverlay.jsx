@@ -7,8 +7,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { availabilityService } from "../services/availabilityService";
-// bookingService no longer used here; relying on Firestore lists for availability
-import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
+import { bookingApiService } from "../services/bookingApiService";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useCart } from "../contexts/useCart";
@@ -101,16 +100,41 @@ export default function BookingOverlay({
 
   // Show only employees that can perform the selected product
   const eligibleEmployees = useMemo(() => {
-    if (!product?.id) return Array.isArray(employees) ? employees : [];
     const list = Array.isArray(employees) ? employees : [];
-    return list.filter((e) => {
+
+    // Sempre filtrar funcionários inativos primeiro
+    const activeEmployees = list.filter((e) => e.isActive !== false);
+
+    console.log("🔍 [BookingOverlay] Filtragem de funcionários:", {
+      total: list.length,
+      ativos: activeEmployees.length,
+      inativos: list.filter((e) => e.isActive === false),
+      productId: product?.id,
+      productName: product?.name,
+    });
+
+    // Se não há produto selecionado, retornar todos os funcionários ativos
+    if (!product?.id) return activeEmployees;
+
+    // Filtrar por habilidades específicas do produto
+    const eligibleBySkills = activeEmployees.filter((e) => {
       const skills = Array.isArray(e.skills) ? e.skills : [];
       return skills.some(
         (sk) =>
           String(sk.productId) === String(product.id) && sk.canPerform !== false
       );
     });
-  }, [employees, product?.id]);
+
+    console.log(
+      "🎯 [BookingOverlay] Funcionários elegíveis após filtro de habilidades:",
+      {
+        elegíveis: eligibleBySkills.length,
+        nomes: eligibleBySkills.map((e) => e.name),
+      }
+    );
+
+    return eligibleBySkills;
+  }, [employees, product?.id, product?.name]);
 
   // Keep selection valid when the filtered list changes
   useEffect(() => {
@@ -320,11 +344,17 @@ export default function BookingOverlay({
             let bookedIntervals = [];
             if (currentEnterprise?.email) {
               try {
-                const dayBookings =
-                  await enterpriseBookingFirestoreService.list(
-                    currentEnterprise.email,
-                    { date: selectedDate }
-                  );
+                console.log(
+                  "📋 Buscando agendamentos existentes via API para:",
+                  selectedDate
+                );
+                const dayBookingsResult = await bookingApiService.getBookings(
+                  currentEnterprise.email,
+                  selectedDate
+                );
+                const dayBookings = dayBookingsResult.success
+                  ? dayBookingsResult.data
+                  : [];
                 const parseM = (time) => {
                   const [h, m] = String(time || "00:00")
                     .split(":")
@@ -489,10 +519,16 @@ export default function BookingOverlay({
         // Load upcoming bookings once and filter by employee
         let bookings = [];
         try {
-          const list = await enterpriseBookingFirestoreService.list(
-            currentEnterprise?.email,
-            { date: "upcoming" }
+          console.log(
+            "📋 Buscando agendamentos futuros via API para funcionário:",
+            selectedEmployee.id
           );
+          const listResult = await bookingApiService.getBookings(
+            currentEnterprise?.email,
+            null, // date = null para todos
+            null // status = null para todos
+          );
+          const list = listResult.success ? listResult.data : [];
           bookings = Array.isArray(list)
             ? list.filter(
                 (b) => String(b.employeeId) === String(selectedEmployee.id)
@@ -697,32 +733,227 @@ export default function BookingOverlay({
   const handlePaymentConfirm = async (result) => {
     console.log("🎯 handlePaymentConfirm chamado com:", result);
     if (result.success) {
-      // Criar agendamento no Firestore
+      // Criar agendamento via API
       try {
-        console.log("🔄 Criando agendamento...");
-        await enterpriseBookingFirestoreService.create(
-          currentEnterprise?.email,
-          {
-            clientName: authUser?.name || "Cliente",
-            clientEmail: authUser?.email || "",
-            clientPhone: authUser?.phone || "",
-            productId: product?.id,
-            productName: product?.name,
-            productPrice: product?.priceInCents ?? product?.price ?? 0,
-            productDuration: Number(product?.duration) || 30,
-            date: selectedDate,
-            startTime: selectedTime,
-            status: "scheduled",
-            staffName: selectedEmployee?.name,
-            staffId: selectedEmployee?.id,
-            paymentMethod: result.paymentMethod,
-            paymentId: result.paymentId,
-          }
-        );
-        console.log("✅ Agendamento criado, mostrando notificação...");
-        if (typeof window !== "undefined") {
-          showSuccess("Agendamento confirmado com sucesso!", 4000); // 4 segundos
+        console.log("🔄 Criando agendamento via API...");
+
+        console.log("🏢 Debug - Empresa atual:", {
+          currentEnterprise: currentEnterprise?.email,
+          currentEnterpriseName: currentEnterprise?.name,
+        });
+
+        // 🔥 DADOS REAIS - SEM MAPEAMENTOS
+        const employeeId = selectedEmployee?.id;
+        console.log("🔥 TESTE COM DADOS REAIS:", {
+          employeeId,
+          enterprise: currentEnterprise?.email,
+          product: product?.name,
+        });
+        console.log("🔍 Debug - Funcionário selecionado:", {
+          selectedEmployee,
+          selectedEmployeeId,
+          staffName: selectedEmployee?.name,
+          staffId: selectedEmployee?.id,
+          finalEmployeeId: employeeId,
+        });
+
+        const bookingData = {
+          clientName: authUser?.name || "Cliente",
+          clientPhone: authUser?.phone || "",
+          productId: product?.id, // Usar o produto original, não mapear
+          productName: product?.name,
+          productPrice: product?.priceInCents ?? product?.price ?? 0,
+          productDuration: Number(product?.duration) || 30,
+          date: selectedDate,
+          startTime: selectedTime,
+          status: "scheduled",
+          staffName: selectedEmployee?.name,
+          staffId: employeeId, // Usar employeeId mapeado
+          paymentMethod: result.paymentMethod,
+          paymentId: result.paymentId,
+        };
+
+        // Só adicionar email se for válido
+        const email = authUser?.email;
+        if (email && email.includes("@") && email.includes(".")) {
+          bookingData.clientEmail = email;
         }
+
+        console.log("📤 Enviando dados para API:", {
+          enterpriseEmail: currentEnterprise?.email,
+          bookingData,
+        });
+        console.log("🔍 Debug - Funcionário selecionado:", {
+          selectedEmployee,
+          selectedEmployeeId,
+          staffName: selectedEmployee?.name,
+          staffId: selectedEmployee?.id,
+        });
+        console.log("🏢 Debug - Empresa atual:", {
+          currentEnterprise: currentEnterprise?.email,
+          currentEnterpriseName: currentEnterprise?.name,
+        });
+
+        console.log("✅ Funcionário final para API:", employeeId);
+
+        // 🔥 REMOVENDO MAPEAMENTOS - USANDO DADOS REAIS
+        let finalEnterpriseEmail = currentEnterprise?.email;
+        let finalBookingData = bookingData;
+
+        console.log("🔥 DADOS FINAIS REAIS:", {
+          finalEnterpriseEmail,
+          employeeId,
+          productId: finalBookingData.productId,
+          productName: finalBookingData.productName,
+        });
+
+        // 🔎 Pré-validação: resolver o employeeId esperado pela API via endpoint de disponibilidade
+        let apiEmployeeId = employeeId;
+        try {
+          const avail = await bookingApiService.getAvailableEmployeesForService(
+            finalEnterpriseEmail,
+            finalBookingData.productId,
+            selectedDate,
+            selectedTime
+          );
+          console.log("🧪 Disponibilidade (API service):", avail);
+          if (avail?.success) {
+            const list = Array.isArray(avail.data) ? avail.data : [];
+            const byId = list.find((e) => String(e.id) === String(employeeId));
+            const byName =
+              byId ||
+              list.find(
+                (e) =>
+                  String(e.name || "").toLowerCase() ===
+                  String(selectedEmployee?.name || "").toLowerCase()
+              );
+            if (byName?.id) apiEmployeeId = byName.id;
+            if (!byName) {
+              console.warn(
+                "⚠️ Funcionário selecionado não aparece disponível na API para este slot.",
+                {
+                  selectedEmployee,
+                  candidateIds: list.map((e) => ({ id: e.id, name: e.name })),
+                }
+              );
+            }
+          } else {
+            // Fallback: listar funcionários por enterprise + productId para mapear nome/email -> id
+            try {
+              const empList = await bookingApiService.listEmployees(
+                finalEnterpriseEmail,
+                {
+                  productId: finalBookingData.productId,
+                  isActive: true,
+                }
+              );
+              console.log("👥 Fallback employees (by product):", empList);
+              if (empList?.success) {
+                let all = empList.data || [];
+                let byId = all.find((e) => String(e.id) === String(employeeId));
+                let byEmail =
+                  byId ||
+                  all.find(
+                    (e) =>
+                      String(e.email || "").toLowerCase() ===
+                      String(selectedEmployee?.id || "").toLowerCase()
+                  );
+                let byName =
+                  byEmail ||
+                  all.find(
+                    (e) =>
+                      String(e.name || "").toLowerCase() ===
+                      String(selectedEmployee?.name || "").toLowerCase()
+                  );
+                if (byName?.id) {
+                  apiEmployeeId = byName.id;
+                } else {
+                  // Segunda tentativa: buscar sem filtrar por produto
+                  try {
+                    const empAll = await bookingApiService.listEmployees(
+                      finalEnterpriseEmail,
+                      {
+                        isActive: true,
+                      }
+                    );
+                    console.log("👥 Fallback employees (all active):", empAll);
+                    if (empAll?.success) {
+                      all = empAll.data || [];
+                      byId = all.find(
+                        (e) => String(e.id) === String(employeeId)
+                      );
+                      byEmail =
+                        byId ||
+                        all.find(
+                          (e) =>
+                            String(e.email || "").toLowerCase() ===
+                            String(selectedEmployee?.id || "").toLowerCase()
+                        );
+                      byName =
+                        byEmail ||
+                        all.find(
+                          (e) =>
+                            String(e.name || "").toLowerCase() ===
+                            String(selectedEmployee?.name || "").toLowerCase()
+                        );
+                      if (byName?.id) apiEmployeeId = byName.id;
+                    }
+                  } catch (innerError) {
+                    console.warn(
+                      "⚠️ Falha ao buscar todos os funcionários:",
+                      innerError
+                    );
+                  }
+                }
+              }
+            } catch (outerError) {
+              console.warn(
+                "⚠️ Falha ao buscar funcionários por produto:",
+                outerError
+              );
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "⚠️ Falha ao consultar disponibilidade por serviço/lista de funcionários:",
+            e
+          );
+        }
+
+        // Se não conseguimos resolver um ID interno, não enviar employeeId (evita rejeição por email)
+        const looksLikeEmail =
+          typeof apiEmployeeId === "string" && apiEmployeeId.includes("@");
+        const effectiveEmployeeId = looksLikeEmail ? undefined : apiEmployeeId;
+        console.log("🧩 EmployeeId efetivo para API:", {
+          apiEmployeeId,
+          effectiveEmployeeId,
+        });
+
+        // Criar booking apenas com campos aceitos pela API
+        const apiResult = await bookingApiService.createBooking({
+          enterpriseEmail: finalEnterpriseEmail,
+          clientName: bookingData.clientName,
+          clientPhone: bookingData.clientPhone,
+          clientEmail: bookingData.clientEmail,
+          productId: finalBookingData.productId,
+          employeeId: effectiveEmployeeId,
+          date: selectedDate,
+          startTime: selectedTime,
+          notes: finalBookingData.notes,
+        });
+
+        console.log("✅ Agendamento criado via API:", apiResult);
+        if (!apiResult?.success) {
+          console.warn("❌ Falha ao criar agendamento:", apiResult?.error);
+          showError(
+            apiResult?.error || "Não foi possível criar o agendamento.",
+            6000
+          );
+          return; // não fechar o overlay em caso de erro
+        }
+
+        console.log("✅ Agendamento criado, mostrando notificação...");
+        showSuccess("Agendamento confirmado com sucesso!", 4000);
         // Aguardar um pouco antes de fechar para o usuário ver a notificação
         setTimeout(() => {
           hideNotification(); // Limpar notificação antes de fechar

@@ -6,8 +6,7 @@ import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useAuth } from "../hooks/useAuth";
 import { formatPrice } from "../types/api";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
-import { bookingService } from "../services/bookingService";
-import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
+import { bookingApiService } from "../services/bookingApiService";
 import Cookies from "js-cookie";
 import { availabilityService } from "../services/availabilityService";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
@@ -221,6 +220,7 @@ function Cart() {
     const isValidEmail = (email) =>
       /.+@.+\..+/.test(String(email || "").trim());
     setSubmitting(true);
+
     try {
       for (const it of items) {
         // Validação local de expediente do funcionário
@@ -234,6 +234,7 @@ function Cart() {
           setSubmitting(false);
           return;
         }
+
         // Sanitize fields
         const productId = String(it.productId || "");
         const durationRaw = it.duration ?? it.productDuration;
@@ -321,81 +322,48 @@ function Cart() {
             : `pagamento: ${paymentMethod}`,
         };
         if (isValidEmail(clientEmail)) payload.clientEmail = clientEmail;
-        // Criação: em sessão simples, ir direto ao Firestore; caso contrário, tenta API e cai para Firestore quando fizer sentido
-        if (isSimpleSession) {
-          console.log(
-            "🔍 [Cart] Sessão simples - criando no Firestore diretamente"
-          );
-          console.log("🔍 [Cart] Payload para Firestore:", payload);
-          try {
-            const result = await enterpriseBookingFirestoreService.create(
-              currentEnterprise.email,
-              payload
+
+        // Usar sempre a API
+        console.log("🔍 [Cart] Criando agendamento via API");
+        console.log("🔍 [Cart] Payload para API:", payload);
+
+        try {
+          const result = await bookingApiService.createBooking({
+            ...payload,
+            enterpriseEmail: currentEnterprise.email,
+          });
+          console.log("✅ [Cart] Agendamento criado via API:", result);
+        } catch (apiErr) {
+          console.error("❌ [Cart] Erro ao criar via API:", apiErr);
+          const errorMsg = (
+            (typeof apiErr === "object" &&
+              (apiErr.message || apiErr.error || apiErr.msg)) ||
+            String(apiErr || "")
+          ).toLowerCase();
+
+          if (
+            apiErr?.code === "conflict" ||
+            errorMsg.includes("conflit") ||
+            errorMsg.includes("ocupado")
+          ) {
+            const empLabel = it.employeeName || it.employeeId || "funcionário";
+            const dateObj = new Date(`${it.date}T00:00:00`);
+            showError(
+              `O horário ${formatDateBR(
+                dateObj
+              )} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
             );
-            console.log("✅ [Cart] Agendamento criado no Firestore:", result);
-          } catch (fbErr) {
-            console.error("❌ [Cart] Erro ao criar no Firestore:", fbErr);
-            const m2 = (
-              (typeof fbErr === "object" &&
-                (fbErr.message || fbErr.error || fbErr.msg)) ||
-              String(fbErr || "")
-            ).toLowerCase();
-            if (
-              fbErr?.code === "conflict" ||
-              m2.includes("conflit") ||
-              m2.includes("ocupado")
-            ) {
-              const empLabel =
-                it.employeeName || it.employeeId || "funcionário";
-              const dateObj = new Date(`${it.date}T00:00:00`);
-              showError(
-                `O horário ${formatDateBR(
-                  dateObj
-                )} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
-              );
-              setSubmitting(false);
-              return;
-            }
-            throw fbErr;
-          }
-        } else {
-          // Tenta criar via API; se falhar, decide se cai para Firestore
-          try {
-            await bookingService.createBooking(payload);
-          } catch {
-            // Independente da mensagem da API, tentar fallback para Firestore; só bloquear se Firestore acusar conflito
-            try {
-              await enterpriseBookingFirestoreService.create(
-                currentEnterprise.email,
-                payload
-              );
-            } catch (fbErr) {
-              const m2 = (
-                (typeof fbErr === "object" &&
-                  (fbErr.message || fbErr.error || fbErr.msg)) ||
-                String(fbErr || "")
-              ).toLowerCase();
-              if (
-                fbErr?.code === "conflict" ||
-                m2.includes("conflit") ||
-                m2.includes("ocupado")
-              ) {
-                const empLabel =
-                  it.employeeName || it.employeeId || "funcionário";
-                const dateObj = new Date(`${it.date}T00:00:00`);
-                showError(
-                  `O horário ${formatDateBR(
-                    dateObj
-                  )} ${startTime} com ${empLabel} não está disponível. Edite o item e escolha outro horário.`
-                );
-                setSubmitting(false);
-                return;
-              }
-              throw fbErr;
-            }
+            setSubmitting(false);
+            return;
+          } else {
+            // Outro tipo de erro
+            showError(`Erro ao criar agendamento: ${errorMsg}`);
+            setSubmitting(false);
+            return;
           }
         }
       }
+
       console.log(
         "✅ [Cart] Todos os agendamentos foram processados com sucesso"
       );

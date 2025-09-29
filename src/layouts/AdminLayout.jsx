@@ -327,14 +327,6 @@ export default function AdminLayout() {
               <h2 className="text-xl font-bold text-gray-900">
                 {currentEnterprise?.name || "Admin"} Admin
               </h2>
-              {/* Botão temporário de atualização */}
-              <button
-                onClick={() => window.location.reload()}
-                className="ml-4 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition-colors"
-                title="Atualizar dados da empresa"
-              >
-                🔄 Refresh
-              </button>
             </div>
             <nav className="mt-8 flex-1">
               <div className="space-y-1">

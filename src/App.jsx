@@ -24,6 +24,7 @@ import Profile from "./pages/Profile";
 import Empresa from "./pages/Empresa";
 import DebugEnterprises from "./pages/DebugEnterprises";
 import MyAppointments from "./pages/MyAppointments";
+import TestBookingAPI from "./pages/TestBookingAPI";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -163,6 +164,10 @@ const router = createBrowserRouter([
             <MyAppointments />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "test-booking-api",
+        element: <TestBookingAPI />,
       },
     ],
   },

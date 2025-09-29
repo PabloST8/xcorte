@@ -14,7 +14,7 @@ import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { USE_REMOTE_API } from "../config";
-import { enterpriseBookingFirestoreService } from "../services/enterpriseBookingFirestoreService";
+import { bookingApiService } from "../services/bookingApiService";
 import { formatDateBR, formatTimeBR } from "../utils/dateUtils";
 
 export default function MyAppointments() {
@@ -52,14 +52,16 @@ export default function MyAppointments() {
       setFirestoreLoading(true);
       setFirestoreError(null);
 
-      enterpriseBookingFirestoreService
-        .list(currentEnterprise.email, {})
-        .then((appointments) => {
+      console.log("📋 [MyAppointments] Carregando agendamentos via API...");
+      bookingApiService
+        .getBookings(currentEnterprise.email)
+        .then((result) => {
           console.log(
-            "📊 [MyAppointments] Agendamentos recebidos do Firestore:",
-            appointments
+            "📊 [MyAppointments] Agendamentos recebidos da API:",
+            result
           );
 
+          const appointments = result.success ? result.data : [];
           if (Array.isArray(appointments)) {
             // Filtrar agendamentos do usuário logado
             const userAppointments = appointments.filter((appointment) => {

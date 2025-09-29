@@ -10,7 +10,29 @@ const app = express();
 const PORT = process.env.API_PORT || 3001;
 
 // Middlewares
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:4000",
+      "http://localhost:4001",
+      "http://localhost:3000",
+      "http://127.0.0.1:4000",
+      "http://127.0.0.1:4001",
+      "http://127.0.0.1:3000",
+      process.env.FRONTEND_URL || "http://localhost:4000",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+// Middleware para debug de CORS
+app.use((req, res, next) => {
+  console.log(`🌐 [${req.method}] ${req.url} - Origin: ${req.headers.origin}`);
+  next();
+});
+
 app.use(express.json());
 
 // Store temporário para códigos de verificação (em produção usar Redis)
@@ -287,6 +309,196 @@ app.get("/api/status", (req, res) => {
     timestamp: new Date().toISOString(),
     activeVerifications: verificationCodes.size,
   });
+});
+
+// ===== ENDPOINTS DE AGENDAMENTO COM FIRESTORE =====
+
+// GET /api/bookings - Listar agendamentos do Firestore
+app.get("/api/bookings", async (req, res) => {
+  try {
+    console.log("📅 [API] GET /api/bookings chamado");
+    console.log("📋 [API] Query params:", req.query);
+
+    const { enterpriseEmail, date, status } = req.query;
+
+    if (!enterpriseEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "enterpriseEmail é obrigatório",
+      });
+    }
+
+    // Importar e usar serviços do Firestore
+    const { collection, getDocs, query, where, orderBy } = await import(
+      "firebase/firestore"
+    );
+    const { db } = await import("./server-firebase.js");
+
+    console.log(
+      "🔥 [API] Buscando agendamentos do Firestore para:",
+      enterpriseEmail
+    );
+
+    // Buscar da subcoleção de agendamentos da empresa
+    const appointmentsRef = collection(
+      db,
+      "enterprises",
+      enterpriseEmail,
+      "appointments"
+    );
+    let appointmentsQuery = query(
+      appointmentsRef,
+      orderBy("createdAt", "desc")
+    );
+
+    // Aplicar filtros se fornecidos
+    if (date) {
+      appointmentsQuery = query(
+        appointmentsRef,
+        where("date", "==", date),
+        orderBy("createdAt", "desc")
+      );
+    }
+
+    const snapshot = await getDocs(appointmentsQuery);
+    const appointments = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      appointments.push({
+        id: doc.id,
+        ...data,
+        // Mapear campos para compatibilidade
+        clientName: data.clientName,
+        clientEmail: data.clientEmail || "",
+        clientPhone: data.clientPhone || "",
+        date: data.date,
+        time: data.startTime || data.time,
+        startTime: data.startTime || data.time,
+        service: data.productName || data.serviceName || "Serviço",
+        status: data.status || "pending",
+        enterpriseEmail: enterpriseEmail,
+        createdAt:
+          data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      });
+    });
+
+    // Aplicar filtro de status se fornecido
+    let filteredAppointments = appointments;
+    if (status) {
+      filteredAppointments = appointments.filter(
+        (app) => app.status === status
+      );
+    }
+
+    console.log(
+      `✅ [API] Encontrados ${filteredAppointments.length} agendamentos no Firestore`
+    );
+
+    res.json({
+      success: true,
+      data: filteredAppointments,
+      total: filteredAppointments.length,
+      timestamp: new Date().toISOString(),
+      source: "firestore",
+    });
+  } catch (error) {
+    console.error("❌ [API] Erro ao buscar agendamentos do Firestore:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor",
+      message: error.message,
+      details: "Erro ao acessar Firestore",
+    });
+  }
+});
+
+// POST /api/bookings - Criar agendamento
+app.post("/api/bookings", async (req, res) => {
+  try {
+    console.log("📅 [API] POST /api/bookings chamado");
+    console.log("📋 [API] Body:", req.body);
+
+    const newBooking = {
+      id: Date.now().toString(),
+      ...req.body,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    console.log("✅ [API] Agendamento criado:", newBooking);
+
+    res.json({
+      success: true,
+      data: newBooking,
+      message: "Agendamento criado com sucesso",
+    });
+  } catch (error) {
+    console.error("❌ [API] Erro ao criar agendamento:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor",
+      message: error.message,
+    });
+  }
+});
+
+// PUT /api/bookings/:id - Atualizar agendamento
+app.put("/api/bookings/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`📅 [API] PUT /api/bookings/${id} chamado`);
+    console.log("📋 [API] Body:", req.body);
+
+    const updatedBooking = {
+      id,
+      ...req.body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    console.log("✅ [API] Agendamento atualizado:", updatedBooking);
+
+    res.json({
+      success: true,
+      data: updatedBooking,
+      message: "Agendamento atualizado com sucesso",
+    });
+  } catch (error) {
+    console.error(
+      `❌ [API] Erro ao atualizar agendamento ${req.params.id}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor",
+      message: error.message,
+    });
+  }
+});
+
+// DELETE /api/bookings/:id - Deletar agendamento
+app.delete("/api/bookings/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`📅 [API] DELETE /api/bookings/${id} chamado`);
+
+    console.log(`✅ [API] Agendamento ${id} deletado`);
+
+    res.json({
+      success: true,
+      message: "Agendamento deletado com sucesso",
+    });
+  } catch (error) {
+    console.error(
+      `❌ [API] Erro ao deletar agendamento ${req.params.id}:`,
+      error
+    );
+    res.status(500).json({
+      success: false,
+      error: "Erro interno do servidor",
+      message: error.message,
+    });
+  }
 });
 
 // Limpeza automática de códigos expirados
