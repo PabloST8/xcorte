@@ -14,10 +14,14 @@ import {
 } from "lucide-react";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
 import BookingOverlay from "../components/BookingOverlay";
+import NotificationPopup from "../components/NotificationPopup";
+import { useNotification } from "../hooks/useNotification";
 
 function Services() {
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
+  const { notification, showSuccess, showError, hideNotification } =
+    useNotification();
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get("category") || "Todos";
   const titleFromUrl = searchParams.get("title") || "Serviços";
@@ -28,6 +32,23 @@ function Services() {
   const [employees, setEmployees] = useState([]);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Listener para evento de item adicionado ao carrinho
+  useEffect(() => {
+    const handleCartItemAdded = (event) => {
+      console.log(
+        "🎉 [ServiceDetails] Evento cartItemAdded recebido:",
+        event.detail
+      );
+      showSuccess(event.detail.message, 4000);
+    };
+
+    window.addEventListener("cartItemAdded", handleCartItemAdded);
+
+    return () => {
+      window.removeEventListener("cartItemAdded", handleCartItemAdded);
+    };
+  }, [showSuccess]);
 
   useEffect(() => {
     setSelectedCategory(categoryFromUrl);
@@ -240,6 +261,15 @@ function Services() {
             ? eligibleEmployeesForProduct(selectedProduct)
             : employees
         }
+      />
+
+      {/* Notification Popup */}
+      <NotificationPopup
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={hideNotification}
+        duration={notification.duration}
       />
     </div>
   );

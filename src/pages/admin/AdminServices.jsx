@@ -24,7 +24,6 @@ export default function AdminServices() {
     duration: 30, // minutos
     price: 25, // reais
     category: "",
-    code: "", // código/número do serviço
     isActive: true,
   });
 
@@ -116,23 +115,6 @@ export default function AdminServices() {
         return;
       }
 
-      // Validar código duplicado (se preenchido)
-      if (newService.code && newService.code.trim()) {
-        const codeExists = displayServices.some(
-          (service) =>
-            service.code &&
-            service.code.toLowerCase().trim() ===
-              newService.code.toLowerCase().trim()
-        );
-
-        if (codeExists) {
-          alert(
-            "Já existe um serviço com este código. Por favor, escolha um código diferente."
-          );
-          return;
-        }
-      }
-
       // Usar dados diretamente do newService (já em reais)
       await createServiceMutation.mutateAsync(newService);
 
@@ -143,7 +125,6 @@ export default function AdminServices() {
         duration: 30,
         price: 25,
         category: "",
-        code: "",
         isActive: true,
       });
       setPriceInput("2500"); // Reset para R$ 25,00
@@ -278,30 +259,6 @@ export default function AdminServices() {
         }
       }
 
-      // Validar código duplicado (apenas se o código foi alterado e está preenchido)
-      if (
-        editingService &&
-        newService.code &&
-        newService.code.trim() &&
-        newService.code.toLowerCase().trim() !==
-          (editingService.code || "").toLowerCase().trim()
-      ) {
-        const codeExists = displayServices.some(
-          (service) =>
-            service.id !== editingService.id &&
-            service.code &&
-            service.code.toLowerCase().trim() ===
-              newService.code.toLowerCase().trim()
-        );
-
-        if (codeExists) {
-          alert(
-            "Já existe um serviço com este código. Por favor, escolha um código diferente."
-          );
-          return;
-        }
-      }
-
       console.log("Dados do serviço a serem atualizados:", {
         serviceId: editingService.id,
         serviceData: newService,
@@ -345,7 +302,6 @@ export default function AdminServices() {
       duration: 30,
       price: 25,
       category: "",
-      code: "",
       isActive: true,
     });
     setPriceInput("2500");
@@ -409,27 +365,36 @@ export default function AdminServices() {
         {filteredServices.map((service) => (
           <div
             key={service.id}
-            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow overflow-hidden"
           >
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <div>
+                <div className="flex-1 min-w-0 pr-2">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3
+                      className="text-lg font-medium text-gray-900"
+                      style={{
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                        wordBreak: "break-word",
+                        hyphens: "auto",
+                      }}
+                    >
                       {service.name}
                     </h3>
-                    {service.code && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        #{service.code}
-                      </span>
-                    )}
                   </div>
-                  <p className="text-sm text-amber-600 mt-1">
+                  <p
+                    className="text-sm text-amber-600 mt-1"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                    }}
+                  >
                     {service.category}
                   </p>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 flex-shrink-0">
                   <button
                     onClick={() => handleEditService(service)}
                     className="p-2 text-gray-400 hover:text-amber-600 transition-colors"
@@ -446,7 +411,19 @@ export default function AdminServices() {
                 </div>
               </div>
 
-              <p className="text-gray-600 text-sm mb-4">
+              <p
+                className="text-gray-600 text-sm mb-4"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {service.description}
               </p>
 
@@ -524,25 +501,11 @@ export default function AdminServices() {
                       setNewService({ ...newService, name: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    maxLength={60}
                     required
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Código/Número do Serviço
-                  </label>
-                  <input
-                    type="text"
-                    value={newService.code}
-                    onChange={(e) =>
-                      setNewService({ ...newService, code: e.target.value })
-                    }
-                    placeholder="Ex: 001, S01, CORTE001 (opcional)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                  />
                   <p className="text-xs text-gray-500 mt-1">
-                    Código único para identificação do serviço (opcional)
+                    {newService.name.length}/60 caracteres
                   </p>
                 </div>
 
@@ -580,7 +543,11 @@ export default function AdminServices() {
                     }
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    maxLength={200}
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newService.description.length}/200 caracteres
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

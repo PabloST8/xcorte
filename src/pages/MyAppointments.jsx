@@ -16,6 +16,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { USE_REMOTE_API } from "../config";
 import { bookingApiService } from "../services/bookingApiService";
 import { formatDateBR, formatTimeBR } from "../utils/dateUtils";
+import { useStaff } from "../hooks/useAdmin";
 
 export default function MyAppointments() {
   const navigate = useNavigate();
@@ -30,46 +31,78 @@ export default function MyAppointments() {
   const [firestoreLoading, setFirestoreLoading] = useState(false);
   const [firestoreError, setFirestoreError] = useState(null);
 
-  console.log("🔍 [MyAppointments] Componente renderizado com:", {
-    user,
-    userPhone: user?.phone,
-    userId: user?.id,
-    userEmail: user?.email,
-    currentEnterprise: currentEnterprise?.email,
-    firestoreAppointments: firestoreAppointments?.length || 0,
-  });
+  // Hook para buscar funcionários
+  const { data: staff } = useStaff();
+
+  // Função para obter nome do funcionário por ID
+  const getEmployeeName = useCallback(
+    (employeeId, appointment) => {
+      if (!staff || staff.length === 0) {
+        return null;
+      }
+
+      // 1. Buscar por ID exato
+      if (employeeId) {
+        const employee = staff.find((emp) => emp.id === employeeId);
+        if (employee) {
+          return employee.name;
+        }
+      }
+
+      // 2. Buscar por email (fallback)
+      if (employeeId) {
+        const employeeByEmail = staff.find((emp) => emp.email === employeeId);
+        if (employeeByEmail) {
+          return employeeByEmail.name;
+        }
+      }
+
+      // 3. Buscar por nome parcial (se houver employeeName)
+      if (appointment?.employeeName) {
+        const employeeByName = staff.find(
+          (emp) =>
+            emp.name
+              ?.toLowerCase()
+              .includes(appointment.employeeName.toLowerCase()) ||
+            appointment.employeeName
+              .toLowerCase()
+              .includes(emp.name?.toLowerCase())
+        );
+        if (employeeByName) {
+          return employeeByName.name;
+        }
+      }
+
+      return null;
+    },
+    [staff]
+  );
 
   // Função para recarregar agendamentos do Firestore
   const refetchFirestoreAppointments = useCallback(() => {
     if (currentEnterprise?.email && user?.id) {
-      console.log("🔍 [MyAppointments] Carregando agendamentos do Firestore:", {
-        enterpriseEmail: currentEnterprise.email,
-        userId: user.id,
-        userPhone: user.phone,
-        userEmail: user.email,
-      });
-
       setFirestoreLoading(true);
       setFirestoreError(null);
-
-      console.log("📋 [MyAppointments] Carregando agendamentos via API...");
       bookingApiService
         .getBookings(currentEnterprise.email)
         .then((result) => {
-          console.log(
-            "📊 [MyAppointments] Agendamentos recebidos da API:",
-            result
-          );
-
           const appointments = result.success ? result.data : [];
           if (Array.isArray(appointments)) {
             // Filtrar agendamentos do usuário logado
             const userAppointments = appointments.filter((appointment) => {
+              // Normalizar telefones removendo caracteres especiais
+              const cleanAppointmentPhone = appointment.clientPhone?.replace(
+                /\D/g,
+                ""
+              );
+              const cleanUserPhone = user.phone?.replace(/\D/g, "");
+              const cleanUserIdPhone = user.id?.replace(/\D/g, "");
+
               const matchPhone =
                 appointment.clientPhone === user.phone ||
                 appointment.clientPhone === user.id ||
-                appointment.clientPhone?.replace(/\D/g, "") ===
-                  user.phone?.replace(/\D/g, "");
+                cleanAppointmentPhone === cleanUserPhone ||
+                cleanAppointmentPhone === cleanUserIdPhone;
 
               const matchEmail =
                 user.email &&
@@ -77,40 +110,66 @@ export default function MyAppointments() {
                 appointment.clientEmail.toLowerCase() ===
                   user.email.toLowerCase();
 
-              const match = matchPhone || matchEmail;
+              // Também verificar por nome (fallback)
+              const matchName =
+                user.name &&
+                appointment.clientName &&
+                appointment.clientName
+                  .toLowerCase()
+                  .includes(user.name.toLowerCase());
 
-              console.log("🔍 [MyAppointments] Verificando agendamento:", {
-                appointmentId: appointment.id,
-                clientPhone: appointment.clientPhone,
-                clientEmail: appointment.clientEmail,
-                userPhone: user.phone,
-                userEmail: user.email,
-                matchPhone,
-                matchEmail,
-                finalMatch: match,
-              });
+              const match = matchPhone || matchEmail || matchName;
 
               return match;
             });
 
-            console.log(
-              "✅ [MyAppointments] Agendamentos filtrados do usuário:",
-              userAppointments
-            );
-            setFirestoreAppointments(userAppointments);
+            // Enriquecer agendamentos com nomes de funcionários quando ausentes
+            const enrichedAppointments = userAppointments.map((appointment) => {
+              let finalEmployeeName =
+                appointment.employeeName || appointment.staffName;
+
+              // Tentar resolver nome se não tiver
+              if (!finalEmployeeName && appointment.employeeId) {
+                const resolvedName = getEmployeeName(
+                  appointment.employeeId,
+                  appointment
+                );
+                if (resolvedName) {
+                  finalEmployeeName = resolvedName;
+                }
+              }
+
+              // Tentar resolver mesmo se já tiver nome (para garantir consistência)
+              if (!finalEmployeeName) {
+                const resolvedName = getEmployeeName(
+                  appointment.employeeId,
+                  appointment
+                );
+                if (resolvedName) {
+                  finalEmployeeName = resolvedName;
+                }
+              }
+
+              return {
+                ...appointment,
+                employeeName: finalEmployeeName || appointment.employeeName,
+                resolvedStaffName: finalEmployeeName,
+              };
+            });
+
+            // Ordenar por data (mais recentes primeiro, depois futuros)
+            const sortedAppointments = enrichedAppointments.sort((a, b) => {
+              const dateA = new Date(a.date);
+              const dateB = new Date(b.date);
+              return dateB.getTime() - dateA.getTime(); // Decrescente
+            });
+
+            setFirestoreAppointments(sortedAppointments);
           } else {
-            console.log(
-              "⚠️ [MyAppointments] Resposta não é array:",
-              appointments
-            );
             setFirestoreAppointments([]);
           }
         })
-        .catch((error) => {
-          console.error(
-            "❌ [MyAppointments] Erro ao carregar agendamentos:",
-            error
-          );
+        .catch(() => {
           setFirestoreError("Erro ao carregar agendamentos");
           setFirestoreAppointments([]);
         })
@@ -118,48 +177,22 @@ export default function MyAppointments() {
           setFirestoreLoading(false);
         });
     } else {
-      console.log(
-        "⚠️ [MyAppointments] Dados insuficientes para carregar agendamentos:",
-        {
-          enterpriseEmail: currentEnterprise?.email,
-          userId: user?.id,
-        }
-      );
+      // Dados insuficientes
     }
-  }, [currentEnterprise?.email, user?.id, user?.phone, user?.email]);
+  }, [
+    currentEnterprise?.email,
+    user?.id,
+    user?.phone,
+    user?.email,
+    user?.name,
+    getEmployeeName,
+  ]);
 
   // Buscar agendamentos do Firestore (fonte principal)
   useEffect(() => {
-    console.log("🔍 Estado de autenticação e empresa:", {
-      user: user
-        ? {
-            id: user.id,
-            uid: user.uid,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            phone: user.phone,
-          }
-        : null,
-      currentEnterprise: currentEnterprise
-        ? {
-            email: currentEnterprise.email,
-            name: currentEnterprise.name,
-          }
-        : null,
-    });
-
     if (currentEnterprise?.email && (user?.id || user?.uid)) {
       setFirestoreLoading(true);
       setFirestoreError(null);
-
-      console.log("🔍 Buscando agendamentos do Firestore para:", {
-        enterpriseEmail: currentEnterprise.email,
-        userEmail: user.email,
-        userId: user.id || user.uid,
-        userPhone: user.phoneNumber || user.phone,
-        userPhoneAlt: user.phone,
-        userObject: user,
-      });
 
       // Já implementado na função refetchFirestoreAppointments acima
       refetchFirestoreAppointments();
@@ -185,7 +218,9 @@ export default function MyAppointments() {
   // Função para determinar status de um agendamento
   const getAppointmentStatus = (appointment) => {
     const now = new Date();
-    const appointmentDate = new Date(`${appointment.date}T${appointment.time}`);
+    // Usar startTime (da API) ao invés de time
+    const timeValue = appointment.startTime || appointment.time || "00:00";
+    const appointmentDate = new Date(`${appointment.date}T${timeValue}`);
 
     if (appointment.status === "cancelled") {
       return {
@@ -293,7 +328,14 @@ export default function MyAppointments() {
             <h1 className="text-xl font-semibold text-gray-900">
               Meus Agendamentos
             </h1>
-            <div className="w-8" /> {/* Spacer */}
+            <button
+              onClick={() => {
+                refetchFirestoreAppointments();
+              }}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              🔄 Recarregar
+            </button>
           </div>
         </div>
       </div>
@@ -303,9 +345,9 @@ export default function MyAppointments() {
         {/* Aviso sobre fonte dos dados */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
           <p className="text-blue-800 text-sm">
-            📋 <strong>Firestore Database:</strong>{" "}
+            📋 <strong>Agendamentos:</strong>{" "}
             {firestoreAppointments
-              ? `${firestoreAppointments.length} agendamento(s) encontrado(s) para seu perfil.`
+              ? `${firestoreAppointments.length} agendamento(s) encontrado(s).`
               : firestoreLoading
               ? "Carregando agendamentos..."
               : "Nenhum agendamento encontrado."}
@@ -333,11 +375,66 @@ export default function MyAppointments() {
             {appointments.map((appointment) => {
               const status = getAppointmentStatus(appointment);
 
+              // Determinando o nome do funcionário com fallback inteligente
+              const getStaffDisplayName = (appointment) => {
+                // 1. Usar staffName se disponível
+                if (appointment.staffName) {
+                  return appointment.staffName;
+                }
+
+                // 2. Usar nome resolvido
+                if (appointment.resolvedStaffName) {
+                  return appointment.resolvedStaffName;
+                }
+
+                // 3. Usar employeeName
+                if (appointment.employeeName) {
+                  return appointment.employeeName;
+                }
+
+                // 4. Se tem employeeId, mostrar
+                if (appointment.employeeId) {
+                  return `Funcionário (${appointment.employeeId})`;
+                }
+
+                // 5. Fallback inteligente: Pablo Felipe Araújo Ferreira (dono da barbearia)
+                return "Pablo Felipe Araújo Ferreira";
+              };
+
+              // Verificar se é agendamento futuro
+              const appointmentDate = new Date(appointment.date);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              appointmentDate.setHours(0, 0, 0, 0);
+              const isFuture = appointmentDate > today;
+              const isToday = appointmentDate.getTime() === today.getTime();
+
               return (
                 <div
                   key={appointment.id}
-                  className="bg-white rounded-lg shadow-sm border p-4"
+                  className={`rounded-lg shadow-sm border p-4 overflow-hidden ${
+                    isFuture
+                      ? "bg-green-50 border-green-200"
+                      : isToday
+                      ? "bg-blue-50 border-blue-200"
+                      : "bg-white border-gray-200"
+                  }`}
                 >
+                  {/* Badge para agendamentos futuros */}
+                  {isFuture && (
+                    <div className="mb-2">
+                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                        🔮 Futuro
+                      </span>
+                    </div>
+                  )}
+                  {isToday && (
+                    <div className="mb-2">
+                      <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                        📅 Hoje
+                      </span>
+                    </div>
+                  )}
                   {/* Status Badge */}
                   <div className="flex items-center justify-between mb-3">
                     <span
@@ -364,8 +461,17 @@ export default function MyAppointments() {
                   <div className="space-y-2">
                     {/* Service */}
                     <div className="flex items-center text-gray-800">
-                      <div className="font-semibold">
-                        {appointment.serviceName ||
+                      <div
+                        className="font-semibold"
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        {appointment.productName ||
+                          appointment.serviceName ||
                           appointment.service?.name ||
                           "Serviço"}
                       </div>
@@ -373,34 +479,76 @@ export default function MyAppointments() {
 
                     {/* Date */}
                     <div className="flex items-center text-gray-600">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      <span className="text-sm">
+                      <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span
+                        className="text-sm"
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                        }}
+                      >
                         {formatDate(appointment.date)}
                       </span>
                     </div>
 
                     {/* Time */}
                     <div className="flex items-center text-gray-600">
-                      <Clock className="w-4 h-4 mr-2" />
-                      <span className="text-sm">
-                        {formatTime(appointment.time)}
+                      <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span
+                        className="text-sm"
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {formatTime(appointment.startTime || appointment.time)}
                       </span>
                     </div>
 
                     {/* Staff */}
-                    {appointment.staffName && (
-                      <div className="flex items-center text-gray-600">
-                        <User className="w-4 h-4 mr-2" />
-                        <span className="text-sm">{appointment.staffName}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center text-gray-600">
+                      <User className="w-4 h-4 mr-2 flex-shrink-0" />
+                      <span
+                        className="text-sm"
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {getStaffDisplayName(appointment)}
+                      </span>
+                    </div>
 
                     {/* Price */}
-                    {appointment.price && (
-                      <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="text-sm text-gray-600">Total:</span>
-                        <span className="font-semibold text-gray-800">
-                          R$ {(appointment.price / 100).toFixed(2)}
+                    {(appointment.productPrice || appointment.price) && (
+                      <div className="flex items-center justify-between pt-2 border-t gap-2">
+                        <span
+                          className="text-sm text-gray-600 flex-shrink-0"
+                          style={{
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                          }}
+                        >
+                          Total:
+                        </span>
+                        <span
+                          className="font-semibold text-gray-800 text-right"
+                          style={{
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          R${" "}
+                          {(
+                            (appointment.productPrice || appointment.price) /
+                            100
+                          )
+                            .toFixed(2)
+                            .replace(".", ",")}
                         </span>
                       </div>
                     )}
@@ -432,11 +580,25 @@ export default function MyAppointments() {
               <p className="text-gray-600 mb-4">
                 Tem certeza que deseja cancelar este agendamento?
               </p>
-              <div className="bg-gray-50 rounded-lg p-3 space-y-1">
-                <div className="font-medium text-gray-800">
+              <div className="bg-gray-50 rounded-lg p-3 space-y-1 overflow-hidden">
+                <div
+                  className="font-medium text-gray-800"
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {selectedAppointment.serviceName || "Serviço"}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div
+                  className="text-sm text-gray-600"
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {formatDate(selectedAppointment.date)} às{" "}
                   {formatTime(selectedAppointment.time)}
                 </div>

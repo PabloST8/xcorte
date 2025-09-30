@@ -146,34 +146,100 @@ export default function AdminStaff() {
     workingDays.forEach(([day, schedule]) => {
       const dayName = WEEK_DAYS.find((d) => d.key === day)?.name || day;
 
-      if (!schedule.morningStart || !schedule.morningEnd) {
-        errors.push(`Horário da manhã é obrigatório para ${dayName}`);
+      // Validar se pelo menos um período está completamente definido
+      const hasMorningPeriod = schedule.morningStart && schedule.morningEnd;
+      const hasAfternoonPeriod =
+        schedule.afternoonStart && schedule.afternoonEnd;
+
+      if (!hasMorningPeriod && !hasAfternoonPeriod) {
+        errors.push(
+          `${dayName}: Deve ter pelo menos um período de trabalho completo (manhã ou tarde) com horário de início e fim`
+        );
       }
 
-      if (schedule.morningStart && schedule.morningEnd) {
-        if (schedule.morningStart >= schedule.morningEnd) {
+      // Validar horário da manhã se informado
+      if (schedule.morningStart || schedule.morningEnd) {
+        if (!schedule.morningStart) {
           errors.push(
-            `Horário de início deve ser menor que o fim em ${dayName} (manhã)`
+            `${dayName}: Horário de início da manhã é obrigatório quando horário da manhã está sendo definido`
+          );
+        }
+        if (!schedule.morningEnd) {
+          errors.push(
+            `${dayName}: Horário de fim da manhã é obrigatório quando horário da manhã está sendo definido`
+          );
+        }
+        if (
+          schedule.morningStart &&
+          schedule.morningEnd &&
+          schedule.morningStart >= schedule.morningEnd
+        ) {
+          errors.push(
+            `${dayName}: Horário de início deve ser menor que o fim no período da manhã`
           );
         }
       }
 
       // Validar horário da tarde se informado
-      if (schedule.afternoonStart && schedule.afternoonEnd) {
-        if (schedule.afternoonStart >= schedule.afternoonEnd) {
+      if (schedule.afternoonStart || schedule.afternoonEnd) {
+        if (!schedule.afternoonStart) {
           errors.push(
-            `Horário de início deve ser menor que o fim em ${dayName} (tarde)`
+            `${dayName}: Horário de início da tarde é obrigatório quando horário da tarde está sendo definido`
           );
         }
-        if (schedule.afternoonStart <= schedule.morningEnd) {
+        if (!schedule.afternoonEnd) {
           errors.push(
-            `Horário da tarde deve ser após o horário da manhã em ${dayName}`
+            `${dayName}: Horário de fim da tarde é obrigatório quando horário da tarde está sendo definido`
+          );
+        }
+        if (
+          schedule.afternoonStart &&
+          schedule.afternoonEnd &&
+          schedule.afternoonStart >= schedule.afternoonEnd
+        ) {
+          errors.push(
+            `${dayName}: Horário de início deve ser menor que o fim no período da tarde`
+          );
+        }
+        // Validar que tarde é após manhã (apenas se manhã estiver definida)
+        if (
+          hasMorningPeriod &&
+          schedule.afternoonStart &&
+          schedule.afternoonStart <= schedule.morningEnd
+        ) {
+          errors.push(
+            `${dayName}: Horário da tarde deve ser após o horário da manhã`
           );
         }
       }
     });
 
     return errors;
+  };
+
+  // Função helper para verificar se um dia tem horários válidos
+  const isDayScheduleValid = (schedule) => {
+    if (!schedule || !schedule.isWorking) return true; // Dia não está trabalhando, não precisa de horários
+
+    const hasMorningPeriod = schedule.morningStart && schedule.morningEnd;
+    const hasAfternoonPeriod = schedule.afternoonStart && schedule.afternoonEnd;
+
+    return hasMorningPeriod || hasAfternoonPeriod; // Pelo menos um período deve estar completo
+  };
+
+  // Função helper para obter erro específico de um dia
+  const getDayScheduleError = (dayKey, schedule) => {
+    if (!schedule || !schedule.isWorking) return null;
+
+    const hasMorningPeriod = schedule.morningStart && schedule.morningEnd;
+    const hasAfternoonPeriod = schedule.afternoonStart && schedule.afternoonEnd;
+    const dayName = WEEK_DAYS.find((d) => d.key === dayKey)?.name || dayKey;
+
+    if (!hasMorningPeriod && !hasAfternoonPeriod) {
+      return `${dayName} precisa de pelo menos um período completo (manhã ou tarde)`;
+    }
+
+    return null;
   };
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -378,6 +444,15 @@ export default function AdminStaff() {
   // Confirmar bloqueio
   const handleConfirmBlock = async () => {
     try {
+      // Validar se a data não é anterior ao dia atual
+      const today = new Date().toISOString().split("T")[0];
+      if (blockForm.blockedUntil < today) {
+        alert(
+          "Não é possível bloquear funcionário para uma data anterior ao dia atual."
+        );
+        return;
+      }
+
       await updateStaffMutation.mutateAsync({
         id: blockingStaff.id,
         ...blockingStaff,
@@ -488,7 +563,10 @@ export default function AdminStaff() {
     // Limpar erros relacionados a dias de trabalho quando adicionar um dia
     setValidationErrors((prev) =>
       prev.filter(
-        (error) => !error.includes("dia") && !error.includes("trabalhar")
+        (error) =>
+          !error.includes("dia") &&
+          !error.includes("trabalhar") &&
+          !error.includes(WEEK_DAYS.find((d) => d.key === dayKey)?.name)
       )
     );
   };
@@ -501,6 +579,14 @@ export default function AdminStaff() {
       ...prev,
       workSchedule: newSchedule,
     }));
+
+    // Limpar erros relacionados ao dia removido
+    const dayName = WEEK_DAYS.find((d) => d.key === dayKey)?.name;
+    if (dayName) {
+      setValidationErrors((prev) =>
+        prev.filter((error) => !error.includes(dayName))
+      );
+    }
   };
 
   // Atualizar horário de trabalho
@@ -515,6 +601,14 @@ export default function AdminStaff() {
         },
       },
     }));
+
+    // Limpar erros relacionados ao dia específico quando horários são atualizados
+    const dayName = WEEK_DAYS.find((d) => d.key === dayKey)?.name;
+    if (dayName) {
+      setValidationErrors((prev) =>
+        prev.filter((error) => !error.includes(dayName))
+      );
+    }
   };
 
   if (isLoading) {
@@ -603,13 +697,13 @@ export default function AdminStaff() {
         {filteredStaff.map((employee) => (
           <div
             key={employee.id}
-            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-100"
+            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-gray-100 overflow-hidden"
           >
             <div className="p-4">
               {/* Header with Avatar and Actions */}
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                     {employee.avatarUrl ? (
                       <img
                         src={employee.avatarUrl}
@@ -622,17 +716,30 @@ export default function AdminStaff() {
                       </span>
                     )}
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                  <div className="min-w-0 flex-1">
+                    <h3
+                      className="text-lg font-medium text-gray-900"
+                      style={{
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {employee.name}
                     </h3>
-                    <p className="text-sm text-amber-600">
+                    <p
+                      className="text-sm text-amber-600"
+                      style={{
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                      }}
+                    >
                       {employee.position}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 flex-shrink-0">
                   <button
                     onClick={() => handleEditStaff(employee)}
                     className="p-2 text-gray-400 hover:text-amber-600 transition-colors"
@@ -681,8 +788,25 @@ export default function AdminStaff() {
 
               {/* Contact Info */}
               <div className="space-y-1 mb-3">
-                <p className="text-sm text-gray-600">{employee.email}</p>
-                <p className="text-sm text-gray-600">{employee.phone}</p>
+                <p
+                  className="text-sm text-gray-600"
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {employee.email}
+                </p>
+                <p
+                  className="text-sm text-gray-600"
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {employee.phone}
+                </p>
               </div>
 
               {/* Blocked Status */}
@@ -733,6 +857,12 @@ export default function AdminStaff() {
                           <span
                             key={index}
                             className="px-2 py-1 bg-amber-100 text-amber-800 text-xs rounded-full"
+                            style={{
+                              wordWrap: "break-word",
+                              overflowWrap: "break-word",
+                              display: "inline-block",
+                              maxWidth: "100%",
+                            }}
                           >
                             {skillName}
                           </span>
@@ -773,17 +903,33 @@ export default function AdminStaff() {
                         <div
                           key={dayInfo.key}
                           className="text-xs text-gray-600"
+                          style={{
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                          }}
                         >
                           <span className="font-medium text-gray-700">
                             {dayInfo.label}:
                           </span>
                           <div className="grid grid-cols-2 gap-x-2 ml-2">
-                            <span>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                wordWrap: "break-word",
+                                overflowWrap: "break-word",
+                              }}
+                            >
                               M: {schedule.morningStart}-{schedule.morningEnd}
                             </span>
                             {schedule.afternoonStart &&
                               schedule.afternoonEnd && (
-                                <span>
+                                <span
+                                  style={{
+                                    fontSize: "11px",
+                                    wordWrap: "break-word",
+                                    overflowWrap: "break-word",
+                                  }}
+                                >
                                   T: {schedule.afternoonStart}-
                                   {schedule.afternoonEnd}
                                 </span>
@@ -907,8 +1053,12 @@ export default function AdminStaff() {
                       }
                       placeholder="Digite o nome completo"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      maxLength={50}
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {newStaff.name.length}/50 caracteres
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -931,11 +1081,17 @@ export default function AdminStaff() {
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
                         fieldErrors.email ? "border-red-300" : "border-gray-300"
                       }`}
+                      maxLength={100}
                       required
                     />
                     {fieldErrors.email && (
                       <p className="text-red-600 text-xs mt-1">
                         {fieldErrors.email}
+                      </p>
+                    )}
+                    {!fieldErrors.email && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {newStaff.email.length}/100 caracteres
                       </p>
                     )}
                   </div>
@@ -963,11 +1119,17 @@ export default function AdminStaff() {
                       className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 ${
                         fieldErrors.phone ? "border-red-300" : "border-gray-300"
                       }`}
+                      maxLength={15}
                       required
                     />
                     {fieldErrors.phone && (
                       <p className="text-red-600 text-xs mt-1">
                         {fieldErrors.phone}
+                      </p>
+                    )}
+                    {!fieldErrors.phone && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {newStaff.phone.length}/15 caracteres
                       </p>
                     )}
                   </div>
@@ -986,8 +1148,12 @@ export default function AdminStaff() {
                       }
                       placeholder="Ex: Barbeiro, Cabeleireiro, Manicure"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      maxLength={30}
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {newStaff.position.length}/30 caracteres
+                    </p>
                   </div>
                 </div>
 
@@ -1120,7 +1286,11 @@ export default function AdminStaff() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                  className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 ${
+                                    !isDayScheduleValid(schedule)
+                                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                      : "border-gray-300 focus:ring-amber-500 focus:border-amber-500"
+                                  }`}
                                 />
                               </div>
                               <div>
@@ -1137,7 +1307,11 @@ export default function AdminStaff() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                  className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 ${
+                                    !isDayScheduleValid(schedule)
+                                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                      : "border-gray-300 focus:ring-amber-500 focus:border-amber-500"
+                                  }`}
                                 />
                               </div>
                               <div>
@@ -1154,7 +1328,11 @@ export default function AdminStaff() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                  className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 ${
+                                    !isDayScheduleValid(schedule)
+                                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                      : "border-gray-300 focus:ring-amber-500 focus:border-amber-500"
+                                  }`}
                                 />
                               </div>
                               <div>
@@ -1171,10 +1349,19 @@ export default function AdminStaff() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                                  className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 ${
+                                    !isDayScheduleValid(schedule)
+                                      ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                      : "border-gray-300 focus:ring-amber-500 focus:border-amber-500"
+                                  }`}
                                 />
                               </div>
                             </div>
+                            {!isDayScheduleValid(schedule) && (
+                              <div className="mt-2 text-xs text-red-600">
+                                {getDayScheduleError(schedule)}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -1261,6 +1448,7 @@ export default function AdminStaff() {
                   <input
                     type="date"
                     value={blockForm.blockedUntil}
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) =>
                       setBlockForm((prev) => ({
                         ...prev,
@@ -1270,6 +1458,9 @@ export default function AdminStaff() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Não é possível selecionar datas anteriores ao dia atual
+                  </p>
                 </div>
               </div>
 

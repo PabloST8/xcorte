@@ -47,7 +47,11 @@ export default function AdminAppointments() {
     }
   };
 
-  const handleStatusChange = (appointmentId, newStatus) => {
+  const handleStatusChange = (
+    appointmentId,
+    newStatus,
+    appointmentInfo = {}
+  ) => {
     console.log("🔄 Alterando status:", { appointmentId, newStatus });
 
     // Garantir que enviamos os status canônicos do backend (pt-BR)
@@ -73,6 +77,28 @@ export default function AdminAppointments() {
       mapped: mappedStatus,
     });
 
+    // Verificar se está tentando cancelar
+    if (mappedStatus === BOOKING_STATUS.CANCELADO) {
+      const clientName = appointmentInfo.clientName || "Cliente";
+      const serviceDate = appointmentInfo.date || "";
+      const serviceTime = appointmentInfo.time || "";
+
+      const confirmMessage = `Tem certeza que deseja CANCELAR o agendamento?
+
+Cliente: ${clientName}
+Data: ${serviceDate}
+Horário: ${serviceTime}
+
+Esta ação não pode ser desfeita.`;
+
+      if (window.confirm(confirmMessage)) {
+        updateStatus({ appointmentId, status: mappedStatus });
+      }
+      // Se não confirmou, não faz nada (mantém o status atual)
+      return;
+    }
+
+    // Para outros status, atualiza diretamente
     updateStatus({ appointmentId, status: mappedStatus });
   };
 
@@ -295,7 +321,13 @@ export default function AdminAppointments() {
                         })(appointment.status)
                       }
                       onChange={(e) =>
-                        handleStatusChange(appointment.id, e.target.value)
+                        handleStatusChange(appointment.id, e.target.value, {
+                          clientName: appointment.clientName,
+                          date: formatDateTableBR(
+                            appointment.appointmentDate || appointment.date
+                          ),
+                          time: formatTimeBR(appointment.startTime),
+                        })
                       }
                       disabled={isUpdating}
                       className={`text-xs font-medium px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-amber-500 ${getStatusColor(

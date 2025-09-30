@@ -128,16 +128,7 @@ function StaffDetail() {
             <p className="text-gray-600 mb-6">{staff.description}</p>
           )}
 
-          <div className="flex justify-center space-x-4">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg">
-              <Calendar className="w-4 h-4" />
-              <span>Agendar</span>
-            </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg">
-              <Phone className="w-4 h-4" />
-              <span>Contato</span>
-            </button>
-          </div>
+          {/* Botões de Agendar e Contato removidos conforme solicitado */}
         </div>
 
         {/* Dias de trabalho */}

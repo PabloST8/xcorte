@@ -12,6 +12,7 @@ import { availabilityService } from "../services/availabilityService";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import BookingOverlay from "../components/BookingOverlay";
 import NotificationPopup from "../components/NotificationPopup";
+import ConfirmationModal from "../components/ConfirmationModal";
 import { useNotification } from "../hooks/useNotification";
 import { formatDateBR } from "../utils/dateUtils";
 
@@ -36,6 +37,11 @@ function Cart() {
   const [employees, setEmployees] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Estados para modais de confirmação
+  const [clearCartModal, setClearCartModal] = useState(false);
+  const [removeItemModal, setRemoveItemModal] = useState(null); // { isOpen: boolean, itemId: string, itemName: string }
+
   const isSimpleSession = (() => {
     const t = Cookies.get("auth_token") || "";
     return t.startsWith("simple-");
@@ -93,6 +99,33 @@ function Cart() {
       time: sel.time,
     });
     setEditingItem(null);
+  };
+
+  // Funções para modais de confirmação
+  const handleClearCart = () => {
+    setClearCartModal(true);
+  };
+
+  const confirmClearCart = () => {
+    clear();
+    setClearCartModal(false);
+    showSuccess("Carrinho esvaziado com sucesso!");
+  };
+
+  const handleRemoveItem = (item) => {
+    setRemoveItemModal({
+      isOpen: true,
+      itemId: item.id,
+      itemName: item.serviceName,
+    });
+  };
+
+  const confirmRemoveItem = () => {
+    if (removeItemModal?.itemId) {
+      removeItem(removeItemModal.itemId);
+      setRemoveItemModal(null);
+      showSuccess("Item removido do carrinho!");
+    }
   };
 
   const subtotal = useMemo(
@@ -401,7 +434,7 @@ function Cart() {
         <h1 className="text-lg font-bold text-gray-900">Carrinho</h1>
         <button
           className="text-red-600 font-medium"
-          onClick={clear}
+          onClick={handleClearCart}
           disabled={!items.length}
         >
           Esvaziar
@@ -442,7 +475,7 @@ function Cart() {
                   </button>
                   <button
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                    onClick={() => removeItem(it.id)}
+                    onClick={() => handleRemoveItem(it)}
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -525,6 +558,33 @@ function Cart() {
           onSave={onSaveEdit}
         />
       )}
+
+      {/* Modal de confirmação para esvaziar carrinho */}
+      <ConfirmationModal
+        isOpen={clearCartModal}
+        onClose={() => setClearCartModal(false)}
+        onConfirm={confirmClearCart}
+        title="Esvaziar Carrinho"
+        message="Tem certeza que deseja remover todos os itens do carrinho? Esta ação não pode ser desfeita."
+        confirmText="Esvaziar"
+        cancelText="Cancelar"
+        type="danger"
+      />
+
+      {/* Modal de confirmação para remover item */}
+      <ConfirmationModal
+        isOpen={removeItemModal?.isOpen || false}
+        onClose={() => setRemoveItemModal(null)}
+        onConfirm={confirmRemoveItem}
+        title="Remover Item"
+        message={`Tem certeza que deseja remover "${
+          removeItemModal?.itemName || "este item"
+        }" do carrinho?`}
+        confirmText="Remover"
+        cancelText="Cancelar"
+        type="danger"
+      />
+
       <NotificationPopup
         show={notification.show}
         message={notification.message}

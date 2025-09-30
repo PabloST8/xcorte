@@ -179,14 +179,6 @@ export default function Profile() {
               <h2 className="text-xl font-bold text-gray-900">
                 {user?.name || "Usuário"}
               </h2>
-              <div className="mt-2">
-                <span className="text-sm text-gray-600">
-                  Cliente desde{" "}
-                  {user?.createdAt
-                    ? new Date(user.createdAt).getFullYear()
-                    : "2024"}
-                </span>
-              </div>
             </div>
           </div>
 

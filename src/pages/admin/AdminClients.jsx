@@ -39,9 +39,22 @@ export default function AdminClients() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-600 mt-2">Gerencie sua base de clientes</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
+            <p className="text-gray-600 mt-2">
+              Gerencie sua base de clientes
+              {clients && (
+                <span className="ml-2 text-sm font-medium text-amber-600">
+                  ({clients.length}{" "}
+                  {clients.length === 1 ? "cliente" : "clientes"}
+                  {searchTerm &&
+                    ` encontrado${clients.length === 1 ? "" : "s"}`}
+                  )
+                </span>
+              )}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -63,19 +76,23 @@ export default function AdminClients() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"
             >
-              <option value="name">Ordenar por Nome</option>
-              <option value="created_at">Mais Recentes</option>
-              <option value="last_appointment">Último Agendamento</option>
-              <option value="total_spent">Valor Gasto</option>
+              <option value="name">📝 Ordenar por Nome</option>
+              <option value="created_at">🕐 Mais Recentes</option>
+              <option value="last_appointment">📅 Último Agendamento</option>
+              <option value="total_spent">💰 Valor Gasto</option>
             </select>
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className={`p-2 border rounded-lg transition-colors ${
+                showFilters
+                  ? "border-amber-500 bg-amber-50 text-amber-600"
+                  : "border-gray-300 hover:bg-gray-50 text-gray-600"
+              }`}
             >
-              <Filter className="w-5 h-5 text-gray-600" />
+              <Filter className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -115,7 +132,13 @@ export default function AdminClients() {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-sm text-gray-600">Gasto Total</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p
+                    className={`text-lg font-semibold ${
+                      sortBy === "total_spent"
+                        ? "text-amber-600"
+                        : "text-gray-900"
+                    }`}
+                  >
                     {formatPrice(client.totalSpent || 0)}
                   </p>
                 </div>
@@ -123,7 +146,16 @@ export default function AdminClients() {
 
               <div className="mt-4">
                 <p className="text-xs text-gray-500">
-                  Último agendamento: {client.lastAppointment || "Nunca"}
+                  Último agendamento:
+                  <span
+                    className={`ml-1 ${
+                      sortBy === "last_appointment"
+                        ? "font-medium text-amber-600"
+                        : ""
+                    }`}
+                  >
+                    {client.lastAppointment || "Nunca"}
+                  </span>
                 </p>
               </div>
             </div>
@@ -131,10 +163,24 @@ export default function AdminClients() {
         ))}
       </div>
 
-      {(!clients || clients.length === 0) && (
+      {(!clients || clients.length === 0) && !isLoading && (
         <div className="text-center py-12">
           <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Nenhum cliente encontrado</p>
+          {searchTerm ? (
+            <div>
+              <p className="text-gray-600 mb-2">
+                Nenhum cliente encontrado para "{searchTerm}"
+              </p>
+              <button
+                onClick={() => setSearchTerm("")}
+                className="text-amber-600 hover:text-amber-700 font-medium"
+              >
+                Limpar busca
+              </button>
+            </div>
+          ) : (
+            <p className="text-gray-600">Nenhum cliente encontrado</p>
+          )}
         </div>
       )}
     </div>

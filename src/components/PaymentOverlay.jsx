@@ -57,7 +57,7 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-lg font-semibold">Finalizar Agendamento</h2>
@@ -70,32 +70,64 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 flex-1 overflow-y-auto">
           {/* Resumo do agendamento */}
           <div className="bg-gray-50 p-3 rounded-lg">
             <h3 className="font-medium text-gray-900 mb-2">
               Resumo do agendamento
             </h3>
             <div className="space-y-1 text-sm text-gray-600">
-              <p>
+              <p
+                className="break-words"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
+                }}
+              >
                 <span className="font-medium">Serviço:</span>{" "}
                 {appointmentData?.serviceName || appointmentData?.service}
               </p>
-              <p>
+              <p
+                className="break-words"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                  wordBreak: "break-word",
+                }}
+              >
                 <span className="font-medium">Profissional:</span>{" "}
                 {appointmentData?.employeeName || appointmentData?.staff}
               </p>
-              <p>
+              <p
+                className="break-words"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
                 <span className="font-medium">Data:</span>{" "}
                 {appointmentData?.date
                   ? formatDateBR(new Date(`${appointmentData.date}T00:00:00`))
                   : ""}
               </p>
-              <p>
+              <p
+                className="break-words"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
                 <span className="font-medium">Horário:</span>{" "}
                 {appointmentData?.time}
               </p>
-              <p>
+              <p
+                className="break-words"
+                style={{
+                  wordWrap: "break-word",
+                  overflowWrap: "break-word",
+                }}
+              >
                 <span className="font-medium">Valor:</span> R${" "}
                 {(
                   (appointmentData?.priceInCents ||
@@ -113,15 +145,19 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
             <h3 className="font-medium text-gray-900 mb-3">
               Forma de pagamento
             </h3>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-2">
               {paymentMethods.map((opt) => (
                 <label
                   key={opt.key}
-                  className={`px-3 py-2 rounded-lg border cursor-pointer ${
+                  className={`flex-1 min-w-0 px-3 py-2 rounded-lg border cursor-pointer text-center text-sm ${
                     selectedPayment === opt.key
                       ? "border-blue-600 text-blue-700"
                       : "border-gray-300 text-gray-700"
                   }`}
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                  }}
                 >
                   <input
                     type="radio"
@@ -145,10 +181,14 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
           )}
 
           {/* Botões */}
-          <div className="flex gap-3 pt-2">
+        </div>
+
+        {/* Área de botões fixada */}
+        <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 text-sm"
               disabled={loading}
             >
               Cancelar
@@ -156,7 +196,7 @@ function PaymentOverlay({ isOpen, onClose, appointmentData, onConfirm }) {
             <button
               onClick={handleConfirmPayment}
               disabled={loading}
-              className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
               {loading ? "Processando..." : "Confirmar"}
             </button>

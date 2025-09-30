@@ -4,12 +4,12 @@ import { firestoreClientsService } from "../services/firestoreClientsService";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { formatDateBR } from "../utils/dateUtils";
 
-export const useEnterpriseClients = () => {
+export const useEnterpriseClients = ({ search = "", sortBy = "name" } = {}) => {
   const { currentEnterprise } = useEnterprise();
   const enterpriseEmail = currentEnterprise?.email;
 
   return useQuery({
-    queryKey: ["enterprise-clients", enterpriseEmail],
+    queryKey: ["enterprise-clients", enterpriseEmail, search, sortBy],
     enabled: !!enterpriseEmail,
     queryFn: async () => {
       console.log("🔍 Buscando clientes para empresa:", enterpriseEmail);
@@ -127,7 +127,70 @@ export const useEnterpriseClients = () => {
       });
 
       console.log("✅ Clientes processados:", clientsWithStats.length);
-      return clientsWithStats;
+
+      // Aplicar filtros de busca
+      let filteredClients = clientsWithStats;
+      if (search.trim()) {
+        const searchLower = search.toLowerCase();
+        filteredClients = clientsWithStats.filter(
+          (client) =>
+            (client.name || "").toLowerCase().includes(searchLower) ||
+            (client.phone || "").toLowerCase().includes(searchLower) ||
+            (client.email || "").toLowerCase().includes(searchLower)
+        );
+        console.log(
+          `🔍 Clientes filtrados por busca "${search}":`,
+          filteredClients.length
+        );
+      }
+
+      // Aplicar ordenação
+      filteredClients.sort((a, b) => {
+        switch (sortBy) {
+          case "name":
+            return (a.name || "").localeCompare(b.name || "");
+
+          case "created_at": {
+            // Usar o primeiro agendamento como proxy para "criação"
+            const dateA = new Date(
+              a.lastAppointment === "Nunca" ? 0 : a.lastAppointment
+            );
+            const dateB = new Date(
+              b.lastAppointment === "Nunca" ? 0 : b.lastAppointment
+            );
+            return dateB - dateA; // Mais recentes primeiro
+          }
+
+          case "last_appointment": {
+            if (a.lastAppointment === "Nunca" && b.lastAppointment === "Nunca")
+              return 0;
+            if (a.lastAppointment === "Nunca") return 1;
+            if (b.lastAppointment === "Nunca") return -1;
+
+            // Converter formato brasileiro para Date
+            const convertBRtoDate = (dateStr) => {
+              const [day, month, year] = dateStr.split("/");
+              return new Date(year, month - 1, day);
+            };
+
+            const lastA = convertBRtoDate(a.lastAppointment);
+            const lastB = convertBRtoDate(b.lastAppointment);
+            return lastB - lastA; // Mais recentes primeiro
+          }
+
+          case "total_spent":
+            return (b.totalSpent || 0) - (a.totalSpent || 0); // Maior valor primeiro
+
+          default:
+            return 0;
+        }
+      });
+
+      console.log(
+        `📊 Clientes ordenados por "${sortBy}":`,
+        filteredClients.length
+      );
+      return filteredClients;
     },
     staleTime: 5 * 60 * 1000,
   });

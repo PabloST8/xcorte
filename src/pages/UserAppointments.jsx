@@ -204,26 +204,64 @@ export default function UserAppointments() {
             {normalized.map((appt) => (
               <div
                 key={appt.id}
-                className="p-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center"
+                className="p-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center overflow-hidden"
               >
                 <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mr-4">
                   <Scissors className="w-5 h-5 text-blue-600" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p
+                    className="font-semibold text-gray-900"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     {appt.productName}
                   </p>
-                  <p className="text-xs text-gray-500 truncate flex items-center">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {appt.start || "--:--"}
-                    {appt.end && <span className="mx-1">•</span>}
-                    {appt.end && appt.end}
-                    <span className="mx-1">•</span>
-                    {appt.employeeName}
+                  <p
+                    className="text-xs text-gray-500 flex items-center flex-wrap gap-1"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                    }}
+                  >
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-1 flex-shrink-0" />
+                      {appt.start || "--:--"}
+                    </span>
+                    {appt.end && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span>{appt.end}</span>
+                      </>
+                    )}
+                    <span className="text-gray-400">•</span>
+                    <span
+                      style={{
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {appt.employeeName}
+                    </span>
                   </p>
                 </div>
-                <div className="text-right ml-3">
-                  <span className="block text-sm font-medium text-gray-900">
+                <div className="text-right ml-3 flex-shrink-0 overflow-hidden">
+                  <span
+                    className="block text-sm font-medium text-gray-900"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                    }}
+                  >
                     {appt.dateDisplay}
                   </span>
                   <StatusBadge status={appt.status} />
@@ -253,6 +291,12 @@ function StatusBadge({ status }) {
   return (
     <span
       className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${cls}`}
+      style={{
+        wordWrap: "break-word",
+        overflowWrap: "break-word",
+        wordBreak: "break-word",
+        maxWidth: "100%",
+      }}
     >
       {status}
     </span>

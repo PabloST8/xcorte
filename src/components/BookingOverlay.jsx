@@ -34,7 +34,7 @@ export default function BookingOverlay({
 }) {
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const { notification, showSuccess, showError, hideNotification } =
@@ -105,14 +105,6 @@ export default function BookingOverlay({
     // Sempre filtrar funcionários inativos primeiro
     const activeEmployees = list.filter((e) => e.isActive !== false);
 
-    console.log("🔍 [BookingOverlay] Filtragem de funcionários:", {
-      total: list.length,
-      ativos: activeEmployees.length,
-      inativos: list.filter((e) => e.isActive === false),
-      productId: product?.id,
-      productName: product?.name,
-    });
-
     // Se não há produto selecionado, retornar todos os funcionários ativos
     if (!product?.id) return activeEmployees;
 
@@ -125,16 +117,8 @@ export default function BookingOverlay({
       );
     });
 
-    console.log(
-      "🎯 [BookingOverlay] Funcionários elegíveis após filtro de habilidades:",
-      {
-        elegíveis: eligibleBySkills.length,
-        nomes: eligibleBySkills.map((e) => e.name),
-      }
-    );
-
     return eligibleBySkills;
-  }, [employees, product?.id, product?.name]);
+  }, [employees, product?.id]);
 
   // Keep selection valid when the filtered list changes
   useEffect(() => {
@@ -342,6 +326,60 @@ export default function BookingOverlay({
 
             // Buscar bookings do dia para filtrar horários ocupados (por funcionário) usando Firestore
             let bookedIntervals = [];
+
+            // Primeiro, adicionar agendamentos temporários do carrinho
+            console.log(
+              "🛒 Verificando itens do carrinho como agendamentos temporários:",
+              cartItems
+            );
+            const cartBookings = (cartItems || []).filter((item) => {
+              // Filtrar apenas itens do mesmo funcionário e data
+              const sameEmployee = item.employeeId === selectedEmployeeId;
+              const sameDate = item.date === selectedDate;
+
+              console.log("🛒 Item do carrinho:", {
+                serviceName: item.serviceName,
+                employeeId: item.employeeId,
+                selectedEmployeeId,
+                date: item.date,
+                selectedDate,
+                time: item.time,
+                sameEmployee,
+                sameDate,
+                willInclude: sameEmployee && sameDate,
+              });
+
+              return sameEmployee && sameDate;
+            });
+
+            // Converter itens do carrinho para intervalos ocupados
+            const cartIntervals = cartBookings.map((item) => {
+              const parseM = (time) => {
+                const [h, m] = String(time || "00:00")
+                  .split(":")
+                  .map(Number);
+                return h * 60 + m;
+              };
+              const start = parseM(item.time);
+              const duration = Number(item.duration) || 30;
+              const end = start + duration;
+
+              console.log("🛒 Intervalo ocupado pelo carrinho:", {
+                time: item.time,
+                start,
+                end,
+                duration,
+                serviceName: item.serviceName,
+              });
+
+              return [start, end];
+            });
+
+            console.log(
+              "🛒 Total de intervalos do carrinho:",
+              cartIntervals.length
+            );
+
             if (currentEnterprise?.email) {
               try {
                 console.log(
@@ -355,6 +393,27 @@ export default function BookingOverlay({
                 const dayBookings = dayBookingsResult.success
                   ? dayBookingsResult.data
                   : [];
+
+                console.log("🔍 Debug: Resultado da API para o dia:", {
+                  success: dayBookingsResult.success,
+                  totalBookings: dayBookings.length,
+                  bookings: dayBookings,
+                });
+
+                // Log detalhado de cada agendamento ANTES do filtro
+                console.log("📊 Agendamentos ANTES do filtro de funcionário:");
+                dayBookings.forEach((booking, index) => {
+                  console.log(`   ${index + 1}. ID: ${booking.id}`, {
+                    employeeId: booking.employeeId,
+                    employeeName: booking.employeeName,
+                    staffName: booking.staffName,
+                    startTime: booking.startTime,
+                    endTime: booking.endTime,
+                    status: booking.status,
+                    clientName: booking.clientName,
+                    productName: booking.productName,
+                  });
+                });
                 const parseM = (time) => {
                   const [h, m] = String(time || "00:00")
                     .split(":")
@@ -369,29 +428,196 @@ export default function BookingOverlay({
                   "in_progress",
                   "agendado",
                   "confirmado",
+                  "pending", // ADICIONADO: pending deve ser considerado ativo/ocupado
                 ];
+
+                console.log(
+                  "🔍 Debug: Todos os agendamentos do dia:",
+                  dayBookings
+                );
+                console.log("🔍 Debug: Funcionário selecionado:", {
+                  selectedEmployeeId,
+                  selectedEmployeeName: selectedEmployee?.name,
+                  selectedEmployeeEmail: selectedEmployee?.email,
+                  fullSelectedEmployee: selectedEmployee,
+                });
+
+                // Log detalhado de cada agendamento
+                dayBookings.forEach((booking, index) => {
+                  console.log(`📅 Agendamento ${index + 1}:`, {
+                    id: booking.id,
+                    employeeId: booking.employeeId,
+                    employeeName: booking.employeeName,
+                    startTime: booking.startTime,
+                    endTime: booking.endTime,
+                    productName: booking.productName,
+                    productDuration: booking.productDuration,
+                    duration: booking.duration,
+                    status: booking.status,
+                    clientName: booking.clientName,
+                    // Dados completos do agendamento para análise
+                    fullBooking: booking,
+                  });
+                });
 
                 bookedIntervals = (dayBookings || [])
                   .filter((b) => {
-                    const sameEmployee =
-                      String(b.employeeId) === String(selectedEmployeeId);
+                    // Log cada agendamento sendo analisado
+                    console.log(`📋 Analisando agendamento ${b.id}:`, {
+                      employeeId: b.employeeId,
+                      employeeName: b.employeeName,
+                      staffName: b.staffName,
+                      startTime: b.startTime,
+                      endTime: b.endTime,
+                      status: b.status,
+                      clientName: b.clientName,
+                      productName: b.productName,
+                    });
+
+                    // Estratégias para identificar se o agendamento é do mesmo funcionário
+                    let matchFound = false;
+                    let matchReason = "";
+
+                    // 1. Se há employeeId válido, usar comparação direta
+                    if (
+                      b.employeeId !== undefined &&
+                      b.employeeId !== null &&
+                      b.employeeId !== ""
+                    ) {
+                      const sameEmployee =
+                        String(b.employeeId) === String(selectedEmployeeId);
+
+                      if (sameEmployee) {
+                        matchFound = true;
+                        matchReason = "employeeId_exact_match";
+                      }
+
+                      console.log("🔍 Strategy 1 - employeeId comparison:", {
+                        bookingId: b.id,
+                        employeeId: b.employeeId,
+                        selectedEmployeeId,
+                        sameEmployee,
+                        matchFound,
+                      });
+                    }
+
+                    // 2. Verificar por employeeName se disponível
+                    if (
+                      !matchFound &&
+                      b.employeeName &&
+                      selectedEmployee?.name
+                    ) {
+                      const nameMatch =
+                        b.employeeName
+                          .toLowerCase()
+                          .includes(selectedEmployee.name.toLowerCase()) ||
+                        selectedEmployee.name
+                          .toLowerCase()
+                          .includes(b.employeeName.toLowerCase());
+
+                      if (nameMatch) {
+                        matchFound = true;
+                        matchReason = "employeeName_partial_match";
+                      }
+
+                      console.log("🔍 Strategy 2 - employeeName comparison:", {
+                        bookingId: b.id,
+                        employeeName: b.employeeName,
+                        selectedEmployeeName: selectedEmployee?.name,
+                        nameMatch,
+                        matchFound,
+                      });
+                    }
+
+                    // 3. Verificar por staffName se disponível
+                    if (!matchFound && b.staffName && selectedEmployee?.name) {
+                      const staffNameMatch =
+                        b.staffName
+                          .toLowerCase()
+                          .includes(selectedEmployee.name.toLowerCase()) ||
+                        selectedEmployee.name
+                          .toLowerCase()
+                          .includes(b.staffName.toLowerCase());
+
+                      if (staffNameMatch) {
+                        matchFound = true;
+                        matchReason = "staffName_partial_match";
+                      }
+
+                      console.log("🔍 Strategy 3 - staffName comparison:", {
+                        bookingId: b.id,
+                        staffName: b.staffName,
+                        selectedEmployeeName: selectedEmployee?.name,
+                        staffNameMatch,
+                        matchFound,
+                      });
+                    }
+
+                    // 4. Verificar por email do funcionário
+                    if (!matchFound && selectedEmployee?.email) {
+                      const emailInBooking =
+                        b.employeeEmail === selectedEmployee.email ||
+                        b.staffEmail === selectedEmployee.email ||
+                        b.employeeId === selectedEmployee.email;
+
+                      if (emailInBooking) {
+                        matchFound = true;
+                        matchReason = "employee_email_match";
+                      }
+
+                      console.log("🔍 Strategy 4 - email comparison:", {
+                        bookingId: b.id,
+                        employeeEmail: b.employeeEmail,
+                        staffEmail: b.staffEmail,
+                        selectedEmployeeEmail: selectedEmployee.email,
+                        emailInBooking,
+                        matchFound,
+                      });
+                    }
+
+                    // 5. ESTRATÉGIA AGRESSIVA: Se não tem employeeId e funcionário específico selecionado
+                    // Assumir que agendamentos sem employeeId pertencem ao funcionário selecionado
+                    if (
+                      !matchFound &&
+                      (!b.employeeId ||
+                        b.employeeId === "" ||
+                        b.employeeId === null) &&
+                      selectedEmployee?.name
+                    ) {
+                      // Esta é uma estratégia mais agressiva que assume que agendamentos sem ID
+                      // pertencem ao funcionário selecionado (útil para dados legados)
+                      matchFound = true;
+                      matchReason = "aggressive_fallback_no_employeeId";
+
+                      console.log(
+                        "🔍 Strategy 5 - aggressive fallback (no employeeId):",
+                        {
+                          bookingId: b.id,
+                          employeeId: b.employeeId,
+                          selectedEmployeeName: selectedEmployee?.name,
+                          assumingMatch: true,
+                          matchFound,
+                        }
+                      );
+                    }
+
+                    // Verificar se agendamento está ativo (não cancelado)
                     const isActive =
                       !b.status ||
                       activeStatuses.includes(b.status.toLowerCase());
 
-                    console.log("🔍 Checking booking conflict:", {
-                      bookingId: b.id,
-                      employeeId: b.employeeId,
-                      selectedEmployeeId,
-                      status: b.status,
-                      sameEmployee,
+                    const finalInclude = matchFound && isActive;
+
+                    console.log(`🎯 DECISÃO FINAL para agendamento ${b.id}:`, {
+                      bookingTime: b.startTime,
+                      matchFound,
+                      matchReason,
                       isActive,
-                      date: b.date,
-                      startTime: b.startTime,
-                      productName: b.productName,
+                      bookingStatus: b.status,
+                      FINAL_INCLUDED: finalInclude,
                     });
 
-                    return sameEmployee && isActive;
+                    return finalInclude;
                   })
                   .map((b) => {
                     const s = parseM(b.startTime);
@@ -405,17 +631,82 @@ export default function BookingOverlay({
                       startMinutes: s,
                       endMinutes: e,
                       duration: d,
+                      productDuration: b.productDuration,
+                      duration_field: b.duration,
                     });
 
                     return [s, e];
                   });
+
+                console.log("🎯 RESULTADO FINAL DA FILTRAGEM:", {
+                  dataAtual: selectedDate,
+                  funcionarioSelecionado: {
+                    id: selectedEmployeeId,
+                    name: selectedEmployee?.name,
+                    email: selectedEmployee?.email,
+                  },
+                  totalBookingsOriginal: dayBookings.length,
+                  bookingsFilteredForEmployee: bookedIntervals.length,
+                  cartIntervalsCount: cartIntervals.length,
+                  selectedEmployeeId,
+                  selectedEmployeeName: selectedEmployee?.name,
+                  bookedIntervalsDetails: bookedIntervals,
+                  cartIntervalsDetails: cartIntervals,
+                  // Agendamentos que foram EXCLUÍDOS (para debug)
+                  excludedBookings: dayBookings
+                    .filter((b) => {
+                      const included = bookedIntervals.some((interval) => {
+                        const parseM = (time) => {
+                          const [h, m] = String(time || "00:00")
+                            .split(":")
+                            .map(Number);
+                          return h * 60 + m;
+                        };
+                        const bookingStart = parseM(b.startTime);
+                        return interval[0] === bookingStart;
+                      });
+                      return !included;
+                    })
+                    .map((b) => ({
+                      id: b.id,
+                      startTime: b.startTime,
+                      employeeId: b.employeeId,
+                      employeeName: b.employeeName,
+                      staffName: b.staffName,
+                      status: b.status,
+                      productName: b.productName,
+                    })),
+                });
+
+                // COMBINAR intervalos do Firebase com intervalos do carrinho
+                bookedIntervals = [...bookedIntervals, ...cartIntervals];
+
+                console.log("🔗 INTERVALOS COMBINADOS (Firebase + Carrinho):", {
+                  totalIntervals: bookedIntervals.length,
+                  intervalDetails: bookedIntervals,
+                  firebaseIntervals:
+                    bookedIntervals.length - cartIntervals.length,
+                  cartIntervals: cartIntervals.length,
+                });
               } catch (error) {
                 console.error(
                   "❌ Error fetching bookings for conflict check:",
                   error
                 );
-                bookedIntervals = [];
+                // Em caso de erro, usar apenas intervalos do carrinho
+                bookedIntervals = cartIntervals;
+                console.log(
+                  "🔄 Usando apenas intervalos do carrinho devido ao erro:",
+                  bookedIntervals
+                );
               }
+            } else {
+              // Se não há enterprise email, usar apenas intervalos do carrinho
+              bookedIntervals = cartIntervals;
+              console.log(
+                "🔄 Usando apenas intervalos do carrinho (sem enterprise):",
+                bookedIntervals
+              );
             }
 
             // Remover horários passados se a data selecionada for hoje
@@ -432,6 +723,15 @@ export default function BookingOverlay({
               const startM = hh * 60 + mm;
               const endM = startM + durSel;
               const past = nowMins >= 0 && startM <= nowMins;
+
+              console.log(`🕐 Verificando horário ${t}:`, {
+                startMinutes: startM,
+                endMinutes: endM,
+                durSel,
+                bookedIntervals: bookedIntervals.length,
+                bookedIntervals_data: bookedIntervals,
+              });
+
               const conflict = bookedIntervals.some(([s, e]) => {
                 // Verifica se há sobreposição: novo agendamento começa antes do fim de um existente
                 // E termina depois do início de um existente
@@ -492,6 +792,8 @@ export default function BookingOverlay({
     product?.duration,
     currentEnterprise?.email,
     employees,
+    selectedEmployee,
+    cartItems,
   ]);
 
   // Compute available dates forward (e.g., next 45 days) where the employee works and there is at least one free slot
@@ -709,11 +1011,23 @@ export default function BookingOverlay({
 
       console.log("🛒 [BookingOverlay] addItem executado com sucesso");
 
-      // Fechar overlay atual
+      // Fechar overlay primeiro
       onClose();
 
-      // Navegar para página de serviços usando React Router
-      navigate(getEnterpriseUrl("service-details?category=Todos"));
+      // Disparar evento customizado para notificar sucesso
+      setTimeout(() => {
+        console.log("🎉 [BookingOverlay] Disparando evento de sucesso...");
+        const event = new CustomEvent("cartItemAdded", {
+          detail: { message: "✅ Serviço adicionado ao carrinho com sucesso!" },
+        });
+        window.dispatchEvent(event);
+        console.log("🎉 [BookingOverlay] Evento disparado!");
+      }, 300);
+
+      // Navegar para página de serviços após um delay maior
+      setTimeout(() => {
+        navigate(getEnterpriseUrl("service-details?category=Todos"));
+      }, 1000);
     } catch (error) {
       console.error(
         "🚫 [BookingOverlay] Erro ao adicionar item ao carrinho:",
