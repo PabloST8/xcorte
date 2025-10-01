@@ -342,18 +342,6 @@ export default function MyAppointments() {
 
       {/* Content */}
       <div className="max-w-md mx-auto p-4">
-        {/* Aviso sobre fonte dos dados */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <p className="text-blue-800 text-sm">
-            📋 <strong>Agendamentos:</strong>{" "}
-            {firestoreAppointments
-              ? `${firestoreAppointments.length} agendamento(s) encontrado(s).`
-              : firestoreLoading
-              ? "Carregando agendamentos..."
-              : "Nenhum agendamento encontrado."}
-          </p>
-        </div>
-
         {!appointments || appointments.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />

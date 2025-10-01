@@ -151,8 +151,33 @@ const SuperAdmin = () => {
   const handleCreateEnterprise = async (e) => {
     e.preventDefault();
     try {
+      // 1. Criar a empresa
       await createEnterprise(formData);
       showSuccess("Empresa criada com sucesso!");
+
+      // 2. Automaticamente criar usuário admin para a empresa
+      try {
+        const adminEmail = formData.email; // Usar o mesmo email da empresa
+        const adminName = `Admin ${formData.name}`;
+
+        const adminResult = await createAdminUser(
+          adminEmail, // email do admin
+          formData.email, // enterpriseEmail
+          "admin", // role
+          adminName // name
+        );
+
+        showSuccess(
+          `✅ Usuário admin criado automaticamente para ${formData.name}!`
+        );
+        console.log("✅ Admin criado:", adminResult);
+      } catch (adminError) {
+        console.warn("⚠️ Empresa criada, mas erro ao criar admin:", adminError);
+        showError(
+          `Empresa criada, mas erro ao criar admin: ${adminError.message}`
+        );
+      }
+
       setShowCreateModal(false);
       resetForm();
     } catch (error) {
@@ -229,21 +254,6 @@ const SuperAdmin = () => {
       await loadEnterprises(); // Recarregar a lista
     } catch (error) {
       showError(error.message || "Erro ao corrigir dados das empresas");
-    }
-  };
-
-  const handleCreateAdminUser = async () => {
-    try {
-      // Criar usuário admin para a Barbearia do Mikael
-      await createAdminUser(
-        "barbeariamikael@gmail.com",
-        "barbeariamikael@gmail.com",
-        "admin",
-        "Admin Mikael"
-      );
-      showSuccess("Usuário admin criado para barbeariamikael@gmail.com!");
-    } catch (error) {
-      showError(error.message || "Erro ao criar usuário admin");
     }
   };
 
@@ -410,15 +420,6 @@ const SuperAdmin = () => {
                 title="Corrigir datas e campos das empresas existentes"
               >
                 🔧 Corrigir Dados
-              </button>
-
-              {/* Botão temporário para criar usuário admin */}
-              <button
-                onClick={handleCreateAdminUser}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-                title="Criar usuário admin para barbeariamikael@gmail.com"
-              >
-                👤 Criar Admin Mikael
               </button>
 
               {/* Botão para corrigir usuário admin */}

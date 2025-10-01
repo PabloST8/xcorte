@@ -5,7 +5,7 @@ import { Lock, Mail, Eye, EyeOff } from "lucide-react";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const { adminLogin, createAdminUser } = useAuth();
+  const { adminLogin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,26 +58,6 @@ export default function AdminLogin() {
       setError("Erro inesperado. Tente novamente.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateAdmin = async () => {
-    try {
-      const result = await createAdminUser();
-      if (result.success) {
-        alert(`✅ Usuário admin criado no Firestore!
-
-Próximos passos:
-1. Acesse o Firebase Console
-2. Vá em Authentication > Users
-3. Adicione usuário com email: empresaadmin@xcortes.com
-4. Defina a senha: admin123
-5. Volte aqui e faça login!`);
-      } else {
-        alert(`❌ Erro: ${result.error}`);
-      }
-    } catch (error) {
-      alert(`❌ Erro inesperado: ${error.message}`);
     }
   };
 
@@ -180,33 +160,6 @@ Próximos passos:
               )}
             </button>
           </form>
-
-          {/* Credenciais de Teste */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">
-              Credenciais de Teste:
-            </h3>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p>
-                <strong>Email:</strong> empresaadmin@xcortes.com
-              </p>
-              <p>
-                <strong>Senha:</strong> admin123
-              </p>
-            </div>
-
-            {/* Botão para criar usuário admin no Firebase */}
-            <button
-              type="button"
-              onClick={handleCreateAdmin}
-              className="mt-3 w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg text-sm transition-colors"
-            >
-              🔧 Criar Usuário Admin no Firebase
-            </button>
-            <p className="text-xs text-gray-500 mt-1">
-              Use apenas se for a primeira vez configurando o sistema
-            </p>
-          </div>
 
           {/* Link para voltar */}
           <div className="mt-6 text-center">
