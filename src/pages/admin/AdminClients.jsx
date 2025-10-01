@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Search, Filter, Users } from "lucide-react";
 import { useEnterpriseClients } from "../../hooks/useEnterpriseClients";
 import { formatPrice } from "../../types/api";
+import UserAvatar from "../../components/UserAvatar";
 
 export default function AdminClients() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,11 +109,11 @@ export default function AdminClients() {
             <div className="p-6">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-amber-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-medium text-lg">
-                      {client.name?.charAt(0)?.toUpperCase()}
-                    </span>
-                  </div>
+                  <UserAvatar
+                    photoUrl={client.photoURL}
+                    userName={client.name}
+                    size="large"
+                  />
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">
                       {client.name}

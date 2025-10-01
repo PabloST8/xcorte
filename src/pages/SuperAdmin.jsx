@@ -19,6 +19,9 @@ import { superAdminAuthService } from "../services/superAdminAuthService";
 import SuperAdminLogin from "../components/SuperAdminLogin";
 import NotificationPopup from "../components/NotificationPopup";
 import { formatDateBR } from "../utils/dateUtils";
+import { fixEnterpriseDates } from "../utils/fixEnterpriseDates";
+import { createAdminUser } from "../utils/createAdminUser";
+import { fixAdminUser } from "../utils/fixAdminUser";
 
 const SuperAdmin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -219,6 +222,40 @@ const SuperAdmin = () => {
     setShowEditModal(true);
   };
 
+  const handleFixDates = async () => {
+    try {
+      await fixEnterpriseDates();
+      showSuccess("Dados das empresas corrigidos com sucesso!");
+      await loadEnterprises(); // Recarregar a lista
+    } catch (error) {
+      showError(error.message || "Erro ao corrigir dados das empresas");
+    }
+  };
+
+  const handleCreateAdminUser = async () => {
+    try {
+      // Criar usuário admin para a Barbearia do Mikael
+      await createAdminUser(
+        "barbeariamikael@gmail.com",
+        "barbeariamikael@gmail.com",
+        "admin",
+        "Admin Mikael"
+      );
+      showSuccess("Usuário admin criado para barbeariamikael@gmail.com!");
+    } catch (error) {
+      showError(error.message || "Erro ao criar usuário admin");
+    }
+  };
+
+  const handleFixAdminUser = async () => {
+    try {
+      await fixAdminUser();
+      showSuccess("Usuário admin corrigido! Faça logout e login novamente.");
+    } catch (error) {
+      showError(error.message || "Erro ao corrigir usuário admin");
+    }
+  };
+
   const getStatusBadge = (enterprise) => {
     if (enterprise.isBlocked) {
       return (
@@ -357,13 +394,42 @@ const SuperAdmin = () => {
             </div>
 
             {/* Botão Nova Empresa */}
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Nova Empresa
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Nova Empresa
+              </button>
+
+              {/* Botão temporário para corrigir dados */}
+              <button
+                onClick={handleFixDates}
+                className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                title="Corrigir datas e campos das empresas existentes"
+              >
+                🔧 Corrigir Dados
+              </button>
+
+              {/* Botão temporário para criar usuário admin */}
+              <button
+                onClick={handleCreateAdminUser}
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                title="Criar usuário admin para barbeariamikael@gmail.com"
+              >
+                👤 Criar Admin Mikael
+              </button>
+
+              {/* Botão para corrigir usuário admin */}
+              <button
+                onClick={handleFixAdminUser}
+                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                title="Corrigir enterpriseEmail do usuário admin"
+              >
+                🔧 Fix Admin
+              </button>
+            </div>
           </div>
         </div>
 

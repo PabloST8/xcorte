@@ -354,12 +354,12 @@ export default function AdminLayout() {
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {user?.name?.charAt(0)?.toUpperCase() || "A"}
+                    {currentEnterprise?.name?.charAt(0)?.toUpperCase() || "A"}
                   </span>
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-700">
-                    {user?.name || "Admin"}
+                    {currentEnterprise?.name || "Admin"}
                   </p>
                   <p className="text-xs text-gray-500">
                     {user?.role || "Administrador"}

@@ -8,6 +8,7 @@ import {
 import { BOOKING_STATUS, formatPrice } from "../../types/api.js";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { formatDateTableBR, formatTimeBR } from "../../utils/dateUtils";
+import UserAvatar from "../../components/UserAvatar";
 
 export default function AdminAppointments() {
   const [dateFilter, setDateFilter] = useState("all");
@@ -249,11 +250,11 @@ Esta ação não pode ser desfeita.`;
                 <tr key={appointment.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-700">
-                          {appointment.clientName?.charAt(0)?.toUpperCase()}
-                        </span>
-                      </div>
+                      <UserAvatar
+                        photoUrl={appointment.clientPhotoUrl}
+                        userName={appointment.clientName}
+                        size="medium"
+                      />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
                           {appointment.clientName}

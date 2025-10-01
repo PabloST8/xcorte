@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import EnterpriseAvatar from "../components/EnterpriseAvatar";
 
 export default function Empresa() {
   const { currentEnterprise } = useEnterprise();
@@ -23,19 +24,11 @@ export default function Empresa() {
 
       <div className="max-w-md mx-auto p-6 bg-white rounded-2xl shadow mt-8">
         <div className="flex flex-col items-center gap-3 mb-4">
-          <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-4 border-yellow-400">
-            {currentEnterprise.logoUrl ? (
-              <img
-                src={currentEnterprise.logoUrl}
-                alt={currentEnterprise.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-4xl font-bold text-gray-500">
-                {currentEnterprise.name?.[0] || "?"}
-              </span>
-            )}
-          </div>
+          <EnterpriseAvatar
+            enterprise={currentEnterprise}
+            size="xl"
+            className="shadow-lg"
+          />
           <div className="text-2xl font-bold text-gray-900 text-center">
             {currentEnterprise.name}
           </div>

@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import { publicEnterpriseFirestoreService } from "../services/publicEnterpriseFirestoreService";
+import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
 import Cookies from "js-cookie";
 import { useAuth } from "../hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -323,16 +324,99 @@ export const EnterpriseProvider = ({ children }) => {
     }
   };
 
-  const createEnterprise = async (_enterpriseData) => {
-    // API desabilitada - usar Firestore diretamente se necessário
-    console.log("createEnterprise desabilitado - API não disponível");
-    return { success: false, error: "Função não disponível" };
+  const createEnterprise = async (enterpriseData) => {
+    try {
+      console.log(
+        "🏢 Criando nova empresa através do contexto:",
+        enterpriseData
+      );
+
+      // Usar o serviço Firestore para criar a empresa
+      const newEnterprise = await firestoreEnterpriseService.createEnterprise(
+        enterpriseData
+      );
+
+      // Atualizar a lista de empresas localmente
+      setEnterprises((prev) => [newEnterprise, ...prev]);
+
+      // Invalidar cache do React Query para recarregar a lista
+      await queryClient.invalidateQueries({ queryKey: ["enterprises"] });
+
+      console.log("✅ Empresa criada com sucesso:", newEnterprise);
+      return { success: true, enterprise: newEnterprise };
+    } catch (error) {
+      console.error("❌ Erro ao criar empresa:", error);
+      throw error;
+    }
   };
 
-  const updateEnterprise = async (_email, _enterpriseData) => {
-    // API desabilitada - usar Firestore diretamente se necessário
-    console.log("updateEnterprise desabilitado - API não disponível");
-    return { success: false, error: "Função não disponível" };
+  // Função para atualizar empresa atual (para casos como upload de foto)
+  const updateCurrentEnterprise = useCallback(
+    (updatedData) => {
+      if (!currentEnterprise) return;
+
+      console.log("🔄 Atualizando empresa atual:", updatedData);
+
+      const updatedEnterprise = {
+        ...currentEnterprise,
+        ...updatedData,
+      };
+
+      setCurrentEnterprise(updatedEnterprise);
+
+      // Atualizar também na lista de empresas
+      setEnterprises((prev) =>
+        prev.map((enterprise) =>
+          enterprise.id === currentEnterprise.id
+            ? updatedEnterprise
+            : enterprise
+        )
+      );
+
+      // Salvar nos cookies
+      Cookies.set("selectedEnterprise", JSON.stringify(updatedEnterprise), {
+        expires: 30,
+      });
+    },
+    [currentEnterprise]
+  );
+
+  const updateEnterprise = async (email, enterpriseData) => {
+    try {
+      console.log(
+        "🔄 Atualizando empresa através do contexto:",
+        email,
+        enterpriseData
+      );
+
+      // Usar o serviço Firestore para atualizar a empresa
+      const updatedEnterprise =
+        await firestoreEnterpriseService.updateEnterprise(
+          email,
+          enterpriseData
+        );
+
+      // Atualizar a lista de empresas localmente
+      setEnterprises((prev) =>
+        prev.map((enterprise) =>
+          enterprise.id === email ? updatedEnterprise : enterprise
+        )
+      );
+
+      // Se for a empresa atual, atualizar também
+      if (currentEnterprise && currentEnterprise.id === email) {
+        setCurrentEnterprise(updatedEnterprise);
+      }
+
+      // Invalidar cache do React Query
+      await queryClient.invalidateQueries({ queryKey: ["enterprises"] });
+
+      console.log("✅ Empresa atualizada com sucesso:", updatedEnterprise);
+      return { success: true, enterprise: updatedEnterprise };
+    } catch (error) {
+      console.error("❌ Erro ao atualizar empresa:", error);
+      throw error;
+    }
   };
 
   // Função para sincronizar empresa com usuário logado
@@ -499,6 +583,7 @@ export const EnterpriseProvider = ({ children }) => {
     selectEnterprise,
     createEnterprise,
     updateEnterprise,
+    updateCurrentEnterprise,
     loadEnterprises,
     syncEnterpriseWithUser,
   };

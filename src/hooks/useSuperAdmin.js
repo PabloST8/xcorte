@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { superAdminService } from "../services/superAdminService";
+import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
 
 export const useSuperAdmin = () => {
   const [enterprises, setEnterprises] = useState([]);
@@ -18,44 +19,88 @@ export const useSuperAdmin = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await superAdminService.getEnterprises();
-      // Filtrar empresas não deletadas por padrão
-      const activeEnterprises = data.filter((e) => !e.isDeleted);
-      setEnterprises(activeEnterprises);
+      // Tentar carregar do Firestore primeiro
+      const data = await firestoreEnterpriseService.getEnterprises();
+      setEnterprises(data);
 
-      // Carregar estatísticas
-      const statsData = await superAdminService.getEnterpriseStats();
+      // Debug: Log das empresas para verificar status
+      console.log("📊 Debug empresas para estatísticas:");
+      data.forEach((e) => {
+        const isActive = e.active && !e.blocked;
+        const status = e.blocked ? "BLOQUEADA" : e.active ? "ATIVA" : "INATIVA";
+        console.log(
+          `- ${e.name}: active=${e.active}, blocked=${e.blocked} → ${status}`
+        );
+
+        if (!isActive) {
+          console.log(`  ⚠️ Esta empresa não está sendo contada como ativa!`);
+        }
+      });
+
+      // Calcular estatísticas localmente
+      const statsData = {
+        total: data.length,
+        active: data.filter((e) => e.active && !e.blocked).length,
+        blocked: data.filter((e) => e.blocked).length,
+        inactive: data.filter((e) => !e.active).length,
+        deleted: 0, // Para compatibilidade
+      };
+
+      console.log("📊 Estatísticas calculadas:", statsData);
       setStats(statsData);
     } catch (err) {
-      setError(err.message || "Erro ao carregar empresas");
-      console.error("Erro ao carregar empresas:", err);
+      console.log("⚠️ Firestore falhou, tentando serviço alternativo:", err);
+      try {
+        // Fallback para o serviço original se disponível
+        const data = await superAdminService.getEnterprises();
+        const activeEnterprises = data.filter((e) => !e.isDeleted);
+        setEnterprises(activeEnterprises);
+
+        const statsData = await superAdminService.getEnterpriseStats();
+        setStats(statsData);
+      } catch (fallbackErr) {
+        setError(fallbackErr.message || "Erro ao carregar empresas");
+        console.error("Erro ao carregar empresas:", fallbackErr);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   // Criar nova empresa
-  const createEnterprise = useCallback(async (enterpriseData) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const newEnterprise = await superAdminService.createEnterprise(
-        enterpriseData
-      );
-      setEnterprises((prev) => [newEnterprise, ...prev]);
+  const createEnterprise = useCallback(
+    async (enterpriseData) => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Usar Firestore diretamente
+        const newEnterprise = await firestoreEnterpriseService.createEnterprise(
+          enterpriseData
+        );
+        setEnterprises((prev) => [newEnterprise, ...prev]);
 
-      // Atualizar estatísticas
-      const statsData = await superAdminService.getEnterpriseStats();
-      setStats(statsData);
+        // Recalcular estatísticas
+        const updatedEnterprises = [newEnterprise, ...enterprises];
+        const statsData = {
+          total: updatedEnterprises.length,
+          active: updatedEnterprises.filter((e) => e.active && !e.blocked)
+            .length,
+          blocked: updatedEnterprises.filter((e) => e.blocked).length,
+          inactive: updatedEnterprises.filter((e) => !e.active).length,
+          deleted: 0,
+        };
+        setStats(statsData);
 
-      return newEnterprise;
-    } catch (err) {
-      setError(err.message || "Erro ao criar empresa");
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        return newEnterprise;
+      } catch (err) {
+        setError(err.message || "Erro ao criar empresa");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [enterprises]
+  );
 
   // Atualizar empresa
   const updateEnterprise = useCallback(async (enterpriseId, updateData) => {

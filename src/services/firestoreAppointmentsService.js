@@ -7,10 +7,45 @@ import {
   deleteDoc,
   updateDoc,
   addDoc,
+  getDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const firestoreAppointmentsService = {
+  // Função auxiliar para buscar foto do usuário
+  async getUserPhoto(clientEmail, clientPhone) {
+    if (!clientEmail && !clientPhone) return null;
+
+    try {
+      // Primeiro tentar buscar por email (mais confiável)
+      if (clientEmail) {
+        const userDoc = await getDoc(doc(db, "users", clientEmail));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          return userData.photoURL || null;
+        }
+      }
+
+      // Se não encontrou por email, tentar buscar por telefone
+      if (clientPhone) {
+        const usersRef = collection(db, "users");
+        const phoneQuery = query(usersRef, where("phone", "==", clientPhone));
+        const phoneSnapshot = await getDocs(phoneQuery);
+
+        if (!phoneSnapshot.empty) {
+          const userData = phoneSnapshot.docs[0].data();
+          return userData.photoURL || null;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.warn("Erro ao buscar foto do usuário:", error);
+      return null;
+    }
+  },
+
   // Buscar agendamentos por filtros
   async getAppointments(filters = {}) {
     try {
@@ -31,16 +66,24 @@ export const firestoreAppointmentsService = {
 
         const snapshot = await getDocs(appointmentsQuery);
 
-        snapshot.forEach((doc) => {
-          const data = doc.data();
+        // Buscar os agendamentos e suas fotos
+        const appointmentPromises = snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+
+          // Buscar foto do cliente
+          const clientPhotoUrl = await this.getUserPhoto(
+            data.clientEmail,
+            data.clientPhone
+          );
 
           // Mapear os dados do Firestore para o formato esperado pela aplicação
-          appointments.push({
-            id: doc.id,
+          return {
+            id: docSnap.id,
             // Dados do cliente
             clientName: data.clientName || "N/A",
             clientPhone: data.clientPhone || "N/A",
             clientEmail: data.clientEmail || "", // Pode estar vazio mesmo
+            clientPhotoUrl: clientPhotoUrl, // 📸 FOTO DO CLIENTE
 
             // Dados do agendamento
             date: data.date || "", // "2025-09-15"
@@ -66,24 +109,39 @@ export const firestoreAppointmentsService = {
 
             // Campos adicionais que podem existir
             ...data,
-          });
+          };
         });
+
+        appointments = await Promise.all(appointmentPromises);
       } else {
         // Fallback: buscar na coleção raiz se não temos email da empresa
         const appointmentsQuery = query(collection(db, "bookings"), limit(100));
         const snapshot = await getDocs(appointmentsQuery);
 
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          appointments.push({
-            id: doc.id,
+        const appointmentPromises = snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          const clientPhotoUrl = await this.getUserPhoto(
+            data.clientEmail,
+            data.clientPhone
+          );
+
+          return {
+            id: docSnap.id,
+            clientPhotoUrl: clientPhotoUrl, // 📸 FOTO DO CLIENTE
             ...data,
-          });
+          };
         });
+
+        appointments = await Promise.all(appointmentPromises);
       }
 
       // Aplicar filtros no frontend
       let filteredAppointments = this.applyFilters(appointments, filters);
+
+      console.log(
+        `📸 Agendamentos carregados com fotos:`,
+        filteredAppointments.slice(0, 2)
+      ); // Log dos primeiros 2 para debug
 
       return {
         success: true,

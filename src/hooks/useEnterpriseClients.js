@@ -26,24 +26,21 @@ export const useEnterpriseClients = ({ search = "", sortBy = "name" } = {}) => {
       const appointments = appointmentsResp.data;
       console.log("📅 Agendamentos encontrados:", appointments.length);
 
-      // 2. Se houver clientId, buscar clientes normalmente
-      const clientIds = [
-        ...new Set(appointments.map((a) => a.clientId).filter(Boolean)),
-      ];
+      // 2. Buscar clientes usando o serviço atualizado (que já inclui fotos)
+      console.log("👥 Buscando clientes com fotos...");
+      const clientsResp = await firestoreClientsService.getClients({
+        enterpriseEmail: enterpriseEmail,
+      });
 
       let clients = [];
-
-      if (clientIds.length > 0) {
-        console.log("👥 Clientes com ID encontrados:", clientIds.length);
-        const clientsResp = await firestoreClientsService.getClients({
-          ids: clientIds,
-        });
-        if (clientsResp.success && clientsResp.data) {
-          clients = clientsResp.data;
-        }
+      if (clientsResp.success && clientsResp.data) {
+        clients = clientsResp.data;
+        console.log("✅ Clientes encontrados com fotos:", clients.length);
       } else {
-        console.log("📱 Agrupando clientes por telefone/nome");
-        // 3. Se não houver clientId, agrupar clientes por telefone/nome dos agendamentos
+        console.log(
+          "📱 Fallback: Agrupando clientes por telefone/nome dos agendamentos"
+        );
+        // Fallback: Se o serviço falhar, agrupar clientes dos agendamentos
         const clientsByPhone = {};
         appointments.forEach((a) => {
           const phone = a.clientPhone || a.phone || a.telefone;
@@ -55,6 +52,7 @@ export const useEnterpriseClients = ({ search = "", sortBy = "name" } = {}) => {
                 name: name || phone,
                 phone,
                 email: a.clientEmail || a.email || "",
+                photoURL: a.clientPhotoUrl || null, // 📸 Foto do agendamento se disponível
               };
             }
           }
@@ -127,6 +125,10 @@ export const useEnterpriseClients = ({ search = "", sortBy = "name" } = {}) => {
       });
 
       console.log("✅ Clientes processados:", clientsWithStats.length);
+      console.log(
+        "📸 Primeiro cliente com foto:",
+        clientsWithStats.find((c) => c.photoURL)
+      ); // Debug fotos
 
       // Aplicar filtros de busca
       let filteredClients = clientsWithStats;

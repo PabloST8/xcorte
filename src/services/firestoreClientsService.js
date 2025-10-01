@@ -5,10 +5,45 @@ import {
   orderBy,
   getDocs,
   limit,
+  doc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const firestoreClientsService = {
+  // Função auxiliar para buscar foto do usuário (reutilizada do firestoreAppointmentsService)
+  async getUserPhoto(clientEmail, clientPhone) {
+    if (!clientEmail && !clientPhone) return null;
+
+    try {
+      // Primeiro tentar buscar por email (mais confiável)
+      if (clientEmail && clientEmail !== "N/A" && clientEmail !== "") {
+        const userDoc = await getDoc(doc(db, "users", clientEmail));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          return userData.photoURL || null;
+        }
+      }
+
+      // Se não encontrou por email, tentar buscar por telefone
+      if (clientPhone && clientPhone !== "N/A" && clientPhone !== "") {
+        const usersRef = collection(db, "users");
+        const phoneQuery = query(usersRef, where("phone", "==", clientPhone));
+        const phoneSnapshot = await getDocs(phoneQuery);
+
+        if (!phoneSnapshot.empty) {
+          const userData = phoneSnapshot.docs[0].data();
+          return userData.photoURL || null;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.warn("Erro ao buscar foto do cliente:", error);
+      return null;
+    }
+  },
+
   // Buscar clientes por filtros
   async getClients(filters = {}) {
     try {
@@ -26,16 +61,33 @@ export const firestoreClientsService = {
           const clientsQuery = query(enterpriseClientsRef, limit(100));
           const snapshot = await getDocs(clientsQuery);
 
-          snapshot.forEach((doc) => {
+          // Processar clientes e buscar suas fotos
+          const clientPromises = snapshot.docs.map(async (doc) => {
             const data = doc.data();
-            clients.push({
+            const mappedData = this.mapClientData(data);
+
+            // Buscar foto se ainda não tiver
+            if (!mappedData.photoURL) {
+              mappedData.photoURL = await this.getUserPhoto(
+                mappedData.email,
+                mappedData.phone
+              );
+            }
+
+            return {
               id: doc.id,
-              ...this.mapClientData(data),
-            });
+              ...mappedData,
+            };
           });
+
+          clients = await Promise.all(clientPromises);
 
           // Se encontrou clientes na subcoleção, usar esses dados
           if (clients.length > 0) {
+            console.log(
+              `📸 Clientes da subcoleção processados com fotos:`,
+              clients.slice(0, 2)
+            );
             return this.processClients(clients, filters);
           }
         } catch (error) {
@@ -60,6 +112,7 @@ export const firestoreClientsService = {
           // Extrair clientes únicos dos agendamentos
           const uniqueClients = new Map();
 
+          // Primeiro, processar agendamentos para extrair clientes únicos
           bookingsSnapshot.forEach((doc) => {
             const booking = doc.data();
             const clientKey =
@@ -89,7 +142,25 @@ export const firestoreClientsService = {
             }
           });
 
-          clients = Array.from(uniqueClients.values());
+          // Agora buscar fotos para cada cliente único
+          const clientsWithPhotos = await Promise.all(
+            Array.from(uniqueClients.values()).map(async (client) => {
+              const photoURL = await this.getUserPhoto(
+                client.email,
+                client.phone
+              );
+              return {
+                ...client,
+                photoURL: photoURL, // 📸 FOTO DO CLIENTE
+              };
+            })
+          );
+
+          clients = clientsWithPhotos;
+          console.log(
+            `📸 Clientes processados com fotos:`,
+            clients.slice(0, 2)
+          ); // Log dos primeiros 2 para debug
         } catch (error) {
           console.log("Erro ao buscar clientes dos agendamentos:", error);
         }
@@ -148,6 +219,7 @@ export const firestoreClientsService = {
       name: data.name || data.displayName || "N/A",
       phone: data.phone || data.phoneNumber || "N/A",
       email: data.email || "N/A",
+      photoURL: data.photoURL || null, // 📸 FOTO DO CLIENTE
       appointmentsCount: data.appointmentsCount || 0,
       totalSpent: data.totalSpent || 0,
       lastAppointment: data.lastAppointment || "Nunca",

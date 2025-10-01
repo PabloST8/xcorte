@@ -6,6 +6,7 @@ import { useEnterprise } from "../contexts/EnterpriseContext";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { enterpriseProductFirestoreService } from "../services/enterpriseProductFirestoreService";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
+import EnterpriseAvatar from "../components/EnterpriseAvatar";
 
 function Home() {
   const location = useLocation();
@@ -183,10 +184,14 @@ function Home() {
           {user ? (
             <Link
               to={getEnterpriseUrl("empresa")}
-              className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white font-medium"
+              className="flex-shrink-0"
               title={currentEnterprise?.name || "Empresa"}
             >
-              {currentEnterprise?.name?.charAt(0)?.toUpperCase() || "E"}
+              <EnterpriseAvatar
+                enterprise={currentEnterprise}
+                size="sm"
+                className="hover:shadow-lg transition-shadow"
+              />
             </Link>
           ) : (
             <Link

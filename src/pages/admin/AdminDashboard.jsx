@@ -1,13 +1,59 @@
-import React, { useEffect } from "react";
-import { Users, Calendar, DollarSign, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Users, Calendar, DollarSign, Clock, Camera } from "lucide-react";
 import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
 import { formatDateBR } from "../../utils/dateUtils";
+import { enterprisePhotoService } from "../../services/enterprisePhotoService";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
-  const { currentEnterprise } = useEnterprise();
+  const { currentEnterprise, updateCurrentEnterprise } = useEnterprise();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Função para lidar com upload da foto da barbearia
+  const handleUploadPhoto = async () => {
+    if (!currentEnterprise) {
+      alert("Nenhuma empresa selecionada");
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/jpg,image/png,image/webp";
+    input.onchange = async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      setUploadingPhoto(true);
+
+      try {
+        // Usar o serviço real para upload
+        const result = await enterprisePhotoService.uploadPhoto(
+          currentEnterprise.id,
+          file
+        );
+
+        if (result.success) {
+          // Atualizar a empresa no contexto com a nova foto
+          updateCurrentEnterprise({
+            photoURL: result.photoURL,
+          });
+
+          alert(
+            `✅ Foto da barbearia "${currentEnterprise.name}" atualizada com sucesso!`
+          );
+        }
+      } catch (error) {
+        console.error("❌ Erro ao fazer upload da foto:", error);
+        alert(`Erro ao fazer upload da foto: ${error.message}`);
+      } finally {
+        setUploadingPhoto(false);
+      }
+    };
+
+    input.click();
+  };
 
   // Debug dos dados do Firestore
   useEffect(() => {
@@ -69,23 +115,25 @@ export default function AdminDashboard() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">
-          {currentEnterprise
-            ? `Painel administrativo - ${currentEnterprise.name}`
-            : "Bem-vindo ao painel administrativo da barbearia"}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-2">
+              {currentEnterprise
+                ? `Painel administrativo - ${currentEnterprise.name}`
+                : "Bem-vindo ao painel administrativo da barbearia"}
+            </p>
+          </div>
 
-        {/* Botão de teste temporário */}
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800 mb-2">
-            🧪 <strong>Teste de Cache:</strong> Empresa atual:{" "}
-            {currentEnterprise?.name} ({currentEnterprise?.email})
-          </p>
-          <p className="text-xs text-yellow-700">
-            Para testar o cache, faça login com outra conta de admin e verifique
-            se os dados mudam automaticamente.
-          </p>
+          {/* Botão de Upload da Foto da Barbearia */}
+          <button
+            onClick={handleUploadPhoto}
+            disabled={uploadingPhoto}
+            className="flex items-center space-x-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <Camera className="w-5 h-5" />
+            <span>{uploadingPhoto ? "Enviando..." : "Foto da Barbearia"}</span>
+          </button>
         </div>
       </div>
 
