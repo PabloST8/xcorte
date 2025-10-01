@@ -48,6 +48,14 @@ export default function BookingOverlay({
   const [loadingDates, setLoadingDates] = useState(false);
   const [showPaymentOverlay, setShowPaymentOverlay] = useState(false);
 
+  // Estados para dados do cliente (quando admin/staff faz agendamento para cliente)
+  const [clientData, setClientData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+  });
+  const [useClientForm, setUseClientForm] = useState(false);
+
   // Robust local date parser for either YYYY-MM-DD (input value) or DD/MM/YYYY (locale UI)
   const parseLocalDate = (dateStr) => {
     if (!dateStr) return new Date(NaN);
@@ -70,13 +78,22 @@ export default function BookingOverlay({
       setSlots([]);
       setSelectedTime("");
       setAvailableDates([]);
+      // Reset dados do cliente
+      setClientData({ name: "", phone: "", email: "" });
+      setUseClientForm(false);
       // Limpar notificação quando fechar
       hideNotification();
     } else {
       // Limpar notificação quando abrir
       hideNotification();
+      // Verificar se usuário é admin/staff para mostrar opção de cliente
+      const isAdminOrStaff =
+        authUser?.role === "admin" || authUser?.role === "staff";
+      if (isAdminOrStaff) {
+        setUseClientForm(true);
+      }
     }
-  }, [open, hideNotification]);
+  }, [open, hideNotification, authUser?.role]);
 
   // Seed initial selection when opening in edit mode
   useEffect(() => {
@@ -1071,9 +1088,26 @@ export default function BookingOverlay({
           finalEmployeeId: employeeId,
         });
 
+        // 🐛 DEBUG: Verificar dados do usuário autenticado
+        console.log("👤 DEBUG - Dados do usuário logado:", {
+          authUser: authUser,
+          name: authUser?.name,
+          phone: authUser?.phone,
+          email: authUser?.email,
+          role: authUser?.role,
+          useClientForm: useClientForm,
+          clientData: clientData,
+        });
+
         const bookingData = {
-          clientName: authUser?.name || "Cliente",
-          clientPhone: authUser?.phone || "",
+          clientName:
+            useClientForm && clientData.name
+              ? clientData.name
+              : authUser?.name || "Cliente",
+          clientPhone:
+            useClientForm && clientData.phone
+              ? clientData.phone
+              : authUser?.phone || "",
           productId: product?.id, // Usar o produto original, não mapear
           productName: product?.name,
           productPrice: product?.priceInCents ?? product?.price ?? 0,
@@ -1088,7 +1122,10 @@ export default function BookingOverlay({
         };
 
         // Só adicionar email se for válido
-        const email = authUser?.email;
+        const email =
+          useClientForm && clientData.email
+            ? clientData.email
+            : authUser?.email;
         if (email && email.includes("@") && email.includes(".")) {
           bookingData.clientEmail = email;
         }
@@ -1096,6 +1133,16 @@ export default function BookingOverlay({
         console.log("📤 Enviando dados para API:", {
           enterpriseEmail: currentEnterprise?.email,
           bookingData,
+        });
+
+        // 🐛 DEBUG: Verificar dados específicos do cliente
+        console.log("🔍 DEBUG - Dados do cliente enviados:", {
+          clientName: bookingData.clientName,
+          clientPhone: bookingData.clientPhone,
+          clientEmail: bookingData.clientEmail,
+          source: useClientForm ? "formulário admin" : "usuário logado",
+          authUserName: authUser?.name,
+          authUserPhone: authUser?.phone,
         });
         console.log("🔍 Debug - Funcionário selecionado:", {
           selectedEmployee,
@@ -1311,7 +1358,11 @@ export default function BookingOverlay({
   if (!open) return null;
 
   const canConfirm = Boolean(
-    selectedEmployeeId && selectedDate && selectedTime
+    selectedEmployeeId &&
+      selectedDate &&
+      selectedTime &&
+      // Validar dados do cliente se formulário estiver ativo
+      (!useClientForm || (clientData.name.trim() && clientData.phone.trim()))
   );
 
   // Debug para canConfirm
@@ -1359,6 +1410,67 @@ export default function BookingOverlay({
             <X className="w-5 h-5 text-gray-600" />
           </button>
         </div>
+
+        {/* Formulário de dados do cliente (para admin/staff) */}
+        {useClientForm && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center mb-3 text-blue-900 font-medium">
+              <UserIcon className="w-4 h-4 mr-2" /> Dados do Cliente
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome do Cliente *
+                </label>
+                <input
+                  type="text"
+                  value={clientData.name}
+                  onChange={(e) =>
+                    setClientData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Nome completo do cliente"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefone *
+                </label>
+                <input
+                  type="tel"
+                  value={clientData.phone}
+                  onChange={(e) =>
+                    setClientData((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  placeholder="(xx) xxxxx-xxxx"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email (opcional)
+                </label>
+                <input
+                  type="email"
+                  value={clientData.email}
+                  onChange={(e) =>
+                    setClientData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="cliente@email.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Step 1: Employee */}
         <div className="mb-4">
