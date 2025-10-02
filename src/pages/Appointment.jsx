@@ -120,6 +120,8 @@ function Appointment() {
             : String(selectedDate),
         startTime: selectedTime, // HH:MM
         employeeId: appointmentData.employeeId || "",
+        employeeName:
+          appointmentData.staffName || appointmentData.employeeName || "",
         staffName: appointmentData.staffName || "",
         status: BOOKING_STATUS.AGENDADO,
         notes: "",

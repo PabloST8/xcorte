@@ -1298,6 +1298,7 @@ export default function BookingOverlay({
           clientEmail: bookingData.clientEmail,
           productId: finalBookingData.productId,
           employeeId: effectiveEmployeeId,
+          employeeName: selectedEmployee?.name || "",
           date: selectedDate,
           startTime: selectedTime,
           notes: finalBookingData.notes,
@@ -1311,6 +1312,42 @@ export default function BookingOverlay({
             6000
           );
           return; // não fechar o overlay em caso de erro
+        }
+
+        // 🔧 SOLUÇÃO: Salvar informações do funcionário no Firestore
+        // Como a API externa não está retornando essas informações,
+        // vamos salvá-las localmente para uso posterior
+        try {
+          if (selectedEmployee && apiResult?.data?.id) {
+            const { doc, setDoc } = await import("firebase/firestore");
+            const { db } = await import("../services/firebase");
+
+            const bookingStaffInfoRef = doc(
+              db,
+              "bookingStaffInfo",
+              apiResult.data.id
+            );
+            await setDoc(bookingStaffInfoRef, {
+              bookingId: apiResult.data.id,
+              staffId: selectedEmployeeId,
+              staffName: selectedEmployee.name,
+              staffEmail: selectedEmployee.email,
+              enterpriseEmail: finalEnterpriseEmail,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+
+            console.log("✅ Informações do funcionário salvas no Firestore:", {
+              bookingId: apiResult.data.id,
+              staffName: selectedEmployee.name,
+            });
+          }
+        } catch (firestoreError) {
+          console.warn(
+            "⚠️ Erro ao salvar informações do funcionário no Firestore:",
+            firestoreError
+          );
+          // Não interromper o fluxo por este erro
         }
 
         console.log("✅ Agendamento criado, mostrando notificação...");

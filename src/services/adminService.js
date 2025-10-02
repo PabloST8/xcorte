@@ -127,35 +127,14 @@ export const adminService = {
     try {
       const currentEnterprise = "test@empresa.com";
       const response = await productService.getProducts(currentEnterprise);
+      console.log("✅ adminService.getServices - API respondeu:", response);
       return response;
-    } catch {
-      // Fallback com serviços padrão
-      const fallbackServices = [
-        {
-          id: "1",
-          name: "Corte Masculino",
-          description: "Corte de cabelo masculino moderno",
-          price: 3000, // centavos
-          duration: 30, // minutos
-          category: "Cortes",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          name: "Barba Completa",
-          description: "Aparação e modelagem completa da barba",
-          price: 2500, // centavos
-          duration: 25, // minutos
-          category: "Barba",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
+    } catch (error) {
+      console.warn("⚠️ adminService.getServices - API falhou:", error);
 
-      return { success: true, data: fallbackServices };
+      // Retornar lista vazia em vez de fallback
+      console.log("❌ adminService.getServices - Retornando lista vazia");
+      return { success: true, data: [] };
     }
   },
 

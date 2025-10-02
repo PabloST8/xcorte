@@ -20,8 +20,7 @@ import { useNotification } from "../hooks/useNotification";
 function Services() {
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
-  const { notification, showSuccess, showError, hideNotification } =
-    useNotification();
+  const { notification, showSuccess, hideNotification } = useNotification();
   const [searchParams] = useSearchParams();
   const categoryFromUrl = searchParams.get("category") || "Todos";
   const titleFromUrl = searchParams.get("title") || "Serviços";
@@ -87,12 +86,41 @@ function Services() {
     run();
   }, [currentEnterprise]);
 
+  // Primeiro calcular quais serviços têm profissionais disponíveis
+  const availableServices = useMemo(() => {
+    const list = Array.isArray(services) ? services : [];
+    return list.filter((service) => {
+      const hasSpecificEmployees =
+        Array.isArray(employees) &&
+        employees.some((employee) => {
+          const skills = Array.isArray(employee.skills) ? employee.skills : [];
+          return skills.some(
+            (skill) =>
+              String(skill.productId) === String(service.id) &&
+              skill.canPerform !== false
+          );
+        });
+      return hasSpecificEmployees;
+    });
+  }, [services, employees]);
+
+  // Categorias baseadas apenas nos serviços disponíveis
   const categories = useMemo(() => {
     const cats = Array.from(
-      new Set((services || []).map((s) => s.category).filter(Boolean))
+      new Set((availableServices || []).map((s) => s.category).filter(Boolean))
     );
-    return ["Todos", ...cats];
-  }, [services]);
+    return cats.length > 0 ? ["Todos", ...cats] : [];
+  }, [availableServices]);
+
+  // Ajustar categoria selecionada se ela não estiver mais disponível
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(selectedCategory)) {
+      console.log(
+        `🔄 Categoria "${selectedCategory}" não disponível, mudando para "Todos"`
+      );
+      setSelectedCategory("Todos");
+    }
+  }, [categories, selectedCategory]);
 
   const getServiceIcon = (category) => {
     switch (category) {
@@ -108,20 +136,20 @@ function Services() {
   };
 
   const filteredServices = useMemo(() => {
-    const list = Array.isArray(services) ? services : [];
     const filteredByCategory = (
       selectedCategory === "Todos"
-        ? list
-        : list.filter((s) => s.category === selectedCategory)
+        ? availableServices
+        : availableServices.filter((s) => s.category === selectedCategory)
     ).map((s) => {
       console.log(
-        `[ServiceDetails] Serviço: ${s.name}, priceInCents:`,
+        `[ServiceDetails] Serviço disponível: ${s.name}, priceInCents:`,
         s.priceInCents,
         "price:",
         s.price,
         "formatPrice result:",
         formatPrice(s.priceInCents || 0)
       );
+
       return {
         ...s,
         icon: getServiceIcon(s.category),
@@ -129,23 +157,8 @@ function Services() {
       };
     });
 
-    // Filtrar apenas serviços que têm profissionais vinculados
-    return filteredByCategory.filter((service) => {
-      // Verificar se há funcionários com skills específicas para este serviço
-      const hasSpecificEmployees =
-        Array.isArray(employees) &&
-        employees.some((employee) => {
-          const skills = Array.isArray(employee.skills) ? employee.skills : [];
-          return skills.some(
-            (skill) =>
-              String(skill.productId) === String(service.id) &&
-              skill.canPerform !== false
-          );
-        });
-
-      return hasSpecificEmployees;
-    });
-  }, [services, selectedCategory, employees]);
+    return filteredByCategory;
+  }, [availableServices, selectedCategory]);
 
   const eligibleEmployeesForProduct = (product) => {
     const list = Array.isArray(employees) ? employees : [];
@@ -207,15 +220,25 @@ function Services() {
               />
             ))
           ) : filteredServices.length === 0 ? (
-            <div className="text-center py-8">
-              <Scissors className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">
-                Nenhum serviço disponível no momento
+            <div className="text-center py-12">
+              <Scissors className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Nenhum serviço disponível
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {categories.length === 0
+                  ? "Esta empresa ainda não tem serviços com profissionais habilitados."
+                  : selectedCategory === "Todos"
+                  ? "Não há serviços disponíveis para agendamento no momento."
+                  : `Não há serviços disponíveis na categoria "${selectedCategory}".`}
               </p>
-              <p className="text-sm text-gray-500">
-                Os serviços ficam disponíveis quando há profissionais
-                especializados
-              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-amber-800 text-sm">
+                  💡 <strong>Dica:</strong> Serviços ficam disponíveis quando há
+                  profissionais habilitados para executá-los. Entre em contato
+                  para mais informações.
+                </p>
+              </div>
             </div>
           ) : (
             filteredServices.map((service) => (

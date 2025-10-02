@@ -24,11 +24,15 @@ export const barbershopService = {
 
   // Obter serviços disponíveis
   async getServices(enterpriseEmail) {
+    console.log("🔍 barbershopService.getServices para:", enterpriseEmail);
+
     try {
-      return await productService.getProducts(enterpriseEmail);
+      const apiResponse = await productService.getProducts(enterpriseEmail);
+      console.log("✅ API de produtos respondeu:", apiResponse);
+      return apiResponse;
     } catch (error) {
       console.warn(
-        "API de produtos não disponível, tentando Firestore:",
+        "⚠️ API de produtos não disponível, tentando Firestore:",
         error
       );
 
@@ -37,59 +41,32 @@ export const barbershopService = {
         const services = await publicEnterpriseFirestoreService.getServices(
           enterpriseEmail
         );
+        console.log("🔍 Firestore retornou serviços:", services);
+
         if (services && services.length > 0) {
+          console.log("✅ Usando serviços do Firestore");
           return {
             success: true,
             data: services,
           };
         }
-      } catch (firestoreError) {
-        console.warn("Firestore de produtos também falhou:", firestoreError);
-      }
 
-      // Último recurso: retornar serviços padrão
-      console.log("Usando serviços padrão como último recurso");
-      return {
-        success: true,
-        data: [
-          {
-            id: "1",
-            name: "Corte Tradicional",
-            description: "Corte de cabelo masculino tradicional",
-            priceInCents: 3000, // R$ 30,00
-            durationInMinutes: 30,
-            category: "Cortes",
-            image: "",
-          },
-          {
-            id: "2",
-            name: "Barba Completa",
-            description: "Aparar e modelar a barba",
-            priceInCents: 2000, // R$ 20,00
-            durationInMinutes: 20,
-            category: "Barba",
-            image: "",
-          },
-          {
-            id: "3",
-            name: "Corte + Barba",
-            description: "Pacote completo: corte de cabelo e barba",
-            priceInCents: 4500, // R$ 45,00
-            durationInMinutes: 45,
-            category: "Pacotes",
-            image: "",
-          },
-          {
-            id: "4",
-            name: "Sobrancelha",
-            description: "Design e aparar sobrancelha masculina",
-            priceInCents: 1500, // R$ 15,00
-            durationInMinutes: 15,
-            category: "Acabamento",
-            image: "",
-          },
-        ],
-      };
+        console.log("⚠️ Firestore não retornou serviços, usando lista vazia");
+        // Se não há serviços no Firestore, retornar lista vazia em vez de fallback
+        return {
+          success: true,
+          data: [],
+        };
+      } catch (firestoreError) {
+        console.warn("❌ Firestore de produtos também falhou:", firestoreError);
+
+        // Retornar lista vazia em vez de fallback
+        console.log("❌ Retornando lista vazia - nenhum serviço encontrado");
+        return {
+          success: true,
+          data: [],
+        };
+      }
     }
   },
 
@@ -114,7 +91,10 @@ export const barbershopService = {
   // Obter funcionários disponíveis
   async getStaff(enterpriseEmail) {
     try {
-      const response = await api.get("/barbershop/staff");
+      // Tentar o endpoint de employees
+      const response = await api.get(
+        `/employees?enterpriseEmail=${enterpriseEmail}`
+      );
       return response.data;
     } catch (error) {
       console.warn(
@@ -266,7 +246,8 @@ export const appointmentService = {
   async getUserAppointments(params = {}) {
     if (USE_REMOTE_API) {
       try {
-        const response = await api.get("/appointments/user", { params });
+        // Usar o mesmo endpoint que o bookingApiService
+        const response = await api.get("/bookings", { params });
         return response.data;
       } catch (error) {
         throw error.response?.data || error.message;

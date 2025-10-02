@@ -154,7 +154,7 @@ class BookingApiService {
 
       // Alinhar com contrato oficial (OpenAPI):
       // Campos aceitos: enterpriseEmail, clientName, clientPhone, clientEmail(opcional),
-      // productId, employeeId(opcional), date, startTime, notes(opcional)
+      // productId, employeeId(opcional), employeeName(opcional), date, startTime, notes(opcional)
       const payload = {
         enterpriseEmail: bookingData.enterpriseEmail,
         clientName: bookingData.clientName,
@@ -162,6 +162,10 @@ class BookingApiService {
         productId: bookingData.productId,
         // employeeId deve ser o ID interno da API (não email)
         ...(bookingData.employeeId && { employeeId: bookingData.employeeId }),
+        // employeeName para facilitar identificação
+        ...(bookingData.employeeName && {
+          employeeName: bookingData.employeeName,
+        }),
         date: bookingData.date, // YYYY-MM-DD
         startTime: bookingData.startTime, // HH:MM
         ...(bookingData.notes && { notes: bookingData.notes }),

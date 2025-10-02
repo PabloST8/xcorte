@@ -137,16 +137,33 @@ function Home() {
     load();
   }, [currentEnterprise]);
 
-  // fallback categories when none in Firestore services
-
-  // compute service types (categories) and show only three on Home
-  const serviceCategoriesFromData = useMemo(() => {
+  // Calcular serviços que têm profissionais disponíveis
+  const availableServices = useMemo(() => {
     const list = Array.isArray(services) ? services : [];
+    return list.filter((service) => {
+      const hasSpecificEmployees =
+        Array.isArray(employees) &&
+        employees.some((employee) => {
+          const skills = Array.isArray(employee.skills) ? employee.skills : [];
+          return skills.some(
+            (skill) =>
+              String(skill.productId) === String(service.id) &&
+              skill.canPerform !== false
+          );
+        });
+      return hasSpecificEmployees;
+    });
+  }, [services, employees]);
+
+  // Categorias baseadas apenas nos serviços disponíveis
+  const serviceCategoriesFromData = useMemo(() => {
+    const list = Array.isArray(availableServices) ? availableServices : [];
     const cats = Array.from(
       new Set(list.map((s) => s.category).filter(Boolean))
     );
-    return cats.length > 0 ? cats : ["Cortes", "Barba", "Pinturas"];
-  }, [services]);
+    console.log("🏠 Categorias disponíveis na Home:", cats);
+    return cats; // Não usar fallback - se não há categorias disponíveis, não mostrar
+  }, [availableServices]);
 
   const categoryIcon = (category) => {
     switch (category) {
@@ -245,27 +262,30 @@ function Home() {
           <div className="absolute top-6 right-16 w-12 h-12 bg-blue-400 rounded-full opacity-40" />
         </div>
 
-        {/* Nossos Serviços */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
-              Nossos
-              <br />
-              <span className="text-2xl">Serviços</span>
-            </h2>
-            <Link
-              to={getEnterpriseUrl(
-                "service-details?category=Todos&title=Todos os Serviços"
+        {/* Nossos Serviços - só mostrar se há categorias disponíveis */}
+        {(isLoadingServices || serviceCategoriesFromData.length > 0) && (
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">
+                Nossos
+                <br />
+                <span className="text-2xl">Serviços</span>
+              </h2>
+              {serviceCategoriesFromData.length > 0 && (
+                <Link
+                  to={getEnterpriseUrl(
+                    "service-details?category=Todos&title=Todos os Serviços"
+                  )}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                >
+                  Ver Todos
+                </Link>
               )}
-              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-            >
-              Ver Todos
-            </Link>
-          </div>
+            </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            {isLoadingServices
-              ? [...Array(3)].map((_, index) => (
+            <div className="grid grid-cols-3 gap-4">
+              {isLoadingServices ? (
+                [...Array(3)].map((_, index) => (
                   <div
                     key={index}
                     className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center animate-pulse"
@@ -275,7 +295,20 @@ function Home() {
                     <div className="w-12 h-3 bg-gray-200 rounded" />
                   </div>
                 ))
-              : serviceCategoriesFromData.slice(0, 3).map((cat) => (
+              ) : serviceCategoriesFromData.length === 0 ? (
+                <div className="col-span-3 text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Scissors className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 text-sm">
+                    Nenhum serviço disponível no momento
+                  </p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Aguardando profissionais habilitados
+                  </p>
+                </div>
+              ) : (
+                serviceCategoriesFromData.slice(0, 3).map((cat) => (
                   <Link
                     key={cat}
                     to={getEnterpriseUrl(
@@ -294,9 +327,11 @@ function Home() {
                       {cat}
                     </h3>
                   </Link>
-                ))}
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Nossos Funcionários */}
         <div>
@@ -398,16 +433,6 @@ function Home() {
             </p>
           </div>
         )}
-
-        {/* Link discreto para acesso admin */}
-        <div className="mt-12 text-center">
-          <Link
-            to="/admin/login"
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            Acesso Administrativo
-          </Link>
-        </div>
       </div>
 
       {/* Bottom Navigation removed; FloatingMenu is used globally */}

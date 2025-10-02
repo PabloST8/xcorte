@@ -98,53 +98,28 @@ export const publicEnterpriseFirestoreService = {
   },
   async getServices(email) {
     if (!email) return [];
+
+    console.log("🔍 publicEnterpriseFirestoreService.getServices para:", email);
+
     try {
       const snap = await getDocs(
         collection(db, "enterprises", email, "products")
       );
-      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    } catch (e) {
-      console.warn(
-        "❌ Falha getServices Firestore, usando fallback em memória:",
-        e
+      const services = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      console.log(
+        "✅ Firestore retornou",
+        services.length,
+        "serviços para",
+        email
       );
+      return services;
+    } catch (e) {
+      console.warn("❌ Falha getServices Firestore para", email, ":", e);
 
-      // Fallback para localStorage com dados de exemplo
-      const defaultServices = [
-        {
-          id: "corte",
-          name: "Corte de Cabelo",
-          price: 2500, // R$ 25,00 em centavos
-          duration: 30,
-          description: "Corte moderno e estiloso",
-        },
-        {
-          id: "barba",
-          name: "Barba",
-          price: 1500, // R$ 15,00 em centavos
-          duration: 20,
-          description: "Aparar e fazer a barba",
-        },
-      ];
-
-      try {
-        const stored = memoryStore.get(`xcorte_services_${email}`);
-        if (stored) {
-          return JSON.parse(stored);
-        } else {
-          memoryStore.set(
-            `xcorte_services_${email}`,
-            JSON.stringify(defaultServices)
-          );
-          return defaultServices;
-        }
-      } catch (storageError) {
-        console.warn(
-          "Erro no fallback em memória para serviços:",
-          storageError
-        );
-        return defaultServices;
-      }
+      // Em vez de fallback, retornar array vazio
+      console.log("❌ Retornando array vazio - sem fallback");
+      return [];
     }
   },
   async getStaff(email) {
