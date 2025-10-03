@@ -22,14 +22,49 @@ if (!USE_REMOTE_API) {
 api.interceptors.request.use(
   (config) => {
     const token = Cookies.get("auth_token");
-    // Não enviar Authorization para sessões locais simples (token "simple-*")
-    const isSimpleSession =
-      typeof token === "string" && token.startsWith("simple-");
-    if (token && !isSimpleSession) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const userData = Cookies.get("user_data");
+
+    // Para desenvolvimento e produção, incluir token quando disponível
+    if (token) {
+      const isSimpleSession =
+        typeof token === "string" && token.startsWith("simple-");
+
+      if (isSimpleSession) {
+        // Para tokens simples, enviar como Bearer token
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(
+          "🔧 [api] Simple token added:",
+          token.substring(0, 20) + "..."
+        );
+      } else {
+        // Para tokens reais, usar Bearer normal
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log(
+          "🔧 [api] Bearer token added:",
+          token.substring(0, 20) + "..."
+        );
+      }
+
+      // Adicionar informações do usuário como headers
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          if (user.id) {
+            config.headers["X-User-ID"] = user.id;
+          }
+          if (user.phone) {
+            config.headers["X-User-Phone"] = user.phone;
+          }
+          console.log("🔧 [api] User headers added");
+        } catch (parseErr) {
+          console.log("⚠️ [api] Error parsing user data:", parseErr);
+        }
+      }
     } else if (config.headers?.Authorization) {
       delete config.headers.Authorization;
+      console.log("🔧 [api] No token available, removing Authorization header");
     }
+
     return config;
   },
   (error) => {

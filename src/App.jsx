@@ -25,6 +25,7 @@ import Empresa from "./pages/Empresa";
 import DebugEnterprises from "./pages/DebugEnterprises";
 import MyAppointments from "./pages/MyAppointments";
 import TestBookingAPI from "./pages/TestBookingAPI";
+import ApiDiagnostic from "./components/ApiDiagnostic";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -75,6 +76,16 @@ const router = createBrowserRouter([
       </EnterpriseDetector>
     ),
     children: [{ index: true, element: <DebugEnterprises /> }],
+  },
+  // Página de diagnóstico da API
+  {
+    path: "/api-diagnostic",
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
+    children: [{ index: true, element: <ApiDiagnostic /> }],
   },
   // Rota raiz - redireciona automaticamente para empresa
   {

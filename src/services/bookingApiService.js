@@ -52,22 +52,53 @@ class BookingApiService {
     const headers = { "Content-Type": "application/json", ...extra };
     try {
       const token = Cookies.get("auth_token");
+      const userData = Cookies.get("user_data");
       const isSimple = typeof token === "string" && token.startsWith("simple-");
+
       console.log("🔑 [bookingApiService] Token debug:", {
         token: token ? `${token.substring(0, 20)}...` : null,
         isSimple,
-        willAddAuth: token && !isSimple,
+        hasUserData: !!userData,
+        willAddAuth: !!token,
       });
 
       // Debug: show all cookies
       console.log("🍪 [bookingApiService] All cookies:", document.cookie);
 
-      if (token && !isSimple) {
-        headers.Authorization = `Bearer ${token}`;
-        console.log("✅ [bookingApiService] Authorization header added");
+      if (token) {
+        if (isSimple) {
+          // Para tokens simples, usar o token como está (para desenvolvimento)
+          headers.Authorization = `Bearer ${token}`;
+          console.log(
+            "✅ [bookingApiService] Simple token added as Authorization"
+          );
+        } else {
+          // Para tokens reais, usar Bearer
+          headers.Authorization = `Bearer ${token}`;
+          console.log("✅ [bookingApiService] Bearer token added");
+        }
+
+        // Adicionar informações do usuário se disponível
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            if (user.id) {
+              headers["X-User-ID"] = user.id;
+            }
+            if (user.phone) {
+              headers["X-User-Phone"] = user.phone;
+            }
+            console.log("✅ [bookingApiService] User headers added");
+          } catch (parseErr) {
+            console.log(
+              "⚠️ [bookingApiService] Error parsing user data:",
+              parseErr
+            );
+          }
+        }
       } else {
         console.log(
-          "⚠️ [bookingApiService] No valid token found for Authorization header"
+          "⚠️ [bookingApiService] No token found for Authorization header"
         );
       }
     } catch (err) {

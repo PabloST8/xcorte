@@ -7,17 +7,60 @@ import { USE_REMOTE_API } from "../config";
 
 // Serviços da Barbearia (usando os novos serviços da API)
 export const barbershopService = {
+  // Listar todas as empresas
+  async getEnterprises() {
+    if (USE_REMOTE_API) {
+      console.log("🌐 Tentando carregar empresas da API remota...");
+      try {
+        const response = await api.get("/enterprises");
+        if (response.data && response.data.data) {
+          console.log(
+            "✅ Empresas carregadas da API:",
+            response.data.data.length
+          );
+          return response.data.data;
+        }
+        throw new Error("API não retornou dados válidos");
+      } catch (error) {
+        console.warn("⚠️ API de empresas falhou:", error.message);
+        // Fallback para Firestore
+        const enterprises =
+          await publicEnterpriseFirestoreService.getEnterprises();
+        console.log("✅ Usando Firestore como fallback:", enterprises.length);
+        return enterprises;
+      }
+    } else {
+      console.log("🔍 API desabilitada, usando Firestore para empresas");
+      return await publicEnterpriseFirestoreService.getEnterprises();
+    }
+  },
+
   // Obter informações da barbearia
   async getBarbershopInfo(enterpriseEmail) {
-    // API desabilitada - usar Firestore diretamente
-    console.log("getBarbershopInfo: API desabilitada, usando Firestore");
+    if (USE_REMOTE_API) {
+      console.log("🌐 Tentando buscar empresa da API:", enterpriseEmail);
+      try {
+        const response = await api.get(`/enterprises/${enterpriseEmail}`);
+        if (response.data && response.data.data) {
+          console.log("✅ Empresa encontrada na API");
+          return response.data.data;
+        }
+        throw new Error("API não retornou dados válidos");
+      } catch (error) {
+        console.warn("⚠️ API falhou, usando Firestore:", error.message);
+        // Fallback para Firestore
+      }
+    }
+
+    console.log("🔍 Buscando empresa no Firestore:", enterpriseEmail);
     try {
       const enterprises =
         await publicEnterpriseFirestoreService.getEnterprises();
       const enterprise = enterprises.find((e) => e.email === enterpriseEmail);
+      console.log("✅ Empresa encontrada no Firestore:", !!enterprise);
       return enterprise || null;
     } catch (_error) {
-      console.error("Erro ao buscar empresa do Firestore:", _error);
+      console.error("❌ Erro ao buscar empresa do Firestore:", _error);
       return null;
     }
   },

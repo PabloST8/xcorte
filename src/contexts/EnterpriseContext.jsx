@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import { publicEnterpriseFirestoreService } from "../services/publicEnterpriseFirestoreService";
 import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
+import { USE_REMOTE_API } from "../config";
+import { barbershopService } from "../services/barbershopService";
 import Cookies from "js-cookie";
 import { useAuth } from "../hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
@@ -86,35 +88,63 @@ export const EnterpriseProvider = ({ children }) => {
     }
     try {
       setLoading(true);
-
-      // USAR APENAS FIRESTORE - API desabilitada
       let enterprises = [];
 
-      console.log("🔍 Carregando APENAS do Firestore (API desabilitada)...");
-      try {
-        const firestoreEnterprises =
-          await publicEnterpriseFirestoreService.getEnterprises();
-        console.log("📊 Resposta do Firestore:", firestoreEnterprises);
+      if (USE_REMOTE_API) {
+        console.log("🔍 Tentando carregar empresas da API remota...");
+        try {
+          const apiEnterprises = await barbershopService.getEnterprises();
+          if (apiEnterprises && apiEnterprises.length > 0) {
+            enterprises = apiEnterprises;
+            console.log("✅ Empresas carregadas da API:", enterprises.length);
+          } else {
+            console.log("⚠️ API retornou array vazio, usando Firestore...");
+            throw new Error("API vazia");
+          }
+        } catch (apiError) {
+          console.warn("⚠️ API falhou, usando Firestore:", apiError.message);
 
-        if (firestoreEnterprises && firestoreEnterprises.length > 0) {
-          enterprises = firestoreEnterprises;
-          console.log(
-            "✅ Empresas carregadas do Firestore:",
-            enterprises.length
-          );
-          console.log(
-            "📋 Empresas encontradas:",
-            enterprises.map((e) => ({
-              name: e.name,
-              email: e.email,
-              id: e.id,
-            }))
-          );
-        } else {
-          console.log("⚠️ Firestore retornou array vazio");
+          // Fallback para Firestore
+          console.log("🔍 Carregando do Firestore (fallback da API)...");
+          const firestoreEnterprises =
+            await publicEnterpriseFirestoreService.getEnterprises();
+          console.log("📊 Resposta do Firestore:", firestoreEnterprises);
+
+          if (firestoreEnterprises && firestoreEnterprises.length > 0) {
+            enterprises = firestoreEnterprises;
+            console.log(
+              "✅ Empresas carregadas do Firestore (fallback):",
+              enterprises.length
+            );
+          }
         }
-      } catch (firestoreError) {
-        console.warn("⚠️ Firestore falhou:", firestoreError);
+      } else {
+        console.log("🔍 Carregando APENAS do Firestore (API desabilitada)...");
+        try {
+          const firestoreEnterprises =
+            await publicEnterpriseFirestoreService.getEnterprises();
+          console.log("📊 Resposta do Firestore:", firestoreEnterprises);
+
+          if (firestoreEnterprises && firestoreEnterprises.length > 0) {
+            enterprises = firestoreEnterprises;
+            console.log(
+              "✅ Empresas carregadas do Firestore:",
+              enterprises.length
+            );
+            console.log(
+              "📋 Empresas encontradas:",
+              enterprises.map((e) => ({
+                name: e.name,
+                email: e.email,
+                id: e.id,
+              }))
+            );
+          } else {
+            console.log("⚠️ Firestore retornou array vazio");
+          }
+        } catch (firestoreError) {
+          console.warn("⚠️ Firestore falhou:", firestoreError);
+        }
       }
 
       // Se ainda não tem empresas, usa dados de teste
