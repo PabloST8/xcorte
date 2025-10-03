@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
+import EnterpriseAvatar from "../components/EnterpriseAvatar";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminLayout() {
@@ -352,11 +353,7 @@ export default function AdminLayout() {
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {currentEnterprise?.name?.charAt(0)?.toUpperCase() || "A"}
-                  </span>
-                </div>
+                <EnterpriseAvatar enterprise={currentEnterprise} size="sm" />
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-700">
                     {currentEnterprise?.name || "Admin"}

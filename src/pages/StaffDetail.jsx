@@ -185,9 +185,11 @@ function StaffDetail() {
             <div className="flex items-center">
               <MapPin className="w-5 h-5 text-gray-600 mr-3" />
               <div>
-                <p className="font-medium text-gray-900">Barbearia Corte</p>
+                <p className="font-medium text-gray-900">
+                  {currentEnterprise?.name || "Estabelecimento"}
+                </p>
                 <p className="text-sm text-gray-600">
-                  Rua das Flores, 123 - Centro
+                  {currentEnterprise?.address || "Endereço não informado"}
                 </p>
               </div>
             </div>

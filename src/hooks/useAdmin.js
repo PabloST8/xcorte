@@ -50,7 +50,7 @@ export const useAllAppointments = (params = {}) => {
   return useQuery({
     queryKey: ["admin", "appointments", params, enterpriseEmail],
     enabled: !!enterpriseEmail,
-    keepPreviousData: false,
+    keepPreviousData: true, // Manter dados anteriores enquanto carrega novos
     queryFn: async () => {
       // Tentar buscar do Firestore primeiro
       try {

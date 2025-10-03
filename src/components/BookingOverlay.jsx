@@ -1119,6 +1119,9 @@ export default function BookingOverlay({
           staffId: employeeId, // Usar employeeId mapeado
           paymentMethod: result.paymentMethod,
           paymentId: result.paymentId,
+          notes: result.paymentMethod
+            ? `pagamento: ${result.paymentMethod}`
+            : "",
         };
 
         // Só adicionar email se for válido
@@ -1352,10 +1355,13 @@ export default function BookingOverlay({
 
         console.log("✅ Agendamento criado, mostrando notificação...");
         showSuccess("Agendamento confirmado com sucesso!", 4000);
-        // Aguardar um pouco antes de fechar para o usuário ver a notificação
+        // Aguardar um pouco antes de fechar e redirecionar para meus agendamentos
         setTimeout(() => {
           hideNotification(); // Limpar notificação antes de fechar
           onClose();
+          // Redirecionar para página de agendamentos
+          const myAppointmentsUrl = getEnterpriseUrl("my-appointments");
+          navigate(myAppointmentsUrl);
         }, 2000);
       } catch (err) {
         console.log("❌ Erro ao criar agendamento:", err);

@@ -279,11 +279,6 @@ function Cart() {
           durationMin = Number(it.duration) || Number(it.productDuration) || 30;
         }
         if (!Number.isFinite(durationMin) || durationMin <= 0) durationMin = 30;
-        const priceCents =
-          Number.parseInt(
-            String(it.priceInCents ?? it.productPrice ?? 0),
-            10
-          ) || 0;
         const startTime = (it.time || "").slice(0, 5); // HH:MM
 
         // Pre-check de slots: só chama API se NÃO for sessão simples
@@ -334,38 +329,172 @@ function Cart() {
           }
         }
 
+        // 🔥 APLICANDO A MESMA LÓGICA DO BOOKINGOVERLAY
+        // Buscar o funcionário correto e mapear o employeeId
+        let finalEmployeeId = it.employeeId;
+
+        try {
+          // Primeiro, tentar buscar disponibilidade do funcionário para este serviço
+          const avail = await bookingApiService.getAvailableEmployeesForService(
+            currentEnterprise.email,
+            productId,
+            it.date,
+            startTime
+          );
+
+          console.log("🧪 [Cart] Disponibilidade (API service):", avail);
+
+          if (avail?.success) {
+            const list = Array.isArray(avail.data) ? avail.data : [];
+            const byId = list.find(
+              (e) => String(e.id) === String(it.employeeId)
+            );
+            const byName =
+              byId ||
+              list.find(
+                (e) =>
+                  String(e.name || "").toLowerCase() ===
+                  String(it.employeeName || "").toLowerCase()
+              );
+
+            if (byName?.id) {
+              finalEmployeeId = byName.id;
+              console.log(
+                "✅ [Cart] EmployeeId mapeado via disponibilidade:",
+                finalEmployeeId
+              );
+            } else {
+              console.warn(
+                "⚠️ [Cart] Funcionário não encontrado na disponibilidade"
+              );
+            }
+          } else {
+            // Fallback: buscar na lista de funcionários
+            try {
+              const empList = await bookingApiService.listEmployees(
+                currentEnterprise.email,
+                { productId, isActive: true }
+              );
+
+              console.log(
+                "👥 [Cart] Fallback employees (by product):",
+                empList
+              );
+
+              if (empList?.success) {
+                const all = empList.data || [];
+                const byId = all.find(
+                  (e) => String(e.id) === String(it.employeeId)
+                );
+                const byEmail =
+                  byId ||
+                  all.find(
+                    (e) =>
+                      String(e.email || "").toLowerCase() ===
+                      String(it.employeeId || "").toLowerCase()
+                  );
+                const byName =
+                  byEmail ||
+                  all.find(
+                    (e) =>
+                      String(e.name || "").toLowerCase() ===
+                      String(it.employeeName || "").toLowerCase()
+                  );
+
+                if (byName?.id) {
+                  finalEmployeeId = byName.id;
+                  console.log(
+                    "✅ [Cart] EmployeeId mapeado via lista:",
+                    finalEmployeeId
+                  );
+                }
+              }
+            } catch (fallbackError) {
+              console.warn(
+                "⚠️ [Cart] Falha no fallback de funcionários:",
+                fallbackError
+              );
+            }
+          }
+        } catch (mappingError) {
+          console.warn(
+            "⚠️ [Cart] Erro no mapeamento de funcionário:",
+            mappingError
+          );
+        }
+
+        // Se não conseguimos resolver um ID interno, não enviar employeeId (evita rejeição por email)
+        const looksLikeEmail =
+          typeof finalEmployeeId === "string" && finalEmployeeId.includes("@");
+        const effectiveEmployeeId = looksLikeEmail
+          ? undefined
+          : finalEmployeeId;
+
+        console.log("🧩 [Cart] EmployeeId efetivo para API:", {
+          originalEmployeeId: it.employeeId,
+          finalEmployeeId,
+          effectiveEmployeeId,
+        });
+
+        // Construir payload seguindo a mesma estrutura do BookingOverlay
         const payload = {
           enterpriseEmail: currentEnterprise.email,
           clientName,
           clientPhone,
+          clientEmail: isValidEmail(clientEmail) ? clientEmail : undefined,
           productId,
-          productName: it.serviceName,
-          productDuration: durationMin,
-          productPrice: priceCents,
+          employeeId: effectiveEmployeeId,
+          employeeName: it.employeeName || "",
           date: it.date,
           startTime,
-          // Backend pode esperar employeeEmail; nosso employeeId é o e-mail do funcionário
-          employeeEmail: it.employeeId || undefined,
-          employeeId: it.employeeId || undefined,
-          employeeName: it.employeeName || undefined,
-          staffId: it.employeeId || undefined,
-          staffName: it.employeeName || undefined,
           notes: it.notes
             ? `${it.notes} | pagamento: ${paymentMethod}`
-            : `pagamento: ${paymentMethod}`,
+            : `Agendamento via carrinho | pagamento: ${paymentMethod}`,
         };
-        if (isValidEmail(clientEmail)) payload.clientEmail = clientEmail;
 
         // Usar sempre a API
         console.log("🔍 [Cart] Criando agendamento via API");
         console.log("🔍 [Cart] Payload para API:", payload);
 
         try {
-          const result = await bookingApiService.createBooking({
-            ...payload,
-            enterpriseEmail: currentEnterprise.email,
-          });
+          const result = await bookingApiService.createBooking(payload);
           console.log("✅ [Cart] Agendamento criado via API:", result);
+
+          if (!result?.success) {
+            throw new Error(result?.error || "Falha ao criar agendamento");
+          }
+
+          // 🔧 Salvar informações do funcionário no Firestore (igual ao BookingOverlay)
+          try {
+            if (it.employeeId && it.employeeName && result?.data?.id) {
+              const { doc, setDoc } = await import("firebase/firestore");
+              const { db } = await import("../services/firebase");
+
+              const bookingStaffInfoRef = doc(
+                db,
+                "bookingStaffInfo",
+                result.data.id
+              );
+              await setDoc(bookingStaffInfoRef, {
+                bookingId: result.data.id,
+                staffId: it.employeeId,
+                staffName: it.employeeName,
+                staffEmail: it.employeeId.includes("@") ? it.employeeId : "",
+                enterpriseEmail: currentEnterprise.email,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+
+              console.log(
+                "✅ [Cart] Informações do funcionário salvas no Firestore"
+              );
+            }
+          } catch (firestoreError) {
+            console.warn(
+              "⚠️ [Cart] Erro ao salvar no Firestore:",
+              firestoreError
+            );
+          }
         } catch (apiErr) {
           console.error("❌ [Cart] Erro ao criar via API:", apiErr);
           const errorMsg = (
@@ -402,6 +531,12 @@ function Cart() {
       );
       clear();
       showSuccess("Agendamentos confirmados!");
+
+      // Redirecionar para página de agendamentos após sucesso
+      setTimeout(() => {
+        const myAppointmentsUrl = getEnterpriseUrl("my-appointments");
+        navigate(myAppointmentsUrl);
+      }, 2000);
     } catch (e) {
       console.error(e);
       const msg =

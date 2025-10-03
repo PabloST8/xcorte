@@ -52,6 +52,8 @@ export const AuthProvider = ({ children }) => {
               };
               Cookies.set("user_data", JSON.stringify(parsedUser), {
                 expires: 7,
+                path: "/",
+                sameSite: "strict",
               });
               console.log(
                 `🛠️ Corrigido enterpriseEmail para ${parsedUser.email} -> ${correctEnterpriseEmail}`
@@ -161,12 +163,18 @@ export const AuthProvider = ({ children }) => {
       // A API retorna { success: true, data: { token } }
       if (response.success && response.data && response.data.token) {
         // Salvar token primeiro
-        Cookies.set("auth_token", response.data.token, { expires: 7 });
+        Cookies.set("auth_token", response.data.token, {
+          expires: 7,
+          path: "/",
+          sameSite: "strict",
+        });
 
         if (response.data.user) {
           // Cenário ideal: token + user
           Cookies.set("user_data", JSON.stringify(response.data.user), {
             expires: 7,
+            path: "/",
+            sameSite: "strict",
           });
           setUser(response.data.user);
           setIsAuthenticated(true);
@@ -178,6 +186,8 @@ export const AuthProvider = ({ children }) => {
             if (profileResponse.success && profileResponse.data) {
               Cookies.set("user_data", JSON.stringify(profileResponse.data), {
                 expires: 7,
+                path: "/",
+                sameSite: "strict",
               });
               setUser(profileResponse.data);
               setIsAuthenticated(true);
@@ -257,8 +267,16 @@ export const AuthProvider = ({ children }) => {
       console.log("✅ Usuário autenticado sem Firebase Auth");
 
       // Mantém token simples sem tocar ao atualizar apenas foto
-      Cookies.set("auth_token", `simple-${userObj.id}`, { expires: 30 });
-      Cookies.set("user_data", JSON.stringify(userObj), { expires: 30 });
+      Cookies.set("auth_token", `simple-${userObj.id}`, {
+        expires: 30,
+        path: "/",
+        sameSite: "strict",
+      });
+      Cookies.set("user_data", JSON.stringify(userObj), {
+        expires: 30,
+        path: "/",
+        sameSite: "strict",
+      });
       setUser(userObj);
       setIsAuthenticated(true);
       setLoading(false);
@@ -384,6 +402,9 @@ export const AuthProvider = ({ children }) => {
     Cookies.remove("auth_token");
     Cookies.remove("user_data");
     Cookies.remove("current_enterprise");
+    Cookies.remove("auth_token");
+    Cookies.remove("user_data");
+    Cookies.remove("current_enterprise");
 
     // Política: não usar localStorage
 
@@ -396,12 +417,22 @@ export const AuthProvider = ({ children }) => {
     const updatedUser = { ...user, ...updatedUserData };
     setUser(updatedUser);
     setIsAuthenticated(true);
-    Cookies.set("auth_token", `admin-${updatedUser.id}`, { expires: 7 });
-    Cookies.set("user_data", JSON.stringify(updatedUser), { expires: 7 });
+
+    // 🔧 Configuração melhorada de cookies para persistir no F5
+    Cookies.set("auth_token", `admin-${updatedUser.id}`, {
+      expires: 7,
+      path: "/",
+      sameSite: "strict",
+    });
+    Cookies.set("user_data", JSON.stringify(updatedUser), {
+      expires: 7,
+      path: "/",
+      sameSite: "strict",
+    });
 
     // Limpar cookies da empresa para forçar nova sincronização
     console.log("🗑️ Limpando cookies da empresa para nova sincronização");
-    Cookies.remove("current_enterprise");
+    Cookies.remove("current_enterprise", { path: "/" });
   };
 
   // Login específico para admin
@@ -415,8 +446,16 @@ export const AuthProvider = ({ children }) => {
 
       if (result.user && result.token) {
         // Salvar token e dados do usuário
-        Cookies.set("auth_token", result.token, { expires: 7 });
-        Cookies.set("user_data", JSON.stringify(result.user), { expires: 7 });
+        Cookies.set("auth_token", result.token, {
+          expires: 7,
+          path: "/",
+          sameSite: "strict",
+        });
+        Cookies.set("user_data", JSON.stringify(result.user), {
+          expires: 7,
+          path: "/",
+          sameSite: "strict",
+        });
 
         setUser(result.user);
         setIsAuthenticated(true);

@@ -143,8 +143,55 @@ export default function UserAppointments() {
           concluido: "Concluído",
           completed: "Concluído",
         };
-        const status =
+
+        // 🕒 NOVA LÓGICA: Verificar se o agendamento já passou do horário
+        let finalStatus =
           statusMap[statusRaw] || (statusRaw ? statusRaw : "Agendado");
+
+        // Só aplicar lógica automática para agendamentos que não foram cancelados
+        if (finalStatus !== "Cancelado" && finalStatus !== "Concluído") {
+          const now = new Date();
+
+          if (dateObj && start) {
+            try {
+              // Criar data/hora do agendamento
+              const appointmentDateTime = new Date(dateObj);
+              const [hours, minutes] = start
+                .split(":")
+                .map((num) => parseInt(num, 10));
+
+              if (!isNaN(hours) && !isNaN(minutes)) {
+                appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+                // Se o agendamento foi há mais de 1 hora, marcar como concluído
+                const oneHourAfterAppointment = new Date(
+                  appointmentDateTime.getTime() + 60 * 60 * 1000
+                );
+
+                if (now > oneHourAfterAppointment) {
+                  finalStatus = "Concluído";
+                  console.log(
+                    "✅ Agendamento automaticamente marcado como concluído:",
+                    {
+                      id: a.id,
+                      appointmentTime:
+                        appointmentDateTime.toLocaleString("pt-BR"),
+                      currentTime: now.toLocaleString("pt-BR"),
+                      originalStatus: statusRaw,
+                      newStatus: finalStatus,
+                    }
+                  );
+                }
+              }
+            } catch (timeError) {
+              console.warn(
+                "⚠️ Erro ao processar horário do agendamento:",
+                timeError
+              );
+            }
+          }
+        }
+
         return {
           id: a.id || a._id || `${productName}-${dateStr}-${start}`,
           productName,
@@ -155,7 +202,7 @@ export default function UserAppointments() {
             : formatDateLongBR(dateStr),
           start,
           end,
-          status,
+          status: finalStatus,
         };
       })
       .sort(

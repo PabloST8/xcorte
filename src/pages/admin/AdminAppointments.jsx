@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2, Calendar } from "lucide-react";
+import { Trash2, Calendar, Search } from "lucide-react";
 import {
   useAllAppointments,
   useUpdateAppointmentStatus,
@@ -9,11 +9,108 @@ import { BOOKING_STATUS, formatPrice } from "../../types/api.js";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { formatDateTableBR, formatTimeBR } from "../../utils/dateUtils";
 import UserAvatar from "../../components/UserAvatar";
+import { useStaff } from "../../hooks/useBarbershop";
+import { useSearchWithDebounce } from "../../hooks/useDebounce";
+
+// Função helper para formatar tipo de pagamento
+const formatPaymentMethod = (appointment) => {
+  // Tentar extrair do campo notes primeiro (formato: "pagamento: pix")
+  let paymentMethod = null;
+
+  // 1. Verificar campo notes
+  if (appointment.notes) {
+    const notesLower = appointment.notes.toLowerCase();
+
+    // Padrão principal: "pagamento: pix"
+    let paymentMatch = notesLower.match(/pagamento:\s*([^|]+)/);
+
+    // Padrão alternativo: "pagamento pix" (sem dois pontos)
+    if (!paymentMatch) {
+      paymentMatch = notesLower.match(/pagamento\s+([^|]+)/);
+    }
+
+    if (paymentMatch) {
+      paymentMethod = paymentMatch[1].trim();
+    }
+  }
+
+  // 2. Fallback para campos diretos
+  if (!paymentMethod) {
+    paymentMethod =
+      appointment.paymentMethod ||
+      appointment.payment_method ||
+      appointment.payment ||
+      appointment.paymentType;
+  }
+
+  // 3. Último resort: tentar extrair qualquer menção a pagamento das notes
+  if (!paymentMethod && appointment.notes) {
+    const notesLower = appointment.notes.toLowerCase();
+    if (notesLower.includes("pix")) paymentMethod = "pix";
+    else if (notesLower.includes("dinheiro")) paymentMethod = "dinheiro";
+    else if (notesLower.includes("cartão") || notesLower.includes("cartao"))
+      paymentMethod = "cartão";
+    else if (notesLower.includes("débito") || notesLower.includes("debito"))
+      paymentMethod = "débito";
+    else if (notesLower.includes("crédito") || notesLower.includes("credito"))
+      paymentMethod = "crédito";
+  }
+
+  // Debug apenas quando não encontrar
+  if (!paymentMethod) {
+    console.log("⚠️ [Payment] No payment found for appointment:", {
+      id: appointment.id,
+      clientName: appointment.clientName,
+      notes: appointment.notes,
+      allFields: Object.keys(appointment).filter((key) =>
+        key.toLowerCase().includes("pay")
+      ),
+    });
+    return { text: "Não informado", color: "bg-gray-100 text-gray-800" };
+  }
+
+  const method = paymentMethod.toLowerCase();
+
+  switch (method) {
+    case "dinheiro":
+    case "cash":
+      return { text: "Dinheiro", color: "bg-green-100 text-green-800" };
+    case "cartao":
+    case "cartão":
+    case "card":
+    case "cartao_credito":
+    case "cartão_crédito":
+      return { text: "Cartão", color: "bg-blue-100 text-blue-800" };
+    case "pix":
+      return { text: "PIX", color: "bg-purple-100 text-purple-800" };
+    case "debito":
+    case "débito":
+    case "debit":
+      return { text: "Débito", color: "bg-orange-100 text-orange-800" };
+    case "credito":
+    case "crédito":
+    case "credit":
+      return { text: "Crédito", color: "bg-indigo-100 text-indigo-800" };
+    default:
+      return { text: paymentMethod, color: "bg-gray-100 text-gray-800" };
+  }
+};
 
 export default function AdminAppointments() {
   const [dateFilter, setDateFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [staffInfo, setStaffInfo] = useState({});
+
+  // Hook para busca manual apenas (sem debounce automático)
+  const {
+    searchTerm,
+    debouncedSearchTerm,
+    setSearchTerm,
+    triggerSearch,
+    isSearching,
+  } = useSearchWithDebounce("");
+
+  const { currentEnterprise, loading: enterpriseLoading } = useEnterprise();
 
   const {
     data: appointments,
@@ -22,8 +119,56 @@ export default function AdminAppointments() {
   } = useAllAppointments({
     date: dateFilter,
     status: statusFilter !== "all" ? statusFilter : undefined,
-    search: searchTerm,
+    search: debouncedSearchTerm, // Usar valor com debounce
   });
+
+  // 🆕 Carregar dados dos funcionários
+  const { data: staff = [] } = useStaff(currentEnterprise?.email);
+
+  // 🆕 Carregar informações adicionais dos funcionários do Firestore
+  React.useEffect(() => {
+    const loadStaffInfo = async () => {
+      if (!appointments?.length) return;
+
+      try {
+        const { collection, query, where, getDocs } = await import(
+          "firebase/firestore"
+        );
+        const { db } = await import("../../services/firebase");
+
+        const bookingIds = appointments.map((a) => a.id).filter(Boolean);
+        if (bookingIds.length === 0) return;
+
+        console.log(
+          "🔍 [AdminAppointments] Buscando informações de funcionários para:",
+          bookingIds
+        );
+
+        const staffInfoRef = collection(db, "bookingStaffInfo");
+        const q = query(staffInfoRef, where("bookingId", "in", bookingIds));
+        const snapshot = await getDocs(q);
+
+        const staffData = {};
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          staffData[data.bookingId] = data;
+        });
+
+        console.log(
+          "✅ [AdminAppointments] Informações de funcionários carregadas:",
+          staffData
+        );
+        setStaffInfo(staffData);
+      } catch (error) {
+        console.error(
+          "❌ [AdminAppointments] Erro ao carregar informações de funcionários:",
+          error
+        );
+      }
+    };
+
+    loadStaffInfo();
+  }, [appointments]);
 
   const { mutate: updateStatus, isLoading: isUpdating } =
     useUpdateAppointmentStatus();
@@ -31,7 +176,178 @@ export default function AdminAppointments() {
   const { mutate: deleteAppointment, isLoading: isDeleting } =
     useDeleteAppointment();
 
-  const { currentEnterprise, loading: enterpriseLoading } = useEnterprise();
+  // 🕒 NOVA LÓGICA: Processar agendamentos para atualizar status automaticamente E resolver nomes de funcionários
+  const processedAppointments = React.useMemo(() => {
+    if (!appointments) return [];
+
+    const now = new Date();
+
+    return appointments.map((appointment) => {
+      const statusRaw = (appointment.status || "").toString().toLowerCase();
+
+      // 🆕 LÓGICA DE RESOLUÇÃO DE NOME DO FUNCIONÁRIO MELHORADA
+      let employeeName = "Funcionário"; // Default
+
+      // 1. Tentar campos diretos do agendamento primeiro
+      const directName =
+        appointment.staffName ||
+        appointment.employeeName ||
+        appointment.staff_name ||
+        appointment.employee_name ||
+        appointment.staff?.name ||
+        appointment.employee?.name;
+
+      if (directName && directName !== "Funcionário") {
+        employeeName = directName;
+        console.log(
+          "✅ [AdminAppointments] Nome via campos diretos:",
+          directName
+        );
+      }
+
+      // 2. Se não tem nome direto, tentar staffInfo do Firestore
+      else if (staffInfo[appointment.id]) {
+        const staffData = staffInfo[appointment.id];
+        const firestoreName =
+          staffData.staffName || staffData.employeeName || staffData.name;
+
+        if (firestoreName) {
+          employeeName = firestoreName;
+          console.log("✅ [AdminAppointments] Nome via Firestore staffInfo:", {
+            appointmentId: appointment.id,
+            staffName: firestoreName,
+            fullStaffData: staffData,
+          });
+        }
+      }
+
+      // 3. Se ainda não tem nome e temos dados de staff, tentar mapear por ID
+      else if (staff?.length > 0) {
+        const employeeId = appointment.employeeId || appointment.staffId;
+        if (employeeId) {
+          const foundStaff = staff.find(
+            (s) => s.id === employeeId || s._id === employeeId
+          );
+          if (foundStaff) {
+            employeeName = foundStaff.name;
+            console.log(
+              "✅ [AdminAppointments] Nome via lista de staff:",
+              foundStaff.name
+            );
+          }
+        }
+
+        // Se ainda não tem nome e só há um funcionário, usar esse
+        if (employeeName === "Funcionário" && staff.length === 1) {
+          employeeName = staff[0].name;
+          console.log(
+            "✅ [AdminAppointments] Usando único funcionário:",
+            staff[0].name
+          );
+        }
+      }
+
+      console.log("🔍 [AdminAppointments] Resultado final da resolução:", {
+        appointmentId: appointment.id,
+        finalEmployeeName: employeeName,
+        hadDirectName: !!directName,
+        hadStaffInfo: !!staffInfo[appointment.id],
+        staffCount: staff?.length || 0,
+        allTried: {
+          direct: directName,
+          firestore: staffInfo[appointment.id]?.staffName,
+          staffListAvailable: staff?.length > 0,
+        },
+      });
+
+      // Aplicar lógica de status automático (já existente)
+      let processedStatus = appointment.status;
+      if (
+        statusRaw !== "cancelado" &&
+        statusRaw !== "canceled" &&
+        statusRaw !== "concluido" &&
+        statusRaw !== "completed"
+      ) {
+        const dateStr = appointment.date || appointment.appointmentDate;
+        const timeStr = appointment.startTime || appointment.time;
+
+        if (dateStr && timeStr) {
+          try {
+            // Criar data/hora do agendamento
+            let appointmentDate;
+
+            // Processar data corretamente
+            if (
+              typeof dateStr === "string" &&
+              dateStr.match(/^\d{4}-\d{2}-\d{2}$/)
+            ) {
+              const [year, month, day] = dateStr.split("-");
+              appointmentDate = new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day)
+              );
+            } else {
+              appointmentDate = new Date(dateStr);
+            }
+
+            // Processar horário
+            const [hours, minutes] = timeStr
+              .split(":")
+              .map((num) => parseInt(num, 10));
+
+            if (
+              !isNaN(hours) &&
+              !isNaN(minutes) &&
+              appointmentDate &&
+              !isNaN(appointmentDate.getTime())
+            ) {
+              appointmentDate.setHours(hours, minutes, 0, 0);
+
+              // Se o agendamento foi há mais de 1 hora, marcar como concluído
+              const oneHourAfterAppointment = new Date(
+                appointmentDate.getTime() + 60 * 60 * 1000
+              );
+
+              if (now > oneHourAfterAppointment) {
+                console.log(
+                  "✅ [AdminAppointments] Agendamento automaticamente marcado como concluído:",
+                  {
+                    id: appointment.id,
+                    client: appointment.clientName,
+                    appointmentTime: appointmentDate.toLocaleString("pt-BR"),
+                    currentTime: now.toLocaleString("pt-BR"),
+                    originalStatus: statusRaw,
+                  }
+                );
+
+                processedStatus = BOOKING_STATUS.CONCLUIDO;
+              }
+            }
+          } catch (timeError) {
+            console.warn(
+              "⚠️ [AdminAppointments] Erro ao processar horário:",
+              timeError
+            );
+          }
+        }
+      }
+
+      return {
+        ...appointment,
+        status: processedStatus,
+        resolvedEmployeeName: employeeName, // 🆕 Campo adicional com nome resolvido
+        _debugInfo: {
+          // 🆕 Info de debug para verificar dados
+          originalStaffName: appointment.staffName,
+          originalEmployeeName: appointment.employeeName,
+          staffInfoExists: !!staffInfo[appointment.id],
+          staffInfoName: staffInfo[appointment.id]?.staffName,
+          finalResolved: employeeName,
+        },
+      };
+    });
+  }, [appointments, staffInfo, staff]);
 
   const handleDelete = async (appointmentId, clientName) => {
     if (
@@ -205,13 +521,33 @@ Esta ação não pode ser desfeita.`;
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Buscar
             </label>
-            <input
-              type="text"
-              placeholder="Nome do cliente..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-            />
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                placeholder="Nome do cliente..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    triggerSearch();
+                  }
+                }}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+              <button
+                type="button"
+                onClick={triggerSearch}
+                className={`px-3 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                  isSearching
+                    ? "bg-yellow-600 text-white hover:bg-yellow-700"
+                    : "bg-amber-600 text-white hover:bg-amber-700"
+                }`}
+                title="Buscar (ou pressione Enter)"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -240,13 +576,16 @@ Esta ação não pode ser desfeita.`;
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pagamento
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {appointments?.map((appointment) => (
+              {processedAppointments?.map((appointment) => (
                 <tr key={appointment.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -283,23 +622,7 @@ Esta ação não pode ser desfeita.`;
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {appointment.staffName ||
-                      appointment.employeeName ||
-                      appointment.staff_name ||
-                      appointment.employee_name ||
-                      appointment.staff?.name ||
-                      appointment.employee?.name ||
-                      appointment.employeeEmail ||
-                      appointment.employee_email ||
-                      appointment.staffEmail ||
-                      appointment.staff_email ||
-                      appointment.employeeId ||
-                      appointment.employee_id ||
-                      appointment.staffId ||
-                      appointment.staff_id ||
-                      appointment.funcionarioNome ||
-                      appointment.funcionarioEmail ||
-                      "-"}
+                    {appointment.resolvedEmployeeName || "Funcionário"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
@@ -351,6 +674,18 @@ Esta ação não pode ser desfeita.`;
                     {formatPrice(
                       Number(appointment.productPrice ?? appointment.price ?? 0)
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {(() => {
+                      const payment = formatPaymentMethod(appointment);
+                      return (
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${payment.color}`}
+                        >
+                          {payment.text}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end">

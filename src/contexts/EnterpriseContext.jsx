@@ -126,7 +126,7 @@ export const EnterpriseProvider = ({ children }) => {
             name: "Barbearia do Pablo",
             email: "pablofafstar@gmail.com",
             phone: "(11) 99999-2222",
-            address: "Av. dos Cortes, 456 - Vila Nova",
+            address: "Rua Augusta, 1234 - Consolação, São Paulo - SP",
             description: "Barbearia do Pablo",
           },
           {
@@ -134,7 +134,7 @@ export const EnterpriseProvider = ({ children }) => {
             name: "XCorte Admin",
             email: "empresaadmin@xcortes.com",
             phone: "(11) 99999-1111",
-            address: "Rua das Barbearias, 123 - Centro",
+            address: "Av. Paulista, 567 - Bela Vista, São Paulo - SP",
             description: "Empresa Admin XCortes",
           },
         ];
@@ -187,7 +187,7 @@ export const EnterpriseProvider = ({ children }) => {
         name: "XCorte Barbearia",
         email: "test@empresa.com",
         phone: "(11) 99999-9999",
-        address: "Rua das Flores, 123 - Centro",
+        address: "Av. Faria Lima, 1000 - Itaim Bibi, São Paulo - SP",
       };
 
       setEnterprises([fallbackEnterprise]);
