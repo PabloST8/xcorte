@@ -18,9 +18,9 @@ export const USE_REMOTE_API = import.meta.env.PROD
 
 console.log("🔧 [config.js] USE_REMOTE_API final:", USE_REMOTE_API);
 
-// Endpoint padrão
+// Endpoint padrão - incluindo /api
 export const REMOTE_API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://x-corte-api.codxis.com.br";
+  import.meta.env.VITE_API_BASE_URL || "https://x-corte-api.codxis.com.br/api";
 
 console.log("🔧 [config.js] REMOTE_API_BASE_URL final:", REMOTE_API_BASE_URL);
 
