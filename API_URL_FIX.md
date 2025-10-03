@@ -9,6 +9,7 @@
 ## 🔍 Diagnóstico
 
 ### Sintomas:
+
 ```bash
 GET https://x-corte-api.codxis.com.br/enterprises 404 (Not Found)
 GET https://x-corte-api.codxis.com.br/employees 404 (Not Found)
@@ -16,6 +17,7 @@ GET https://x-corte-api.codxis.com.br/bookings 404 (Not Found)
 ```
 
 ### URLs Corretas:
+
 ```bash
 ✅ https://x-corte-api.codxis.com.br/api/enterprises
 ✅ https://x-corte-api.codxis.com.br/api/bookings
@@ -27,12 +29,14 @@ GET https://x-corte-api.codxis.com.br/bookings 404 (Not Found)
 ### Arquivo: `src/config.js`
 
 **Antes:**
+
 ```javascript
 export const REMOTE_API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://x-corte-api.codxis.com.br";
 ```
 
 **Depois:**
+
 ```javascript
 export const REMOTE_API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://x-corte-api.codxis.com.br/api";
@@ -55,6 +59,7 @@ export const REMOTE_API_BASE_URL =
 ## 🔧 Configurações Relacionadas
 
 ### Services que usam a API:
+
 - `src/services/api.js` - Cliente axios principal
 - `src/services/bookingApiService.js` - Já tinha `/api` correto
 - `src/services/enterpriseService.js` - Usa api.js
@@ -62,6 +67,7 @@ export const REMOTE_API_BASE_URL =
 - `src/services/bookingService.js` - Usa api.js
 
 ### Arquivos de Fallback:
+
 - Sistema continua usando Firestore quando API falha
 - Nenhuma alteração necessária no sistema de fallback
 
