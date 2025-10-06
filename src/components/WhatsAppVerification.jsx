@@ -4,6 +4,8 @@ import {
   sendVerificationCode,
   verifyVerificationCode,
 } from "../services/whatsappAPI";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../services/firebase";
 
 const WhatsAppVerification = ({
   phoneNumber,
@@ -62,12 +64,56 @@ const WhatsAppVerification = ({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Verificar se usuário já existe
+  const checkIfUserExists = async (phone) => {
+    try {
+      let cleanPhone = String(phone || "").replace(/\D/g, "");
+
+      // Se o número tem 13 dígitos e começa com 55 (Brasil), remover o código do país
+      if (cleanPhone.length === 13 && cleanPhone.startsWith("55")) {
+        cleanPhone = cleanPhone.slice(2); // Remove os 2 primeiros dígitos (55)
+      }
+
+      console.log("🔍 Verificando usuário existente:");
+      console.log("📱 Telefone original:", phone);
+      console.log("📱 Telefone limpo:", cleanPhone);
+
+      const userRef = doc(db, "users", cleanPhone);
+      const userSnapshot = await getDoc(userRef);
+      const exists = userSnapshot.exists();
+
+      console.log("👤 Usuário existe?", exists);
+      if (exists) {
+        console.log("👤 Dados do usuário:", userSnapshot.data());
+      }
+
+      return exists;
+    } catch (error) {
+      console.error("❌ Erro ao verificar usuário:", error);
+      return false;
+    }
+  };
+
   // Enviar código
   const handleSendCode = async () => {
     setLoading(true);
     setError("");
 
     try {
+      console.log("🚀 Iniciando verificação antes de enviar código...");
+
+      // Verificar se o usuário já existe
+      const userExists = await checkIfUserExists(phoneNumber);
+      if (userExists) {
+        console.log("🚫 Usuário já existe - bloqueando envio de código");
+        setError(
+          "Este número já está registrado. Faça login ao invés de se cadastrar."
+        );
+        setLoading(false);
+        return;
+      }
+
+      console.log("✅ Usuário não existe - prosseguindo com envio de código");
       const result = await sendVerificationCode(phoneNumber);
 
       if (result.success) {

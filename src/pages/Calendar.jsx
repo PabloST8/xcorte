@@ -347,8 +347,18 @@ function Calendar() {
                   }`}
                 >
                   <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="font-semibold">{service.name}</h3>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <h3
+                        className="font-semibold"
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                          hyphens: "auto",
+                        }}
+                      >
+                        {service.name}
+                      </h3>
                       <p className="text-sm text-gray-600">
                         {service.duration} min
                       </p>

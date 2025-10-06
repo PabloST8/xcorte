@@ -352,14 +352,14 @@ export default function MyAppointments() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="flex items-center justify-between px-4 py-4 bg-white shadow-sm border-b">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-3 sm:py-4 bg-white shadow-sm border-b">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-gray-100 rounded-full"
+          className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full flex-shrink-0"
         >
-          <ArrowLeft className="w-6 h-6 text-gray-600" />
+          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
         </button>
-        <h1 className="text-lg font-semibold text-gray-900">
+        <h1 className="text-base sm:text-lg font-semibold text-gray-900 mx-2 text-center flex-1 min-w-0 truncate">
           Meus Agendamentos
         </h1>
         <button
@@ -370,13 +370,13 @@ export default function MyAppointments() {
             forceRefreshAppointments();
             refetch();
           }}
-          className="text-gray-600 text-sm font-medium hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors"
+          className="text-gray-600 text-xs sm:text-sm font-medium hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-2 sm:px-3 py-1 rounded-full transition-colors flex-shrink-0"
           disabled={isLoading}
         >
           {isLoading ? "..." : "Atualizar"}
         </button>
       </div>
-      <div className="px-6 pb-24 pt-6">
+      <div className="px-3 sm:px-6 pb-24 pt-4 sm:pt-6">
         {isLoading ? (
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
@@ -391,14 +391,14 @@ export default function MyAppointments() {
             {normalized.map((appt) => (
               <div
                 key={appt.id}
-                className="p-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-center overflow-hidden"
+                className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white flex items-start sm:items-center overflow-hidden"
               >
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center mr-4">
-                  <Scissors className="w-5 h-5 text-blue-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-blue-100 flex items-center justify-center mr-3 sm:mr-4 flex-shrink-0">
+                  <Scissors className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
-                <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="flex-1 min-w-0 overflow-hidden pr-2">
                   <p
-                    className="font-semibold text-gray-900"
+                    className="font-semibold text-gray-900 text-sm sm:text-base leading-tight"
                     style={{
                       wordWrap: "break-word",
                       overflowWrap: "break-word",
@@ -411,8 +411,8 @@ export default function MyAppointments() {
                   >
                     {appt.productName}
                   </p>
-                  <p
-                    className="text-xs text-gray-500 flex items-center flex-wrap gap-1"
+                  <div
+                    className="text-xs text-gray-500 mt-1 space-y-1 sm:space-y-0 sm:flex sm:items-center sm:flex-wrap sm:gap-1"
                     style={{
                       wordWrap: "break-word",
                       overflowWrap: "break-word",
@@ -424,12 +424,15 @@ export default function MyAppointments() {
                     </span>
                     {appt.end && (
                       <>
-                        <span className="text-gray-400">•</span>
-                        <span>{appt.end}</span>
+                        <span className="text-gray-400 hidden sm:inline">
+                          •
+                        </span>
+                        <span className="block sm:inline">{appt.end}</span>
                       </>
                     )}
-                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-400 hidden sm:inline">•</span>
                     <span
+                      className="block sm:inline"
                       style={{
                         wordWrap: "break-word",
                         overflowWrap: "break-word",
@@ -438,15 +441,16 @@ export default function MyAppointments() {
                     >
                       {appt.employeeName}
                     </span>
-                  </p>
+                  </div>
                 </div>
-                <div className="text-right ml-3 flex-shrink-0 overflow-hidden">
+                <div className="text-right flex-shrink-0 overflow-hidden min-w-0">
                   <span
-                    className="block text-sm font-medium text-gray-900"
+                    className="block text-xs sm:text-sm font-medium text-gray-900 leading-tight"
                     style={{
                       wordWrap: "break-word",
                       overflowWrap: "break-word",
                       wordBreak: "break-word",
+                      maxWidth: "100px",
                     }}
                   >
                     {appt.dateDisplay}
@@ -477,12 +481,14 @@ function StatusBadge({ status }) {
   const cls = map[status] || "bg-gray-100 text-gray-600 border-gray-200";
   return (
     <span
-      className={`inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${cls}`}
+      className={`inline-block mt-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-medium rounded-full border ${cls}`}
       style={{
         wordWrap: "break-word",
         overflowWrap: "break-word",
         wordBreak: "break-word",
-        maxWidth: "100%",
+        maxWidth: "80px",
+        fontSize: "9px",
+        lineHeight: "1.2",
       }}
     >
       {status}

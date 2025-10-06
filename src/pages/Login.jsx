@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { getEnterpriseUrl, navigateToHome } = useEnterpriseNavigation();
   const { simplePhoneLogin } = useAuth();
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
@@ -43,7 +45,7 @@ export default function Login() {
       const result = await simplePhoneLogin({ phone });
 
       if (result.success) {
-        navigate("/");
+        navigateToHome();
       } else {
         setError(result.error || "Erro ao fazer login");
       }
@@ -60,7 +62,7 @@ export default function Login() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-white shadow-sm">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigateToHome()}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <ArrowLeft className="w-6 h-6 text-gray-600" />
@@ -121,7 +123,7 @@ export default function Login() {
 
             <button
               type="button"
-              onClick={() => navigate("/auth/register")}
+              onClick={() => navigate(getEnterpriseUrl("auth/register"))}
               className="w-full border border-gray-300 text-gray-700 hover:bg-gray-50 py-3 px-4 rounded-lg font-medium transition-colors"
             >
               Fazer cadastro

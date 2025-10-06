@@ -587,8 +587,16 @@ function Cart() {
                 key={it.id}
                 className="p-4 bg-gray-50 rounded-xl flex items-start justify-between gap-4"
               >
-                <div>
-                  <div className="font-semibold text-gray-900">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div
+                    className="font-semibold text-gray-900"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      hyphens: "auto",
+                    }}
+                  >
                     {it.serviceName}
                   </div>
                   <div className="text-sm text-gray-600">

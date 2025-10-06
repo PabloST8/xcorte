@@ -152,8 +152,16 @@ function StaffDetail() {
                 key={service.id}
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
               >
-                <div>
-                  <h4 className="font-semibold text-gray-900">
+                <div className="flex-1 min-w-0 pr-2">
+                  <h4
+                    className="font-semibold text-gray-900"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      hyphens: "auto",
+                    }}
+                  >
                     {service.name}
                   </h4>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">

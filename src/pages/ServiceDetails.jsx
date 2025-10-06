@@ -254,8 +254,16 @@ function Services() {
                   <div className="p-3 bg-blue-100 rounded-xl">
                     {service.icon}
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
+                  <div className="flex-1 min-w-0">
+                    <h3
+                      className="font-semibold text-gray-900"
+                      style={{
+                        wordWrap: "break-word",
+                        overflowWrap: "break-word",
+                        wordBreak: "break-word",
+                        hyphens: "auto",
+                      }}
+                    >
                       {service.name}
                     </h3>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">

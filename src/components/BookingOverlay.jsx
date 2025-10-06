@@ -71,6 +71,7 @@ export default function BookingOverlay({
     return new Date(dateStr);
   };
 
+  // useEffect separado para limpeza quando fecha
   useEffect(() => {
     if (!open) {
       setSelectedEmployeeId("");
@@ -83,9 +84,28 @@ export default function BookingOverlay({
       setUseClientForm(false);
       // Limpar notificação quando fechar
       hideNotification();
-    } else {
+    }
+  }, [open, hideNotification]);
+
+  // useEffect separado para verificação de autenticação
+  useEffect(() => {
+    if (open && !authUser) {
+      console.log(
+        "🚫 [BookingOverlay] Usuário não autenticado, redirecionando para login"
+      );
+
+      // Redirecionar para login
+      const loginUrl = getEnterpriseUrl("auth/login");
+      navigate(loginUrl);
+    }
+  }, [open, authUser, getEnterpriseUrl, navigate]);
+
+  // useEffect separado para configuração inicial quando abre
+  useEffect(() => {
+    if (open && authUser) {
       // Limpar notificação quando abrir
       hideNotification();
+
       // Verificar se usuário é admin/staff para mostrar opção de cliente
       const isAdminOrStaff =
         authUser?.role === "admin" || authUser?.role === "staff";
@@ -93,7 +113,7 @@ export default function BookingOverlay({
         setUseClientForm(true);
       }
     }
-  }, [open, hideNotification, authUser?.role]);
+  }, [open, authUser, hideNotification]);
 
   // Seed initial selection when opening in edit mode
   useEffect(() => {
@@ -986,6 +1006,10 @@ export default function BookingOverlay({
 
   // Função para agendar diretamente com pagamento
   const handleScheduleNow = () => {
+    if (!authUser) {
+      navigate(getEnterpriseUrl("login"));
+      return;
+    }
     if (!canConfirm) return;
     setShowPaymentOverlay(true);
   };
@@ -993,6 +1017,12 @@ export default function BookingOverlay({
   // Função para adicionar ao carrinho e ir para serviços
   const handleAddAndChooseMore = () => {
     console.log("🛒 [BookingOverlay] handleAddAndChooseMore chamado");
+
+    if (!authUser) {
+      navigate(getEnterpriseUrl("login"));
+      return;
+    }
+
     console.log("🛒 [BookingOverlay] canConfirm:", canConfirm);
     console.log("🛒 [BookingOverlay] Dados para adicionar:", {
       productId: product?.id,
@@ -1063,6 +1093,12 @@ export default function BookingOverlay({
   // Função chamada quando pagamento é confirmado
   const handlePaymentConfirm = async (result) => {
     console.log("🎯 handlePaymentConfirm chamado com:", result);
+
+    if (!authUser) {
+      navigate(getEnterpriseUrl("login"));
+      return;
+    }
+
     if (result.success) {
       // Criar agendamento via API
       try {
@@ -1441,14 +1477,19 @@ export default function BookingOverlay({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Panel */}
-      <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl p-4 max-h-[85vh] overflow-y-auto shadow-xl">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Agendar: {product?.name}
-          </h3>
+      <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl p-3 sm:p-4 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto shadow-xl">
+        <div className="flex items-start justify-between mb-3 gap-2">
+          <div className="flex-1 min-w-0 pr-2">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">
+              <span className="block sm:inline">Agendar:</span>
+              <span className="block sm:inline sm:ml-1 break-anywhere">
+                {product?.name}
+              </span>
+            </h3>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-gray-100 rounded-lg flex-shrink-0 -mt-1"
           >
             <X className="w-5 h-5 text-gray-600" />
           </button>
@@ -1575,7 +1616,7 @@ export default function BookingOverlay({
               Sem dias disponíveis nas próximas semanas.
             </div>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {availableDates.map((d) => {
                 const active = selectedDate === d;
                 const dt = new Date(d + "T00:00:00");
@@ -1593,7 +1634,7 @@ export default function BookingOverlay({
                   <button
                     key={d}
                     onClick={() => setSelectedDate(d)}
-                    className={`px-3 py-2 rounded-xl border whitespace-nowrap ${
+                    className={`px-2 sm:px-3 py-2 rounded-xl border whitespace-nowrap text-xs sm:text-sm min-w-0 flex-shrink-0 ${
                       active
                         ? "border-blue-600 bg-blue-50 text-blue-700"
                         : "border-gray-200 bg-gray-50 text-gray-700"
@@ -1631,7 +1672,7 @@ export default function BookingOverlay({
             </div>
           ) : (
             <div>
-              <div className="flex gap-2 flex-wrap">
+              <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
                 {slots
                   .filter((s) => s.isAvailable !== false)
                   .map((s, i) => {
@@ -1645,7 +1686,7 @@ export default function BookingOverlay({
                             prev === s.startTime ? "" : s.startTime
                           )
                         }
-                        className={`px-3 py-2 rounded-lg border text-sm ${
+                        className={`px-2 sm:px-3 py-2 rounded-lg border text-xs sm:text-sm whitespace-nowrap ${
                           active
                             ? "bg-blue-600 text-white border-blue-600"
                             : "border-blue-600 text-blue-700 hover:bg-blue-50"
@@ -1656,13 +1697,13 @@ export default function BookingOverlay({
                     );
                   })}
               </div>
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-3">
                 {mode === "edit" ? (
                   <button
                     type="button"
                     disabled={!canConfirm}
                     onClick={saveSelection}
-                    className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                    className={`w-full py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base ${
                       canConfirm
                         ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -1676,7 +1717,7 @@ export default function BookingOverlay({
                       type="button"
                       disabled={!canConfirm}
                       onClick={handleScheduleNow}
-                      className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                      className={`w-full py-3 rounded-lg font-semibold transition-colors text-sm sm:text-base ${
                         canConfirm
                           ? "bg-blue-600 text-white hover:bg-blue-700"
                           : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -1688,11 +1729,16 @@ export default function BookingOverlay({
                       type="button"
                       disabled={!canConfirm}
                       onClick={handleAddAndChooseMore}
-                      className={`w-full py-3 rounded-lg font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 ${
+                      className={`w-full py-3 rounded-lg font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm sm:text-base ${
                         !canConfirm ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     >
-                      Adicionar e escolher mais serviços
+                      <span className="block sm:hidden">
+                        Adicionar ao carrinho
+                      </span>
+                      <span className="hidden sm:block">
+                        Adicionar e escolher mais serviços
+                      </span>
                     </button>
                   </>
                 )}

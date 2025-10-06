@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Edit, LogOut } from "lucide-react";
+import { ArrowLeft, Phone, LogOut } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import ModernPhotoUpload from "../components/ModernPhotoUpload";
 import { userPhotoProfileService } from "../services/userPhotoProfileService";
@@ -8,7 +8,6 @@ import { userPhotoProfileService } from "../services/userPhotoProfileService";
 export default function Profile() {
   const navigate = useNavigate();
   const { user, logout, updateUser, patchUser } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
 
   /**
    * Manipula a atualização da foto do usuário
@@ -137,12 +136,8 @@ export default function Profile() {
           <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
         <h1 className="text-lg font-semibold text-gray-900">Meu Perfil</h1>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <Edit className="w-6 h-6 text-gray-600" />
-        </button>
+        <div className="w-10" />{" "}
+        {/* Spacer para manter o título centralizado */}
       </div>
 
       <div className="p-6">

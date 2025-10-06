@@ -290,10 +290,32 @@ export const AuthProvider = ({ children }) => {
   // Registro simples: nome + telefone (sem senha)
   const simpleRegister = async ({ name, phone }) => {
     try {
-      const cleanPhone = String(phone || "").replace(/\D/g, "");
+      let cleanPhone = String(phone || "").replace(/\D/g, "");
       const displayName = String(name || "").trim();
+
+      // Se o número tem 13 dígitos e começa com 55 (Brasil), remover o código do país
+      if (cleanPhone.length === 13 && cleanPhone.startsWith("55")) {
+        cleanPhone = cleanPhone.slice(2); // Remove os 2 primeiros dígitos (55)
+      }
+
       if (!cleanPhone || !displayName) {
         throw new Error("Nome e telefone são obrigatórios");
+      }
+
+      console.log("🔍 Verificando usuário para registro:");
+      console.log("📱 Telefone original:", phone);
+      console.log("📱 Telefone limpo:", cleanPhone);
+
+      // Verificar se o usuário já existe
+      const userRef = doc(db, "users", cleanPhone);
+      const userSnapshot = await getDoc(userRef);
+
+      if (userSnapshot.exists()) {
+        const existingUser = userSnapshot.data();
+        console.log("❌ Usuário já existe:", existingUser);
+        throw new Error(
+          "Este número de telefone já está registrado. Faça login ao invés de se cadastrar."
+        );
       }
 
       // Para desenvolvimento: usar auth anônimo para permitir escrita no Firestore
@@ -313,20 +335,15 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      const userRef = doc(db, "users", cleanPhone);
-      // Cria/atualiza mantendo o mesmo ID do telefone puro
-      await setDoc(
-        userRef,
-        {
-          id: cleanPhone,
-          name: displayName,
-          phone: cleanPhone,
-          role: "client",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      // Criar novo usuário
+      await setDoc(userRef, {
+        id: cleanPhone,
+        name: displayName,
+        phone: cleanPhone,
+        role: "client",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
       console.log("✅ Usuário registrado no Firestore");
 
