@@ -623,13 +623,19 @@ export default function AdminStaff() {
                         key={service.id}
                         type="button"
                         onClick={() => handleAddSkill(service)}
-                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                        className={`px-3 py-1 rounded-full text-sm transition-colors max-w-full ${
                           newStaff.skills.find(
                             (skill) => skill.serviceId === service.id
                           )
                             ? "bg-amber-500 text-white"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                          hyphens: "auto",
+                        }}
                       >
                         {service.name}
                       </button>
@@ -646,13 +652,21 @@ export default function AdminStaff() {
                         {newStaff.skills.map((skill) => (
                           <span
                             key={skill.serviceId}
-                            className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center space-x-1"
+                            className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm flex items-center space-x-1 max-w-full"
+                            style={{
+                              wordWrap: "break-word",
+                              overflowWrap: "break-word",
+                              wordBreak: "break-word",
+                              hyphens: "auto",
+                            }}
                           >
-                            <span>{skill.serviceName}</span>
+                            <span className="truncate">
+                              {skill.serviceName}
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveSkill(skill.serviceId)}
-                              className="text-amber-600 hover:text-amber-800"
+                              className="text-amber-600 hover:text-amber-800 flex-shrink-0"
                             >
                               ×
                             </button>

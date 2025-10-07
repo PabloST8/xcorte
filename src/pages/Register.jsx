@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import WhatsAppVerification from "../components/WhatsAppVerification";
 
 function Register() {
@@ -11,8 +11,7 @@ function Register() {
   const [error, setError] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
-  const navigate = useNavigate();
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { navigateFromAuth, navigateToAuth } = useEnterpriseNavigation();
   const { simpleRegister } = useAuth();
 
   const handleInputChange = (e) => {
@@ -54,7 +53,7 @@ function Register() {
 
       if (result.success) {
         // Registro bem-sucedido, navegar para login mantendo contexto da empresa
-        navigate(getEnterpriseUrl("auth/login"));
+        navigateToAuth("login");
       } else {
         setError(result.error || "Erro ao criar conta");
       }
@@ -104,7 +103,7 @@ function Register() {
             if (showVerification) {
               setShowVerification(false);
             } else {
-              navigate(getEnterpriseUrl(""));
+              navigateFromAuth();
             }
           }}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -141,12 +140,12 @@ function Register() {
                   <p className="text-red-600 text-sm">{error}</p>
                   {error.includes("já está registrado") && (
                     <div className="mt-3">
-                      <Link
-                        to={getEnterpriseUrl("auth/login")}
+                      <button
+                        onClick={() => navigateToAuth("login")}
                         className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
                       >
                         Fazer login com este número →
-                      </Link>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -219,12 +218,12 @@ function Register() {
             <div className="mt-8 text-center">
               <p className="text-gray-600">
                 Já tem uma conta?{" "}
-                <Link
-                  to={getEnterpriseUrl("auth/login")}
+                <button
+                  onClick={() => navigateToAuth("login")}
                   className="text-amber-600 hover:text-amber-500 font-medium transition-colors"
                 >
                   Entrar
-                </Link>
+                </button>
               </p>
             </div>
 

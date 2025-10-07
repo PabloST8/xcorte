@@ -150,11 +150,11 @@ function StaffDetail() {
             {staffServices.map((service) => (
               <div
                 key={service.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                className="flex items-start justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors gap-3"
               >
                 <div className="flex-1 min-w-0 pr-2">
                   <h4
-                    className="font-semibold text-gray-900"
+                    className="font-semibold text-gray-900 leading-tight"
                     style={{
                       wordWrap: "break-word",
                       overflowWrap: "break-word",
@@ -164,16 +164,18 @@ function StaffDetail() {
                   >
                     {service.name}
                   </h4>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span>{formatDuration(service.duration || 30)}</span>
-                    <span>•</span>
-                    <span className="font-semibold">
-                      {formatPrice(service.priceInCents || 0)}
-                    </span>
+                  <div className="flex flex-col space-y-1 text-sm text-gray-600 mt-1">
+                    <div className="flex items-center space-x-2">
+                      <span>{formatDuration(service.duration || 30)}</span>
+                      <span>•</span>
+                      <span className="font-semibold">
+                        {formatPrice(service.priceInCents || 0)}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm flex-shrink-0 whitespace-nowrap"
                   onClick={() => {
                     setSelectedProduct(service);
                     setOverlayOpen(true);

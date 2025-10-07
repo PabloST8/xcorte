@@ -251,29 +251,29 @@ function Staff() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
+      <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-white border-b">
         <Link to={getEnterpriseUrl("")}>
           <ChevronLeft className="w-6 h-6 text-gray-900" />
         </Link>
-        <h1 className="text-lg font-bold text-gray-900">{titleFromUrl}</h1>
+        <h1 className="text-base sm:text-lg font-bold text-gray-900 truncate mx-4">
+          {titleFromUrl}
+        </h1>
         <Search className="w-6 h-6 text-gray-900" />
       </header>
 
-      <div className="px-6 py-6">
+      <div className="px-4 sm:px-6 py-6">
         {/* Category Tabs */}
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Nossos
-            <br />
-            <span className="text-2xl">Funcionários</span>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
+            Nossos Funcionários
           </h2>
 
-          <div className="flex space-x-3 mb-6">
+          <div className="flex space-x-2 sm:space-x-3 mb-6 overflow-x-auto pb-2">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full text-sm font-medium ${
+                className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0 ${
                   selectedCategory === category
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-600"
@@ -286,12 +286,12 @@ function Staff() {
         </div>
 
         {/* Staff List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {isLoading
             ? [...Array(4)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-28 bg-gray-50 rounded-xl animate-pulse"
+                  className="h-24 sm:h-28 bg-gray-50 rounded-xl animate-pulse"
                 />
               ))
             : filteredStaff
@@ -327,9 +327,12 @@ function Staff() {
                   const staffServices = getStaffServices(staff);
 
                   return (
-                    <div key={staff.id} className="p-4 bg-gray-50 rounded-xl">
-                      <div className="flex items-start space-x-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                    <div
+                      key={staff.id}
+                      className="p-3 sm:p-4 bg-gray-50 rounded-xl"
+                    >
+                      <div className="flex items-start space-x-3 sm:space-x-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                           <img
                             src={staff.avatarUrl || staff.image}
                             alt={staff.name}
@@ -339,48 +342,52 @@ function Staff() {
                               e.target.nextSibling.style.display = "flex";
                             }}
                           />
-                          <div className="w-full h-full bg-blue-100 rounded-full hidden items-center justify-center text-blue-600 font-bold text-lg">
+                          <div className="w-full h-full bg-blue-100 rounded-full hidden items-center justify-center text-blue-600 font-bold text-base sm:text-lg">
                             {staff?.name?.charAt(0) || "F"}
                           </div>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="mb-3">
-                            <h3 className="font-semibold text-gray-900">
+                          <div className="mb-2 sm:mb-3">
+                            <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                               {staff.name}
                             </h3>
                             {staff.specialty && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs sm:text-sm text-gray-600 truncate">
                                 {staff.specialty}
                               </p>
                             )}
-                            <p className="text-xs text-gray-600 mt-1">
+                            <p className="text-xs text-gray-600 mt-1 truncate">
                               Dias: {formatWorkDays(staff)}
                             </p>
                           </div>
 
-                          <div className="flex flex-wrap gap-1 mb-4">
+                          <div className="flex flex-wrap gap-1 mb-3 sm:mb-4">
                             {staffServices.slice(0, 2).map((service) => (
                               <span
                                 key={service.id}
-                                className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                                className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full truncate"
+                                style={{
+                                  maxWidth: "100px",
+                                }}
+                                title={service.name}
                               >
                                 {service.name}
                               </span>
                             ))}
                             {staffServices.length > 2 && (
-                              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                +{staffServices.length - 2} mais
+                              <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full flex-shrink-0">
+                                +{staffServices.length - 2}
                               </span>
                             )}
                           </div>
 
-                          <div className="flex space-x-2">
+                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                             <Link
                               to={getEnterpriseUrl(
                                 `staff-detail?id=${staff.id}`
                               )}
-                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-center text-sm font-medium"
+                              className="flex-1 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg text-center text-xs sm:text-sm font-medium"
                             >
                               Ver Perfil
                             </Link>
@@ -391,7 +398,7 @@ function Staff() {
                                   setSelectedStaff(staff);
                                   setOverlayOpen(true);
                                 }}
-                                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-center text-sm font-medium"
+                                className="flex-1 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-center text-xs sm:text-sm font-medium"
                               >
                                 Agendar
                               </button>
@@ -405,24 +412,26 @@ function Staff() {
         </div>
 
         {/* Fallback quando não há funcionários na categoria */}
-        {filteredStaff.length === 0 && (
-          <div className="text-center py-12">
+        {filteredStaff.length === 0 && !isLoading && (
+          <div className="text-center py-8 sm:py-12">
             <div className="text-gray-400 mb-4">
-              <Search className="w-12 h-12 mx-auto" />
+              <Search className="w-10 h-10 sm:w-12 sm:h-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
               Nenhum funcionário encontrado
             </h3>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600 px-4">
               Não temos funcionários especializados nesta categoria no momento.
             </p>
           </div>
         )}
 
         {/* Quick Actions */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-xl">
-          <h3 className="font-semibold text-gray-900 mb-2">Dica</h3>
-          <p className="text-sm text-gray-600">
+        <div className="mt-6 sm:mt-8 p-3 sm:p-4 bg-blue-50 rounded-xl">
+          <h3 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">
+            Dica
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600">
             Selecione um funcionário para ver seus serviços especializados e
             agendar diretamente.
           </p>

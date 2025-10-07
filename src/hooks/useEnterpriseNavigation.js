@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { enterpriseCandidates } from "../utils/slug";
+import Cookies from "js-cookie";
 
 /**
  * Hook para navegação dentro do contexto da empresa atual
@@ -106,6 +107,54 @@ export function useEnterpriseNavigation() {
     );
   };
 
+  /**
+   * Salva o contexto da empresa atual para preservar durante navegação auth
+   */
+  const saveEnterpriseContext = () => {
+    if (enterpriseSlug) {
+      Cookies.set("lastEnterpriseSlug", enterpriseSlug, { expires: 1 }); // 1 dia
+    } else if (currentEnterprise) {
+      const slug = enterpriseCandidates(currentEnterprise)[0];
+      Cookies.set("lastEnterpriseSlug", slug, { expires: 1 });
+    }
+  };
+
+  /**
+   * Restaura o contexto da empresa salvo e limpa o cookie
+   * @returns {string|null} O slug da empresa salva
+   */
+  const restoreEnterpriseContext = () => {
+    const savedSlug = Cookies.get("lastEnterpriseSlug");
+    if (savedSlug) {
+      Cookies.remove("lastEnterpriseSlug");
+      return savedSlug;
+    }
+    return null;
+  };
+
+  /**
+   * Navega para auth preservando o contexto da empresa
+   * @param {string} authPath - Caminho da página de auth (ex: "login", "register")
+   */
+  const navigateToAuth = (authPath) => {
+    saveEnterpriseContext();
+    navigate(`/auth/${authPath}`);
+  };
+
+  /**
+   * Navega de volta da auth para a empresa preservada
+   * @param {string} path - Caminho opcional dentro da empresa
+   */
+  const navigateFromAuth = (path = "") => {
+    const savedSlug = restoreEnterpriseContext();
+    if (savedSlug) {
+      const fullPath = path ? `/${savedSlug}/${path}` : `/${savedSlug}`;
+      navigate(fullPath);
+    } else {
+      navigate("/");
+    }
+  };
+
   return {
     navigateToPage,
     navigateToHome,
@@ -114,6 +163,10 @@ export function useEnterpriseNavigation() {
     forceNavigateToEnterprise,
     getEnterpriseUrl,
     isEnterpriseActive,
+    saveEnterpriseContext,
+    restoreEnterpriseContext,
+    navigateToAuth,
+    navigateFromAuth,
     currentSlug: enterpriseSlug,
   };
 }

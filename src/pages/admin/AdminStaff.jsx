@@ -1170,13 +1170,19 @@ export default function AdminStaff() {
                         key={service.id}
                         type="button"
                         onClick={() => handleAddSkill(service)}
-                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                        className={`px-3 py-1 rounded-full text-sm transition-colors max-w-full ${
                           newStaff.skills.find(
                             (skill) => skill.serviceId === service.id
                           )
                             ? "bg-amber-500 text-white"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                         }`}
+                        style={{
+                          wordWrap: "break-word",
+                          overflowWrap: "break-word",
+                          wordBreak: "break-word",
+                          hyphens: "auto",
+                        }}
                       >
                         {service.name}
                       </button>

@@ -32,7 +32,7 @@ export default function BookingOverlay({
   initialSelection, // { employeeId, date, time }
   onSave, // (sel) => void when mode==='edit'
 }) {
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const { getEnterpriseUrl, saveEnterpriseContext } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
   const { addItem, items: cartItems } = useCart();
   const { user: authUser } = useAuth();
@@ -95,10 +95,11 @@ export default function BookingOverlay({
       );
 
       // Redirecionar para login
-      const loginUrl = getEnterpriseUrl("auth/login");
+      saveEnterpriseContext();
+      const loginUrl = "/auth/login";
       navigate(loginUrl);
     }
-  }, [open, authUser, getEnterpriseUrl, navigate]);
+  }, [open, authUser, navigate, saveEnterpriseContext]);
 
   // useEffect separado para configuração inicial quando abre
   useEffect(() => {
@@ -1007,7 +1008,8 @@ export default function BookingOverlay({
   // Função para agendar diretamente com pagamento
   const handleScheduleNow = () => {
     if (!authUser) {
-      navigate(getEnterpriseUrl("login"));
+      saveEnterpriseContext();
+      navigate("/auth/login");
       return;
     }
     if (!canConfirm) return;
@@ -1019,7 +1021,8 @@ export default function BookingOverlay({
     console.log("🛒 [BookingOverlay] handleAddAndChooseMore chamado");
 
     if (!authUser) {
-      navigate(getEnterpriseUrl("login"));
+      saveEnterpriseContext();
+      navigate("/auth/login");
       return;
     }
 
@@ -1095,7 +1098,8 @@ export default function BookingOverlay({
     console.log("🎯 handlePaymentConfirm chamado com:", result);
 
     if (!authUser) {
-      navigate(getEnterpriseUrl("login"));
+      saveEnterpriseContext();
+      navigate("/auth/login");
       return;
     }
 

@@ -118,7 +118,7 @@ export default function Verification() {
             <p className="text-gray-500 mt-3">
               Errou seus dados?{" "}
               <Link
-                to={getEnterpriseUrl("auth/register")}
+                to="/auth/register"
                 className="text-amber-600 hover:text-amber-500"
               >
                 Cadastrar novamente

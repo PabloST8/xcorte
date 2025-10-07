@@ -8,6 +8,7 @@ function Name() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { navigateToAuth } = useEnterpriseNavigation();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   const phone = location.state?.phone || "";
@@ -41,7 +42,7 @@ function Name() {
   };
 
   const handleBack = () => {
-    navigate("/auth/login");
+    navigateToAuth("login");
   };
 
   if (!phone) {
