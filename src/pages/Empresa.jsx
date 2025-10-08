@@ -1,13 +1,12 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useEnterprise } from "../contexts/EnterpriseContext";
-import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import EnterpriseAvatar from "../components/EnterpriseAvatar";
 
 export default function Empresa() {
+  const navigate = useNavigate();
   const { currentEnterprise } = useEnterprise();
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   if (!currentEnterprise)
     return <div className="p-8 text-center">Empresa não encontrada.</div>;
@@ -15,9 +14,12 @@ export default function Empresa() {
   return (
     <div className="min-h-screen bg-white">
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-        <Link to={getEnterpriseUrl("")}>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+        >
           <ChevronLeft className="w-6 h-6 text-gray-900" />
-        </Link>
+        </button>
         <h1 className="text-lg font-bold text-gray-900">Empresa</h1>
         <div />
       </header>

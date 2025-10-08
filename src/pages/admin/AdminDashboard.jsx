@@ -112,13 +112,15 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-2">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">
+              Dashboard
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
               {currentEnterprise
                 ? `Painel administrativo - ${currentEnterprise.name}`
                 : "Bem-vindo ao painel administrativo da barbearia"}
@@ -129,28 +131,34 @@ export default function AdminDashboard() {
           <button
             onClick={handleUploadPhoto}
             disabled={uploadingPhoto}
-            className="flex items-center space-x-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center justify-center space-x-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto"
           >
-            <Camera className="w-5 h-5" />
-            <span>{uploadingPhoto ? "Enviando..." : "Foto da Barbearia"}</span>
+            <Camera className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+            <span className="truncate">
+              {uploadingPhoto ? "Enviando..." : "Foto da Barbearia"}
+            </span>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {statCards.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg shadow p-6">
+          <div key={index} className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">
                   {stat.title}
                 </p>
-                <p className="text-2xl font-bold text-gray-900 mt-2">
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1 sm:mt-2">
                   {stat.value}
                 </p>
               </div>
-              <div className={`p-3 rounded-lg ${stat.bgColor}`}>
-                <stat.icon className={`w-6 h-6 ${stat.textColor}`} />
+              <div
+                className={`p-2 sm:p-3 rounded-lg ${stat.bgColor} flex-shrink-0 ml-3`}
+              >
+                <stat.icon
+                  className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.textColor}`}
+                />
               </div>
             </div>
           </div>
@@ -158,29 +166,29 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
         {/* Próximos Agendamentos */}
         <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Próximos Agendamentos
             </h2>
           </div>
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {stats?.upcomingAppointments?.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {stats.upcomingAppointments.map((appointment) => (
                   <div
                     key={appointment.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 bg-gray-50 rounded-lg space-y-2 sm:space-y-0"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <p className="font-medium text-gray-900">
+                    <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2 sm:mt-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 text-sm sm:text-base truncate">
                           {appointment.clientName}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">
                           {appointment.productName}
                         </p>
                         {appointment.status && (
@@ -200,12 +208,12 @@ export default function AdminDashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">
+                    <div className="text-left sm:text-right flex-shrink-0">
+                      <p className="font-medium text-gray-900 text-sm sm:text-base">
                         {appointment.startTime}
                       </p>
                       {appointment.date && (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs sm:text-sm text-gray-600">
                           {formatDateBR(appointment.date)}
                         </p>
                       )}
@@ -214,9 +222,11 @@ export default function AdminDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Nenhum agendamento para hoje</p>
+              <div className="text-center py-6 sm:py-8">
+                <Clock className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                <p className="text-sm sm:text-base text-gray-600">
+                  Nenhum agendamento para hoje
+                </p>
               </div>
             )}
           </div>

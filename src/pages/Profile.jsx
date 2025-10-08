@@ -143,8 +143,8 @@ export default function Profile() {
       <div className="p-6">
         {/* Profile Card */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center space-x-4 mb-6">
-            {/* Foto de perfil */}
+          {/* Foto de perfil centralizada */}
+          <div className="flex flex-col items-center mb-6">
             {/** Deriva o ID do usuário como telefone numérico (preferência do sistema) **/}
             {(() => {
               const phoneDigits = String(user?.phone || user?.id || "").replace(
@@ -159,22 +159,28 @@ export default function Profile() {
                 photoPath: user?.photoPath,
               });
               return (
-                <ModernPhotoUpload
-                  userId={userIdForPhoto}
-                  currentPhotoURL={user?.photoURL}
-                  onPhotoUpdated={handlePhotoUpdate}
-                  className="mb-4"
-                  showActions={false}
-                  showInfo={false}
-                />
+                <div className="flex flex-col items-center">
+                  <ModernPhotoUpload
+                    userId={userIdForPhoto}
+                    currentPhotoURL={user?.photoURL}
+                    onPhotoUpdated={handlePhotoUpdate}
+                    className="mb-2"
+                    showActions={false}
+                    showInfo={false}
+                  />
+                  <p className="text-xs text-gray-500">
+                    clique para trocar foto
+                  </p>
+                </div>
               );
             })()}
+          </div>
 
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900">
-                {user?.name || "Usuário"}
-              </h2>
-            </div>
+          {/* User Name */}
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">
+              {user?.name || "Usuário"}
+            </h2>
           </div>
 
           {/* User Info */}

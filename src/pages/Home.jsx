@@ -236,31 +236,22 @@ function Home() {
           </div>
         )}
 
-        {/* Promoção do Dia */}
-        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-3xl p-6 mb-8 text-white relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold mb-2">Promoção do Dia</h2>
-            <p className="text-blue-100 mb-4">
-              Corte + Barba com 25% de desconto
-            </p>
-            <Link
-              to={getEnterpriseUrl(
-                "service-details?category=Todos&title=Serviços"
-              )}
-              className="bg-white text-blue-600 px-6 py-2 rounded-full font-semibold text-sm hover:bg-blue-50 transition-colors"
-            >
-              Agendar Agora
-            </Link>
-          </div>
-          {/* elementos decorativos */}
-          <div className="absolute top-0 right-0 w-32 h-32 opacity-20">
-            <div className="text-6xl font-bold text-blue-400 transform rotate-12">
-              25
+        {/* Mensagem de Boas-vindas */}
+        {user && (
+          <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl p-6 mb-8 text-white relative overflow-hidden">
+            <div className="relative z-10">
+              <h3 className="text-lg font-semibold mb-2">
+                Bem-vindo de volta, {user?.name || "Usuário"}!
+              </h3>
+              <p className="text-blue-100">
+                Pronto para agendar seu próximo serviço?
+              </p>
             </div>
+            {/* elementos decorativos sutis */}
+            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-500 rounded-full opacity-20" />
+            <div className="absolute top-4 right-12 w-8 h-8 bg-blue-400 rounded-full opacity-30" />
           </div>
-          <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-blue-500 rounded-full opacity-30" />
-          <div className="absolute top-6 right-16 w-12 h-12 bg-blue-400 rounded-full opacity-40" />
-        </div>
+        )}
 
         {/* Nossos Serviços - só mostrar se há categorias disponíveis */}
         {(isLoadingServices || serviceCategoriesFromData.length > 0) && (
@@ -422,17 +413,6 @@ function Home() {
                   ))}
           </div>
         </div>
-
-        {user && (
-          <div className="bg-blue-50 rounded-xl p-6 mt-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Bem-vindo de volta, {user.name || user.email}!
-            </h3>
-            <p className="text-gray-600">
-              Pronto para agendar seu próximo serviço?
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Bottom Navigation removed; FloatingMenu is used globally */}

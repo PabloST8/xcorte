@@ -563,9 +563,12 @@ function Cart() {
   return (
     <div className="min-h-screen bg-white">
       <header className="flex items-center justify-between px-6 py-4 bg-white border-b">
-        <Link to={getEnterpriseUrl("")}>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+        >
           <ChevronLeft className="w-6 h-6 text-gray-900" />
-        </Link>
+        </button>
         <h1 className="text-lg font-bold text-gray-900">Carrinho</h1>
         <button
           className="text-red-600 font-medium"

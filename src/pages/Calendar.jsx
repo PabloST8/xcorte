@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +16,7 @@ import { useNotification } from "../hooks/useNotification";
 import { formatDateBR } from "../utils/dateUtils";
 
 function Calendar() {
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const navigate = useNavigate();
   const { notification, showSuccess, hideNotification } = useNotification();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -181,9 +180,12 @@ function Calendar() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="flex items-center px-4 py-4">
-          <Link to={getEnterpriseUrl("")} className="mr-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="mr-4 p-1 hover:bg-gray-100 rounded-full transition-colors"
+          >
             <ChevronLeft className="w-6 h-6 text-gray-600" />
-          </Link>
+          </button>
           <h1 className="text-xl font-bold text-gray-900">Agendar Horário</h1>
         </div>
       </header>

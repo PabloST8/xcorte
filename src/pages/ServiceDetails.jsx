@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { enterpriseProductFirestoreService } from "../services/enterpriseProductFirestoreService";
 import { formatPrice, formatDuration } from "../types/api.js";
@@ -18,7 +17,7 @@ import NotificationPopup from "../components/NotificationPopup";
 import { useNotification } from "../hooks/useNotification";
 
 function Services() {
-  const { getEnterpriseUrl } = useEnterpriseNavigation();
+  const navigate = useNavigate();
   const { currentEnterprise } = useEnterprise();
   const { notification, showSuccess, hideNotification } = useNotification();
   const [searchParams] = useSearchParams();
@@ -177,9 +176,12 @@ function Services() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-blue-600 text-white">
-        <Link to={getEnterpriseUrl("")}>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-1 hover:bg-blue-700 rounded-full transition-colors"
+        >
           <ChevronLeft className="w-6 h-6" />
-        </Link>
+        </button>
         <h1 className="text-lg font-bold">{titleFromUrl}</h1>
         <Search className="w-6 h-6" />
       </header>

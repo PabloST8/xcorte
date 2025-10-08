@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEnterpriseNavigation } from "../hooks/useEnterpriseNavigation";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import { employeeFirestoreService } from "../services/employeeFirestoreService";
@@ -10,6 +10,7 @@ import BookingOverlay from "../components/BookingOverlay";
 function Staff() {
   console.log("📄 PÁGINA STAFF CARREGADA - Iniciando componente Staff");
 
+  const navigate = useNavigate();
   const { getEnterpriseUrl } = useEnterpriseNavigation();
   const { currentEnterprise } = useEnterprise();
   const [searchParams] = useSearchParams();
@@ -252,9 +253,12 @@ function Staff() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-white border-b">
-        <Link to={getEnterpriseUrl("")}>
+        <button
+          onClick={() => navigate(-1)}
+          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+        >
           <ChevronLeft className="w-6 h-6 text-gray-900" />
-        </Link>
+        </button>
         <h1 className="text-base sm:text-lg font-bold text-gray-900 truncate mx-4">
           {titleFromUrl}
         </h1>

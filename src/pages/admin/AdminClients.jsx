@@ -1,20 +1,28 @@
 import React, { useState } from "react";
-import { Search, Filter, Users } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { useEnterpriseClients } from "../../hooks/useEnterpriseClients";
 import { formatPrice } from "../../types/api";
 import UserAvatar from "../../components/UserAvatar";
+import { useSearchWithDebounce } from "../../hooks/useDebounce";
 
 export default function AdminClients() {
-  const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("name");
-  const [showFilters, setShowFilters] = useState(false);
+
+  // Hook para busca manual apenas (sem debounce automático)
+  const {
+    searchTerm,
+    debouncedSearchTerm,
+    setSearchTerm,
+    triggerSearch,
+    isSearching,
+  } = useSearchWithDebounce("");
 
   const {
     data: clients,
     isLoading,
     error,
   } = useEnterpriseClients({
-    search: searchTerm,
+    search: debouncedSearchTerm, // Usar valor com debounce manual
     sortBy,
   });
 
@@ -69,11 +77,29 @@ export default function AdminClients() {
               placeholder="Buscar por nome, telefone ou email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === "Enter") {
+                  triggerSearch();
+                }
+              }}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             />
           </div>
 
           <div className="flex gap-2">
+            {/* Botão de Busca */}
+            <button
+              onClick={triggerSearch}
+              disabled={isSearching}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                isSearching
+                  ? "bg-gray-400 text-white cursor-not-allowed"
+                  : "bg-amber-600 text-white hover:bg-amber-700"
+              }`}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
@@ -84,17 +110,6 @@ export default function AdminClients() {
               <option value="last_appointment">📅 Último Agendamento</option>
               <option value="total_spent">💰 Valor Gasto</option>
             </select>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-lg transition-colors ${
-                showFilters
-                  ? "border-amber-500 bg-amber-50 text-amber-600"
-                  : "border-gray-300 hover:bg-gray-50 text-gray-600"
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </div>
