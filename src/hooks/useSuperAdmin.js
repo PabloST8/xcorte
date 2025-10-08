@@ -27,7 +27,11 @@ export const useSuperAdmin = () => {
       console.log("📊 Debug empresas para estatísticas:");
       data.forEach((e) => {
         const isActive = e.isActive && !e.isBlocked;
-        const status = e.isBlocked ? "BLOQUEADA" : e.isActive ? "ATIVA" : "INATIVA";
+        const status = e.isBlocked
+          ? "BLOQUEADA"
+          : e.isActive
+          ? "ATIVA"
+          : "INATIVA";
         console.log(
           `- ${e.name}: isActive=${e.isActive}, isBlocked=${e.isBlocked} → ${status}`
         );
@@ -207,11 +211,15 @@ export const useSuperAdmin = () => {
     (statusFilter) => {
       switch (statusFilter) {
         case "active":
-          return enterprises.filter((e) => e.isActive && !e.isBlocked && !e.isDeleted);
+          return enterprises.filter(
+            (e) => e.isActive && !e.isBlocked && !e.isDeleted
+          );
         case "blocked":
           return enterprises.filter((e) => e.isBlocked && !e.isDeleted);
         case "inactive":
-          return enterprises.filter((e) => !e.isActive && !e.isBlocked && !e.isDeleted);
+          return enterprises.filter(
+            (e) => !e.isActive && !e.isBlocked && !e.isDeleted
+          );
         case "deleted":
           return enterprises.filter((e) => e.isDeleted);
         case "all":

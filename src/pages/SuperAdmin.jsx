@@ -216,26 +216,30 @@ const SuperAdmin = () => {
 
   const handlePermanentDeleteEnterprise = async (enterprise) => {
     const confirmMessage = `⚠️ ATENÇÃO: EXCLUSÃO PERMANENTE ⚠️\n\nVocê está prestes a excluir PERMANENTEMENTE a empresa "${enterprise.name}".\n\nEsta ação:\n- NÃO PODE SER DESFEITA\n- Removerá TODOS os dados da empresa\n- Pode causar problemas se há dados relacionados\n\nTem ABSOLUTA CERTEZA que deseja continuar?`;
-    
+
     if (window.confirm(confirmMessage)) {
       const finalConfirm = window.confirm(
         `ÚLTIMA CONFIRMAÇÃO:\n\nExcluir PERMANENTEMENTE "${enterprise.name}"?\n\nDigite "CONFIRMAR" se tem certeza absoluta.`
       );
-      
+
       if (finalConfirm) {
         const userInput = prompt(
           'Digite "CONFIRMAR" em maiúsculas para prosseguir:'
         );
-        
+
         if (userInput === "CONFIRMAR") {
           try {
             // Importar a função de exclusão permanente
-            const { superAdminService } = await import("../services/superAdminService");
+            const { superAdminService } = await import(
+              "../services/superAdminService"
+            );
             await superAdminService.permanentDeleteEnterprise(enterprise.id);
             showSuccess("Empresa excluída permanentemente!");
             await loadEnterprises(); // Recarregar lista
           } catch (error) {
-            showError(error.message || "Erro ao excluir empresa permanentemente");
+            showError(
+              error.message || "Erro ao excluir empresa permanentemente"
+            );
           }
         } else {
           showError("Exclusão cancelada - confirmação incorreta");
@@ -506,10 +510,10 @@ const SuperAdmin = () => {
                                 : "text-green-600 hover:text-green-900"
                             }`}
                             title={
-                              enterprise.isBlocked 
-                                ? "Ativar" 
-                                : enterprise.isActive 
-                                ? "Bloquear" 
+                              enterprise.isBlocked
+                                ? "Ativar"
+                                : enterprise.isActive
+                                ? "Bloquear"
                                 : "Ativar"
                             }
                           >
@@ -522,7 +526,9 @@ const SuperAdmin = () => {
                             )}
                           </button>
                           <button
-                            onClick={() => handlePermanentDeleteEnterprise(enterprise)}
+                            onClick={() =>
+                              handlePermanentDeleteEnterprise(enterprise)
+                            }
                             className="text-red-600 hover:text-red-900 p-1"
                             title="Excluir Permanentemente"
                           >

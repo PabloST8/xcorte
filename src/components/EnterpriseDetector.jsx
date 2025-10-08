@@ -49,10 +49,13 @@ export default function EnterpriseDetector({ children }) {
         if (foundEnterprise) {
           console.log("🏢 Empresa encontrada:", foundEnterprise);
           console.log("✅ Status isActive:", foundEnterprise.isActive);
-          
+
           // Verificar se a empresa está bloqueada (isActive = false)
           if (!foundEnterprise.isActive) {
-            console.log("🚫 Empresa bloqueada (isActive = false):", foundEnterprise.name);
+            console.log(
+              "🚫 Empresa bloqueada (isActive = false):",
+              foundEnterprise.name
+            );
             setIsBlocked(true);
             setIsReady(true);
             return;
@@ -115,9 +118,7 @@ export default function EnterpriseDetector({ children }) {
               Serviço indisponível por tempo indeterminado
             </p>
           </div>
-          <div className="text-sm text-gray-500">
-            Agradecemos a compreensão
-          </div>
+          <div className="text-sm text-gray-500">Agradecemos a compreensão</div>
         </div>
       </div>
     );
