@@ -26,10 +26,10 @@ export const useSuperAdmin = () => {
       // Debug: Log das empresas para verificar status
       console.log("📊 Debug empresas para estatísticas:");
       data.forEach((e) => {
-        const isActive = e.active && !e.blocked;
-        const status = e.blocked ? "BLOQUEADA" : e.active ? "ATIVA" : "INATIVA";
+        const isActive = e.isActive && !e.isBlocked;
+        const status = e.isBlocked ? "BLOQUEADA" : e.isActive ? "ATIVA" : "INATIVA";
         console.log(
-          `- ${e.name}: active=${e.active}, blocked=${e.blocked} → ${status}`
+          `- ${e.name}: isActive=${e.isActive}, isBlocked=${e.isBlocked} → ${status}`
         );
 
         if (!isActive) {
@@ -40,9 +40,9 @@ export const useSuperAdmin = () => {
       // Calcular estatísticas localmente
       const statsData = {
         total: data.length,
-        active: data.filter((e) => e.active && !e.blocked).length,
-        blocked: data.filter((e) => e.blocked).length,
-        inactive: data.filter((e) => !e.active).length,
+        active: data.filter((e) => e.isActive && !e.isBlocked).length,
+        blocked: data.filter((e) => e.isBlocked).length,
+        inactive: data.filter((e) => !e.isActive).length,
         deleted: 0, // Para compatibilidade
       };
 
@@ -83,10 +83,10 @@ export const useSuperAdmin = () => {
         const updatedEnterprises = [newEnterprise, ...enterprises];
         const statsData = {
           total: updatedEnterprises.length,
-          active: updatedEnterprises.filter((e) => e.active && !e.blocked)
+          active: updatedEnterprises.filter((e) => e.isActive && !e.isBlocked)
             .length,
-          blocked: updatedEnterprises.filter((e) => e.blocked).length,
-          inactive: updatedEnterprises.filter((e) => !e.active).length,
+          blocked: updatedEnterprises.filter((e) => e.isBlocked).length,
+          inactive: updatedEnterprises.filter((e) => !e.isActive).length,
           deleted: 0,
         };
         setStats(statsData);
@@ -134,7 +134,7 @@ export const useSuperAdmin = () => {
       setEnterprises((prev) =>
         prev.map((enterprise) =>
           enterprise.id === enterpriseId
-            ? { ...enterprise, isBlocked: newStatus }
+            ? { ...enterprise, blocked: newStatus }
             : enterprise
         )
       );
@@ -207,11 +207,13 @@ export const useSuperAdmin = () => {
     (statusFilter) => {
       switch (statusFilter) {
         case "active":
-          return enterprises.filter((e) => e.isActive && !e.isBlocked);
+          return enterprises.filter((e) => e.isActive && !e.isBlocked && !e.isDeleted);
         case "blocked":
-          return enterprises.filter((e) => e.isBlocked);
+          return enterprises.filter((e) => e.isBlocked && !e.isDeleted);
         case "inactive":
-          return enterprises.filter((e) => !e.isActive);
+          return enterprises.filter((e) => !e.isActive && !e.isBlocked && !e.isDeleted);
+        case "deleted":
+          return enterprises.filter((e) => e.isDeleted);
         case "all":
         default:
           return enterprises;

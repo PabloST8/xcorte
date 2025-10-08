@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Users,
   TrendingUp,
-  AlertTriangle,
   Eye,
 } from "lucide-react";
 import { useSuperAdmin } from "../hooks/useSuperAdmin";
@@ -19,9 +18,7 @@ import { superAdminAuthService } from "../services/superAdminAuthService";
 import SuperAdminLogin from "../components/SuperAdminLogin";
 import NotificationPopup from "../components/NotificationPopup";
 import { formatDateBR } from "../utils/dateUtils";
-import { fixEnterpriseDates } from "../utils/fixEnterpriseDates";
 import { createAdminUser } from "../utils/createAdminUser";
-import { fixAdminUser } from "../utils/fixAdminUser";
 
 const SuperAdmin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,7 +32,6 @@ const SuperAdmin = () => {
     updateEnterprise,
     toggleBlockEnterprise,
     toggleActiveEnterprise,
-    deleteEnterprise,
     filterEnterprisesByStatus,
   } = useSuperAdmin();
 
@@ -198,39 +194,52 @@ const SuperAdmin = () => {
     }
   };
 
-  const handleToggleBlock = async (enterprise) => {
+  const handleToggleStatus = async (enterprise) => {
     try {
-      const newStatus = await toggleBlockEnterprise(enterprise.id);
-      showSuccess(
-        `Empresa ${newStatus ? "bloqueada" : "desbloqueada"} com sucesso!`
-      );
+      if (enterprise.isBlocked) {
+        // Se está bloqueada, desbloquear (automaticamente fica ativa)
+        await toggleBlockEnterprise(enterprise.id);
+        showSuccess("Empresa desbloqueada e ativada com sucesso!");
+      } else if (enterprise.isActive) {
+        // Se está ativa, bloquear
+        await toggleBlockEnterprise(enterprise.id);
+        showSuccess("Empresa bloqueada com sucesso!");
+      } else {
+        // Se está inativa, ativar
+        await toggleActiveEnterprise(enterprise.id);
+        showSuccess("Empresa ativada com sucesso!");
+      }
     } catch (error) {
       showError(error.message || "Erro ao alterar status da empresa");
     }
   };
 
-  const handleToggleActive = async (enterprise) => {
-    try {
-      const newStatus = await toggleActiveEnterprise(enterprise.id);
-      showSuccess(
-        `Empresa ${newStatus ? "ativada" : "desativada"} com sucesso!`
+  const handlePermanentDeleteEnterprise = async (enterprise) => {
+    const confirmMessage = `⚠️ ATENÇÃO: EXCLUSÃO PERMANENTE ⚠️\n\nVocê está prestes a excluir PERMANENTEMENTE a empresa "${enterprise.name}".\n\nEsta ação:\n- NÃO PODE SER DESFEITA\n- Removerá TODOS os dados da empresa\n- Pode causar problemas se há dados relacionados\n\nTem ABSOLUTA CERTEZA que deseja continuar?`;
+    
+    if (window.confirm(confirmMessage)) {
+      const finalConfirm = window.confirm(
+        `ÚLTIMA CONFIRMAÇÃO:\n\nExcluir PERMANENTEMENTE "${enterprise.name}"?\n\nDigite "CONFIRMAR" se tem certeza absoluta.`
       );
-    } catch (error) {
-      showError(error.message || "Erro ao alterar status da empresa");
-    }
-  };
-
-  const handleDeleteEnterprise = async (enterprise) => {
-    if (
-      window.confirm(
-        `Tem certeza que deseja excluir a empresa "${enterprise.name}"?`
-      )
-    ) {
-      try {
-        await deleteEnterprise(enterprise.id);
-        showSuccess("Empresa excluída com sucesso!");
-      } catch (error) {
-        showError(error.message || "Erro ao excluir empresa");
+      
+      if (finalConfirm) {
+        const userInput = prompt(
+          'Digite "CONFIRMAR" em maiúsculas para prosseguir:'
+        );
+        
+        if (userInput === "CONFIRMAR") {
+          try {
+            // Importar a função de exclusão permanente
+            const { superAdminService } = await import("../services/superAdminService");
+            await superAdminService.permanentDeleteEnterprise(enterprise.id);
+            showSuccess("Empresa excluída permanentemente!");
+            await loadEnterprises(); // Recarregar lista
+          } catch (error) {
+            showError(error.message || "Erro ao excluir empresa permanentemente");
+          }
+        } else {
+          showError("Exclusão cancelada - confirmação incorreta");
+        }
       }
     }
   };
@@ -247,26 +256,14 @@ const SuperAdmin = () => {
     setShowEditModal(true);
   };
 
-  const handleFixDates = async () => {
-    try {
-      await fixEnterpriseDates();
-      showSuccess("Dados das empresas corrigidos com sucesso!");
-      await loadEnterprises(); // Recarregar a lista
-    } catch (error) {
-      showError(error.message || "Erro ao corrigir dados das empresas");
-    }
-  };
-
-  const handleFixAdminUser = async () => {
-    try {
-      await fixAdminUser();
-      showSuccess("Usuário admin corrigido! Faça logout e login novamente.");
-    } catch (error) {
-      showError(error.message || "Erro ao corrigir usuário admin");
-    }
-  };
-
   const getStatusBadge = (enterprise) => {
+    if (enterprise.isDeleted) {
+      return (
+        <span className="px-2 py-1 text-xs rounded-full bg-gray-500 text-white">
+          Excluída
+        </span>
+      );
+    }
     if (enterprise.isBlocked) {
       return (
         <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
@@ -360,7 +357,7 @@ const SuperAdmin = () => {
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-8 w-8 text-gray-600" />
+              <Eye className="h-8 w-8 text-gray-600" />
               <div>
                 <p className="text-sm font-medium text-gray-600">Inativas</p>
                 <p className="text-2xl font-bold text-gray-600">
@@ -399,6 +396,7 @@ const SuperAdmin = () => {
                   <option value="active">Ativas</option>
                   <option value="blocked">Bloqueadas</option>
                   <option value="inactive">Inativas</option>
+                  <option value="deleted">Excluídas</option>
                 </select>
               </div>
             </div>
@@ -411,24 +409,6 @@ const SuperAdmin = () => {
               >
                 <Plus className="h-4 w-4" />
                 Nova Empresa
-              </button>
-
-              {/* Botão temporário para corrigir dados */}
-              <button
-                onClick={handleFixDates}
-                className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                title="Corrigir datas e campos das empresas existentes"
-              >
-                🔧 Corrigir Dados
-              </button>
-
-              {/* Botão para corrigir usuário admin */}
-              <button
-                onClick={handleFixAdminUser}
-                className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-                title="Corrigir enterpriseEmail do usuário admin"
-              >
-                🔧 Fix Admin
               </button>
             </div>
           </div>
@@ -517,33 +497,34 @@ const SuperAdmin = () => {
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleToggleActive(enterprise)}
-                            className={`p-1 ${
-                              enterprise.isActive
-                                ? "text-gray-600 hover:text-gray-900"
-                                : "text-green-600 hover:text-green-900"
-                            }`}
-                            title={enterprise.isActive ? "Desativar" : "Ativar"}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleBlock(enterprise)}
+                            onClick={() => handleToggleStatus(enterprise)}
                             className={`p-1 ${
                               enterprise.isBlocked
                                 ? "text-green-600 hover:text-green-900"
-                                : "text-red-600 hover:text-red-900"
+                                : enterprise.isActive
+                                ? "text-red-600 hover:text-red-900"
+                                : "text-green-600 hover:text-green-900"
                             }`}
                             title={
-                              enterprise.isBlocked ? "Desbloquear" : "Bloquear"
+                              enterprise.isBlocked 
+                                ? "Ativar" 
+                                : enterprise.isActive 
+                                ? "Bloquear" 
+                                : "Ativar"
                             }
                           >
-                            <Ban className="h-4 w-4" />
+                            {enterprise.isBlocked ? (
+                              <CheckCircle className="h-4 w-4" />
+                            ) : enterprise.isActive ? (
+                              <Ban className="h-4 w-4" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4" />
+                            )}
                           </button>
                           <button
-                            onClick={() => handleDeleteEnterprise(enterprise)}
+                            onClick={() => handlePermanentDeleteEnterprise(enterprise)}
                             className="text-red-600 hover:text-red-900 p-1"
-                            title="Excluir"
+                            title="Excluir Permanentemente"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
