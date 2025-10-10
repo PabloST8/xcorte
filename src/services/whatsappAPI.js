@@ -14,14 +14,7 @@ class WhatsAppAPI {
       const requestBody = { phoneNumber };
       console.log("📦 Corpo da requisição:", JSON.stringify(requestBody));
 
-      // Determina a URL base dependendo do ambiente
-      const isDevelopment =
-        window.location.hostname.includes("localhost") ||
-        window.location.hostname.includes("127.0.0.1") ||
-        window.location.port === "4000";
-      const apiUrl = isDevelopment
-        ? "/api/sendCode"
-        : "https://x-corte-api.codxis.com.br/api/sendCode";
+      const apiUrl = "https://x-corte-api.codxis.com.br/api/sendCode"; // Sempre usar produção
 
       console.log("🌐 Usando URL:", apiUrl);
 
@@ -29,7 +22,6 @@ class WhatsAppAPI {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isDevelopment ? {} : { Origin: window.location.origin }),
         },
         body: JSON.stringify(requestBody),
       });
@@ -103,14 +95,7 @@ class WhatsAppAPI {
     try {
       console.log("🔍 Verificando código:", userCode, "para:", phoneNumber);
 
-      // Determina a URL base dependendo do ambiente
-      const isDevelopment =
-        window.location.hostname.includes("localhost") ||
-        window.location.hostname.includes("127.0.0.1") ||
-        window.location.port === "4000";
-      const apiUrl = isDevelopment
-        ? "/api/verifyCode"
-        : "https://x-corte-api.codxis.com.br/api/verifyCode";
+      const apiUrl = "https://x-corte-api.codxis.com.br/api/verifyCode"; // Sempre usar produção
 
       console.log("🌐 Usando URL:", apiUrl);
 
@@ -118,7 +103,6 @@ class WhatsAppAPI {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isDevelopment ? {} : { Origin: window.location.origin }),
         },
         body: JSON.stringify({ phoneNumber, userCode }),
       });

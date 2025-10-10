@@ -78,7 +78,11 @@ async function sendWhatsAppMessage(phoneNumber, message) {
   const instance = process.env.EVOLUTION_INSTANCE || "default";
 
   // Se não há credenciais, simula envio
-  if (!apiKey || apiKey === "sua_chave_da_api_aqui") {
+  if (
+    !apiKey ||
+    apiKey === "sua_chave_da_api_aqui" ||
+    apiKey === "sua_chave_da_evolution_api"
+  ) {
     console.log(`📱 SIMULAÇÃO - Enviando para ${phoneNumber}: ${message}`);
     return { success: true, simulated: true };
   }
