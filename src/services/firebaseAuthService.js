@@ -19,58 +19,69 @@ import {
   limit,
   getDocs,
 } from "firebase/firestore";
+import { mapFirebaseError } from "../utils/authErrors";
 
 const auth = getAuth();
 
 async function signIn(email, password) {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  const idToken = await cred.user.getIdToken();
-  // Documento de usuário é indexado pelo email (padrão atual do projeto)
-  let userDocData = null;
   try {
-    // Tenta buscar por ID = email (padrão antigo)
-    const ref = doc(db, "users", email);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      userDocData = snap.data();
-    } else {
-      // Fallback: consultar por campo email
-      const q = query(
-        collection(db, "users"),
-        where("email", "==", email),
-        limit(1)
-      );
-      const qs = await getDocs(q);
-      if (!qs.empty) userDocData = qs.docs[0].data();
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const idToken = await cred.user.getIdToken();
+    // Documento de usuário é indexado pelo email (padrão atual do projeto)
+    let userDocData = null;
+    try {
+      // Tenta buscar por ID = email (padrão antigo)
+      const ref = doc(db, "users", email);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        userDocData = snap.data();
+      } else {
+        // Fallback: consultar por campo email
+        const q = query(
+          collection(db, "users"),
+          where("email", "==", email),
+          limit(1)
+        );
+        const qs = await getDocs(q);
+        if (!qs.empty) userDocData = qs.docs[0].data();
+      }
+    } catch (e) {
+      console.warn("[firebaseAuthService] Falha ao buscar doc de usuário:", e);
     }
-  } catch (e) {
-    console.warn("[firebaseAuthService] Falha ao buscar doc de usuário:", e);
+    const mergedUser = {
+      uid: cred.user.uid,
+      email: cred.user.email,
+      ...userDocData,
+    };
+    return { user: mergedUser, token: idToken };
+  } catch (error) {
+    // Usar mapeamento de erros para mensagens mais amigáveis
+    throw new Error(mapFirebaseError(error));
   }
-  const mergedUser = {
-    uid: cred.user.uid,
-    email: cred.user.email,
-    ...userDocData,
-  };
-  return { user: mergedUser, token: idToken };
 }
 
 // Cria usuário de cliente no Firebase Auth e documento em 'users'
 async function signUp(email, password, extraData = {}) {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  const idToken = await cred.user.getIdToken();
-  const baseDoc = {
-    email,
-    role: "client",
-    status: "active",
-    createdAt: new Date().toISOString(),
-    ...extraData,
-  };
   try {
-    await setDoc(doc(db, "users", email), baseDoc, { merge: true });
-  } catch (e) {
-    console.error("[firebaseAuthService] Falha ao criar doc de usuário:", e);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const idToken = await cred.user.getIdToken();
+    const baseDoc = {
+      email,
+      role: "client",
+      status: "active",
+      createdAt: new Date().toISOString(),
+      ...extraData,
+    };
+    try {
+      await setDoc(doc(db, "users", email), baseDoc, { merge: true });
+    } catch (e) {
+      console.error("[firebaseAuthService] Falha ao criar doc de usuário:", e);
+    }
+    return { user: { uid: cred.user.uid, email, ...baseDoc }, token: idToken };
+  } catch (error) {
+    // Usar mapeamento de erros para mensagens mais amigáveis
+    throw new Error(mapFirebaseError(error));
   }
-  return { user: { uid: cred.user.uid, email, ...baseDoc }, token: idToken };
 }
 
 async function getCurrentUserToken(forceRefresh = false) {

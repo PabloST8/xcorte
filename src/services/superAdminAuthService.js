@@ -6,6 +6,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { mapFirebaseError } from "../utils/authErrors";
 
 class SuperAdminAuthService {
   constructor() {
@@ -38,7 +39,10 @@ class SuperAdminAuthService {
       return user;
     } catch (error) {
       console.error("❌ Erro no login Super Admin:", error);
-      throw new Error(`Erro de autenticação: ${error.message}`);
+
+      // Usar mapeamento de erros para mensagens mais amigáveis
+      const errorMessage = mapFirebaseError(error);
+      throw new Error(errorMessage);
     }
   }
 

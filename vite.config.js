@@ -8,13 +8,6 @@ export default defineConfig({
     port: 4000,
     host: "0.0.0.0",
     strictPort: true,
-    proxy: {
-      "/api": {
-        target: "https://x-corte-api.codxis.com.br",
-        changeOrigin: true,
-        secure: true,
-      },
-    },
   },
   preview: {
     port: 4000,

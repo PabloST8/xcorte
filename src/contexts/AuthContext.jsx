@@ -554,7 +554,7 @@ export const AuthProvider = ({ children }) => {
 
       return {
         success: false,
-        error: error.message || "Credenciais inválidas",
+        error: error.message || "Usuário ou senha inválidos",
       };
     }
   };

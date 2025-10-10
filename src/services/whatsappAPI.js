@@ -3,7 +3,7 @@
 
 class WhatsAppAPI {
   constructor() {
-    this.baseURL = "/api";
+    this.baseURL = "https://x-corte-api.codxis.com.br/api";
   }
 
   // Endpoint POST /api/sendCode
@@ -14,8 +14,7 @@ class WhatsAppAPI {
       const requestBody = { phoneNumber };
       console.log("📦 Corpo da requisição:", JSON.stringify(requestBody));
 
-      const apiUrl = "https://x-corte-api.codxis.com.br/api/sendCode"; // Sempre usar produção
-
+      const apiUrl = `${this.baseURL}/sendCode`;
       console.log("🌐 Usando URL:", apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -95,8 +94,7 @@ class WhatsAppAPI {
     try {
       console.log("🔍 Verificando código:", userCode, "para:", phoneNumber);
 
-      const apiUrl = "https://x-corte-api.codxis.com.br/api/verifyCode"; // Sempre usar produção
-
+      const apiUrl = `${this.baseURL}/verifyCode`;
       console.log("🌐 Usando URL:", apiUrl);
 
       const response = await fetch(apiUrl, {

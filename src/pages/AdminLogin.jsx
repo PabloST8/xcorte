@@ -51,11 +51,11 @@ export default function AdminLogin() {
         // Redirecionar para dashboard admin
         navigate("/admin/dashboard");
       } else {
-        setError(result.error || "Credenciais inválidas");
+        setError(result.error || "Usuário ou senha inválidos");
       }
     } catch (error) {
       console.error("Erro no login admin:", error);
-      setError("Erro inesperado. Tente novamente.");
+      setError(error.message || "Usuário ou senha inválidos");
     } finally {
       setLoading(false);
     }
