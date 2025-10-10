@@ -49,16 +49,25 @@ export default function EnterpriseDetector({ children }) {
         if (foundEnterprise) {
           console.log("🏢 Empresa encontrada:", foundEnterprise);
           console.log("✅ Status isActive:", foundEnterprise.isActive);
+          console.log("🔒 Status isBlocked:", foundEnterprise.isBlocked);
 
-          // Verificar se a empresa está bloqueada (isActive = false)
-          if (!foundEnterprise.isActive) {
+          // Verificar se a empresa está bloqueada
+          // Se isBlocked for undefined, considera como false (não bloqueada)
+          const isEnterpriseBlocked = foundEnterprise.isBlocked === true;
+
+          if (isEnterpriseBlocked) {
             console.log(
-              "🚫 Empresa bloqueada (isActive = false):",
+              "🚫 Empresa bloqueada (isBlocked = true):",
               foundEnterprise.name
             );
             setIsBlocked(true);
             setIsReady(true);
             return;
+          } else {
+            console.log(
+              "✅ Empresa não bloqueada, permitindo acesso:",
+              foundEnterprise.name
+            );
           }
 
           selectEnterprise(foundEnterprise);

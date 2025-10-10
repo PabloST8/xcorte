@@ -149,15 +149,20 @@ class SuperAdminService {
       await this.ensureAuthenticated();
 
       const enterprise = await this.getEnterpriseById(enterpriseId);
-      const newBlockedStatus = !enterprise.isBlocked;
+      // Se isBlocked for undefined, considera como false (não bloqueada)
+      const currentBlockedStatus = enterprise.isBlocked === true;
+      const newBlockedStatus = !currentBlockedStatus;
 
       await this.updateEnterprise(enterpriseId, {
         isBlocked: newBlockedStatus,
+        // Também garantir que isActive esteja definido
+        isActive: enterprise.isActive !== false ? true : enterprise.isActive,
       });
 
       console.log(
         `✅ Empresa ${newBlockedStatus ? "bloqueada" : "desbloqueada"}:`,
-        enterpriseId
+        enterpriseId,
+        `(isBlocked: ${newBlockedStatus})`
       );
       return newBlockedStatus;
     } catch (error) {
@@ -172,15 +177,20 @@ class SuperAdminService {
       await this.ensureAuthenticated();
 
       const enterprise = await this.getEnterpriseById(enterpriseId);
-      const newActiveStatus = !enterprise.isActive;
+      // Se isActive for undefined, considera como true (ativa)
+      const currentActiveStatus = enterprise.isActive !== false;
+      const newActiveStatus = !currentActiveStatus;
 
       await this.updateEnterprise(enterpriseId, {
         isActive: newActiveStatus,
+        // Também garantir que isBlocked esteja definido
+        isBlocked: enterprise.isBlocked === true ? true : false,
       });
 
       console.log(
         `✅ Empresa ${newActiveStatus ? "ativada" : "desativada"}:`,
-        enterpriseId
+        enterpriseId,
+        `(isActive: ${newActiveStatus})`
       );
       return newActiveStatus;
     } catch (error) {
