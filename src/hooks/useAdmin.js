@@ -89,27 +89,51 @@ export const useUpdateAppointmentStatus = () => {
 
   return useMutation({
     mutationFn: async ({ appointmentId, status }) => {
+      console.log("🔄 useUpdateAppointmentStatus iniciado:", {
+        appointmentId,
+        status,
+        enterpriseEmail,
+      });
+
       // Tentar atualizar no Firestore primeiro
       try {
+        console.log("📡 Tentando atualizar no Firestore...");
         const response =
           await firestoreAppointmentsService.updateAppointmentStatus(
             appointmentId,
             status,
             enterpriseEmail
           );
+
+        console.log("📡 Resposta do Firestore:", response);
+
         if (response.success) {
+          console.log("✅ Firestore atualizado com sucesso");
           return response;
         }
       } catch (error) {
-        console.log("Firestore indisponível, usando fallback:", error);
+        console.log("❌ Firestore indisponível, usando fallback:", error);
       }
 
       // Fallback para adminService
-      return adminService.updateAppointmentStatus(appointmentId, status);
+      console.log("🔄 Usando fallback adminService...");
+      const fallbackResponse = await adminService.updateAppointmentStatus(
+        appointmentId,
+        status
+      );
+      console.log("📡 Resposta do fallback:", fallbackResponse);
+      return fallbackResponse;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("✅ useUpdateAppointmentStatus sucesso:", data);
       queryClient.invalidateQueries({ queryKey: ["admin", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "dashboard-stats"] });
+    },
+    onError: (error) => {
+      console.error("❌ useUpdateAppointmentStatus erro:", error);
+      alert(
+        "Erro ao atualizar status: " + (error.message || "Erro desconhecido")
+      );
     },
   });
 };

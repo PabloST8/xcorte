@@ -18,6 +18,7 @@ import { superAdminAuthService } from "../services/superAdminAuthService";
 import SuperAdminLogin from "../components/SuperAdminLogin";
 import NotificationPopup from "../components/NotificationPopup";
 import { formatDateBR } from "../utils/dateUtils";
+import { formatPhone } from "../utils/phoneUtils";
 import { createAdminUser } from "../utils/createAdminUser";
 
 const SuperAdmin = () => {
@@ -147,6 +148,8 @@ const SuperAdmin = () => {
   const handleCreateEnterprise = async (e) => {
     e.preventDefault();
     try {
+      console.log("🏢 Tentando criar empresa:", formData);
+
       // 1. Criar a empresa
       await createEnterprise(formData);
       showSuccess("Empresa criada com sucesso!");
@@ -177,7 +180,10 @@ const SuperAdmin = () => {
       setShowCreateModal(false);
       resetForm();
     } catch (error) {
-      showError(error.message || "Erro ao criar empresa");
+      console.error("❌ Erro ao criar empresa:", error);
+      const errorMessage = error.message || "Erro ao criar empresa";
+      console.log("❌ Exibindo erro para usuário:", errorMessage);
+      showError(errorMessage);
     }
   };
 
@@ -598,11 +604,19 @@ const SuperAdmin = () => {
                       type="email"
                       value={formData.email}
                       onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
+                        setFormData({
+                          ...formData,
+                          email: e.target.value.toLowerCase().trim(),
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="empresa@email.com"
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Para testar o bug CT003-002, tente usar:
+                      pablofafstar@gmail.com ou empresaadmin@xcortes.com
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -612,10 +626,18 @@ const SuperAdmin = () => {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
+                        setFormData({
+                          ...formData,
+                          phone: formatPhone(e.target.value),
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="(11) 99999-9999"
+                      maxLength={15}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Máximo 11 dígitos
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -716,10 +738,18 @@ const SuperAdmin = () => {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
+                        setFormData({
+                          ...formData,
+                          phone: formatPhone(e.target.value),
+                        })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="(11) 99999-9999"
+                      maxLength={15}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Máximo 11 dígitos
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

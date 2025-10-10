@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { superAdminService } from "../services/superAdminService";
 import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
+import { syncTestEnterprisesToFirestore } from "../utils/syncTestEnterprises";
 
 export const useSuperAdmin = () => {
   const [enterprises, setEnterprises] = useState([]);
@@ -19,6 +20,10 @@ export const useSuperAdmin = () => {
     setLoading(true);
     setError(null);
     try {
+      // Sincronizar empresas de teste primeiro
+      console.log("🔄 Sincronizando empresas de teste para Firestore...");
+      await syncTestEnterprisesToFirestore();
+
       // Tentar carregar do Firestore primeiro
       const data = await firestoreEnterpriseService.getEnterprises();
       setEnterprises(data);
@@ -77,9 +82,19 @@ export const useSuperAdmin = () => {
       setLoading(true);
       setError(null);
       try {
+        console.log(
+          "🔧 useSuperAdmin: Iniciando criação de empresa:",
+          enterpriseData
+        );
+
         // Usar Firestore diretamente
         const newEnterprise = await firestoreEnterpriseService.createEnterprise(
           enterpriseData
+        );
+
+        console.log(
+          "✅ useSuperAdmin: Empresa criada com sucesso:",
+          newEnterprise
         );
         setEnterprises((prev) => [newEnterprise, ...prev]);
 
@@ -97,6 +112,7 @@ export const useSuperAdmin = () => {
 
         return newEnterprise;
       } catch (err) {
+        console.error("❌ useSuperAdmin: Erro ao criar empresa:", err);
         setError(err.message || "Erro ao criar empresa");
         throw err;
       } finally {

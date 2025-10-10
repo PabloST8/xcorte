@@ -28,12 +28,18 @@ export const firestoreEnterpriseService = {
       }
 
       // Verificar se a empresa já existe
+      console.log("🔍 Verificando se email já existe:", enterpriseData.email);
       const existingEnterprise = await this.getEnterpriseByEmail(
         enterpriseData.email
       );
+      console.log("🔍 Empresa encontrada:", existingEnterprise);
+
       if (existingEnterprise) {
+        console.log("❌ Email duplicado encontrado! Rejeitando criação.");
         throw new Error("Já existe uma empresa com este email");
       }
+
+      console.log("✅ Email disponível, prosseguindo com criação.");
 
       // Preparar dados da empresa
       const now = Timestamp.now();
@@ -76,12 +82,25 @@ export const firestoreEnterpriseService = {
   // Buscar empresa por email
   async getEnterpriseByEmail(email) {
     try {
+      console.log("🔍 getEnterpriseByEmail - Buscando email:", email);
       const enterpriseRef = doc(db, "enterprises", email);
       const enterpriseDoc = await getDoc(enterpriseRef);
 
+      console.log(
+        "📋 getEnterpriseByEmail - Documento existe?",
+        enterpriseDoc.exists()
+      );
+
       if (enterpriseDoc.exists()) {
-        return { id: enterpriseDoc.id, ...enterpriseDoc.data() };
+        const result = { id: enterpriseDoc.id, ...enterpriseDoc.data() };
+        console.log("✅ getEnterpriseByEmail - Empresa encontrada:", result);
+        return result;
       }
+
+      console.log(
+        "🔍 getEnterpriseByEmail - Nenhuma empresa encontrada para email:",
+        email
+      );
       return null;
     } catch (error) {
       console.error("❌ Erro ao buscar empresa por email:", error);

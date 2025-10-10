@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teste de Validação de Email Duplicado</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      .test-area {
+        background: #f5f5f5;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+      }
+      .error {
+        color: red;
+      }
+      .success {
+        color: green;
+      }
+      .info {
+        color: blue;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🧪 Teste de Validação de Email Duplicado</h1>
+
+    <div class="test-area">
+      <h3>Cenário de Teste CT003-002</h3>
+      <p><strong>Given:</strong> O SAdmin está no formulário "Nova Empresa"</p>
+      <p>
+        <strong>When:</strong> O SAdmin preenche todos os campos, mas insere um
+        E-mail já existente (ex: barbeariamikael@gmail.com)
+      </p>
+      <p><strong>And:</strong> O SAdmin clica em "Salvar Alterações"</p>
+      <p>
+        <strong>Then:</strong> Uma mensagem de erro informando que o e-mail já
+        está em uso deve ser exibida
+      </p>
+      <p><strong>And:</strong> O formulário deve permanecer aberto.</p>
+    </div>
+
+    <div class="test-area">
+      <button onclick="createInitialEnterprises()">
+        0. Criar Empresas Iniciais
+      </button>
+      <div id="create-result"></div>
+    </div>
+
+    <div class="test-area">
+      <button onclick="testFirestoreConnection()">
+        1. Testar Conexão Firestore
+      </button>
+      <div id="firestore-result"></div>
+    </div>
+
+    <div class="test-area">
+      <button onclick="listExistingEmails()">
+        2. Listar Emails Existentes
+      </button>
+      <div id="emails-result"></div>
+    </div>
+
+    <div class="test-area">
+      <button onclick="testEmailValidation()">
+        3. Testar Validação de Email Duplicado
+      </button>
+      <div id="validation-result"></div>
+    </div>
+
+    <script>
+      // Configuração do Firebase (atualizada com as credenciais corretas do projeto xcortes-e6f64)
+      const firebaseConfig = {
+        apiKey: "AIzaSyBYKvlk8ioYDecLYg-yupH1Oyy5U_ury9s",
+        authDomain: "xcortes-e6f64.firebaseapp.com",
+        projectId: "xcortes-e6f64",
+        storageBucket: "xcortes-e6f64.firebasestorage.app",
+        messagingSenderId: "1016197568464",
+        appId: "1:1016197568464:web:f6ee67ab1ffbdb333d4bd5",
+        measurementId: "G-KMS1SVW06E",
+      };
+
+      // Inicializar Firebase
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+
+      function log(elementId, message, type = "info") {
+        const element = document.getElementById(elementId);
+        const className =
+          type === "error" ? "error" : type === "success" ? "success" : "info";
+        element.innerHTML += `<p class="${className}">${message}</p>`;
+        console.log(message);
+      }
+
+      async function createInitialEnterprises() {
+        const resultDiv = document.getElementById("create-result");
+        resultDiv.innerHTML = "<p>🔄 Criando empresas iniciais...</p>";
+
+        try {
+          // Empresas de teste
+          const testEnterprises = [
+            {
+              id: "pablofafstar@gmail.com",
+              name: "Barbearia do Pablo",
+              email: "pablofafstar@gmail.com",
+              phone: "(11) 99999-2222",
+              address: "Rua Augusta, 1234 - Consolação, São Paulo - SP",
+              displayName: "Barbearia do Pablo",
+              active: true,
+              blocked: false,
+              isActive: true,
+              isBlocked: false,
+              createdAt: firebase.firestore.Timestamp.now(),
+              updatedAt: firebase.firestore.Timestamp.now(),
+            },
+            {
+              id: "empresaadmin@xcortes.com",
+              name: "XCorte Admin",
+              email: "empresaadmin@xcortes.com",
+              phone: "(11) 99999-1111",
+              address: "Av. Paulista, 567 - Bela Vista, São Paulo - SP",
+              displayName: "XCorte Admin",
+              active: true,
+              blocked: false,
+              isActive: true,
+              isBlocked: false,
+              createdAt: firebase.firestore.Timestamp.now(),
+              updatedAt: firebase.firestore.Timestamp.now(),
+            },
+            {
+              id: "barbeariamikael@gmail.com",
+              name: "Barbearia Mikael",
+              email: "barbeariamikael@gmail.com",
+              phone: "(11) 98888-7777",
+              address: "Rua das Palmeiras, 456 - Vila Madalena, São Paulo - SP",
+              displayName: "Barbearia Mikael",
+              active: true,
+              blocked: false,
+              isActive: true,
+              isBlocked: false,
+              createdAt: firebase.firestore.Timestamp.now(),
+              updatedAt: firebase.firestore.Timestamp.now(),
+            },
+          ];
+
+          log("create-result", "📝 Criando empresas...", "info");
+
+          for (const enterprise of testEnterprises) {
+            try {
+              log("create-result", `📝 Criando: ${enterprise.email}`, "info");
+              await db
+                .collection("enterprises")
+                .doc(enterprise.email)
+                .set(enterprise);
+              log("create-result", `✅ Criada: ${enterprise.name}`, "success");
+            } catch (error) {
+              log(
+                "create-result",
+                `❌ Erro ao criar ${enterprise.email}: ${error.message}`,
+                "error"
+              );
+            }
+          }
+
+          log(
+            "create-result",
+            "🎉 Empresas criadas! Agora teste a validação.",
+            "success"
+          );
+        } catch (error) {
+          log("create-result", `❌ Erro geral: ${error.message}`, "error");
+        }
+      }
+
+      async function testFirestoreConnection() {
+        const resultDiv = document.getElementById("firestore-result");
+        resultDiv.innerHTML = "<p>🔄 Testando conexão...</p>";
+
+        try {
+          const testDoc = await db.collection("enterprises").limit(1).get();
+          log(
+            "firestore-result",
+            "✅ Conexão com Firestore estabelecida!",
+            "success"
+          );
+          log(
+            "firestore-result",
+            `📊 Encontradas ${testDoc.size} empresas (primeira consulta)`,
+            "info"
+          );
+        } catch (error) {
+          log(
+            "firestore-result",
+            `❌ Erro na conexão: ${error.message}`,
+            "error"
+          );
+        }
+      }
+
+      async function listExistingEmails() {
+        const resultDiv = document.getElementById("emails-result");
+        resultDiv.innerHTML = "<p>🔄 Carregando emails...</p>";
+
+        try {
+          const snapshot = await db.collection("enterprises").get();
+          log(
+            "emails-result",
+            `📋 Total de empresas: ${snapshot.size}`,
+            "info"
+          );
+
+          if (snapshot.size === 0) {
+            log(
+              "emails-result",
+              "⚠️ Nenhuma empresa encontrada no Firestore!",
+              "error"
+            );
+            return;
+          }
+
+          const emails = [];
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            emails.push({ id: doc.id, email: data.email, name: data.name });
+          });
+
+          log("emails-result", "📧 Emails existentes:", "info");
+          emails.forEach((item) => {
+            log("emails-result", `- ${item.email} (${item.name})`, "info");
+          });
+        } catch (error) {
+          log("emails-result", `❌ Erro ao listar: ${error.message}`, "error");
+        }
+      }
+
+      async function testEmailValidation() {
+        const resultDiv = document.getElementById("validation-result");
+        resultDiv.innerHTML = "<p>🔄 Testando validação...</p>";
+
+        const testEmails = [
+          "pablofafstar@gmail.com",
+          "empresaadmin@xcortes.com",
+          "barbeariamikael@gmail.com",
+          "teste-novo-email@teste.com",
+        ];
+
+        for (const email of testEmails) {
+          try {
+            log("validation-result", `🔍 Testando email: ${email}`, "info");
+
+            const doc = await db.collection("enterprises").doc(email).get();
+            if (doc.exists) {
+              log(
+                "validation-result",
+                `✅ Email ${email} JÁ EXISTE - validação deve rejeitar`,
+                "success"
+              );
+            } else {
+              log(
+                "validation-result",
+                `ℹ️ Email ${email} disponível - pode ser criado`,
+                "info"
+              );
+            }
+          } catch (error) {
+            log(
+              "validation-result",
+              `❌ Erro ao verificar ${email}: ${error.message}`,
+              "error"
+            );
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

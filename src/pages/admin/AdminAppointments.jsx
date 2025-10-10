@@ -369,7 +369,18 @@ export default function AdminAppointments() {
     newStatus,
     appointmentInfo = {}
   ) => {
-    console.log("🔄 Alterando status:", { appointmentId, newStatus });
+    console.log("🔄 handleStatusChange iniciado:", {
+      appointmentId,
+      newStatus,
+      appointmentInfo,
+      isUpdating,
+    });
+
+    // Verificar se já está atualizando
+    if (isUpdating) {
+      console.log("⏸️ Atualização já em andamento, ignorando...");
+      return;
+    }
 
     // Garantir que enviamos os status canônicos do backend (pt-BR)
     const mapOut = (s) => {
@@ -392,7 +403,15 @@ export default function AdminAppointments() {
     console.log("📝 Status mapeado:", {
       original: newStatus,
       mapped: mappedStatus,
+      availableStatuses: Object.values(BOOKING_STATUS),
     });
+
+    // Verificar se o status é válido
+    if (!Object.values(BOOKING_STATUS).includes(mappedStatus)) {
+      console.error("❌ Status inválido:", mappedStatus);
+      alert("Status inválido: " + mappedStatus);
+      return;
+    }
 
     // Verificar se está tentando cancelar
     if (mappedStatus === BOOKING_STATUS.CANCELADO) {
@@ -409,13 +428,17 @@ Horário: ${serviceTime}
 Esta ação não pode ser desfeita.`;
 
       if (window.confirm(confirmMessage)) {
+        console.log("✅ Confirmação de cancelamento recebida");
         updateStatus({ appointmentId, status: mappedStatus });
+      } else {
+        console.log("❌ Cancelamento não confirmado");
       }
       // Se não confirmou, não faz nada (mantém o status atual)
       return;
     }
 
     // Para outros status, atualiza diretamente
+    console.log("🚀 Executando updateStatus...");
     updateStatus({ appointmentId, status: mappedStatus });
   };
 
@@ -489,7 +512,10 @@ Esta ação não pode ser desfeita.`;
             </label>
             <select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                console.log("🔄 Filtro de período alterado:", e.target.value);
+                setDateFilter(e.target.value);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             >
               <option value="today">Hoje</option>
@@ -506,14 +532,17 @@ Esta ação não pode ser desfeita.`;
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                console.log("🔄 Filtro de status alterado:", e.target.value);
+                setStatusFilter(e.target.value);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
             >
               <option value="all">Todos</option>
-              <option value="scheduled">Agendado</option>
-              <option value="confirmed">Confirmado</option>
-              <option value="completed">Concluído</option>
-              <option value="cancelled">Cancelado</option>
+              <option value="agendado">Agendado</option>
+              <option value="confirmado">Confirmado</option>
+              <option value="concluido">Concluído</option>
+              <option value="cancelado">Cancelado</option>
             </select>
           </div>
 
@@ -526,10 +555,14 @@ Esta ação não pode ser desfeita.`;
                 type="text"
                 placeholder="Nome do cliente..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  console.log("🔍 Campo de busca alterado:", e.target.value);
+                  setSearchTerm(e.target.value);
+                }}
                 onKeyPress={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
+                    console.log("⏎ Enter pressionado, disparando busca");
                     triggerSearch();
                   }
                 }}
@@ -537,8 +570,12 @@ Esta ação não pode ser desfeita.`;
               />
               <button
                 type="button"
-                onClick={triggerSearch}
-                className={`px-3 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                onClick={() => {
+                  console.log("🔍 Botão de busca clicado");
+                  triggerSearch();
+                }}
+                disabled={isSearching}
+                className={`px-3 py-2 rounded-lg transition-colors focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 ${
                   isSearching
                     ? "bg-yellow-600 text-white hover:bg-yellow-700"
                     : "bg-amber-600 text-white hover:bg-amber-700"
@@ -548,6 +585,11 @@ Esta ação não pode ser desfeita.`;
                 <Search className="w-5 h-5" />
               </button>
             </div>
+            {debouncedSearchTerm && (
+              <div className="text-sm text-gray-500 mt-1">
+                Buscando por: "{debouncedSearchTerm}"
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -627,36 +669,67 @@ Esta ação não pode ser desfeita.`;
                   <td className="px-6 py-4 whitespace-nowrap">
                     <select
                       value={
-                        // Normalizar para os valores canônicos
-                        ((s) => {
-                          switch ((s || "").toLowerCase()) {
-                            case "scheduled":
-                              return BOOKING_STATUS.AGENDADO;
-                            case "confirmed":
-                              return BOOKING_STATUS.CONFIRMADO;
-                            case "completed":
-                              return BOOKING_STATUS.CONCLUIDO;
-                            case "cancelled":
-                            case "canceled":
-                              return BOOKING_STATUS.CANCELADO;
-                            default:
-                              return s;
+                        // Normalizar para os valores canônicos com debug
+                        (() => {
+                          const originalStatus = appointment.status;
+                          const normalized = ((s) => {
+                            switch ((s || "").toLowerCase()) {
+                              case "scheduled":
+                                return BOOKING_STATUS.AGENDADO;
+                              case "confirmed":
+                                return BOOKING_STATUS.CONFIRMADO;
+                              case "completed":
+                                return BOOKING_STATUS.CONCLUIDO;
+                              case "cancelled":
+                              case "canceled":
+                                return BOOKING_STATUS.CANCELADO;
+                              default:
+                                return s;
+                            }
+                          })(originalStatus);
+
+                          // Debug - só loga se não está normalizado corretamente
+                          if (
+                            !Object.values(BOOKING_STATUS).includes(normalized)
+                          ) {
+                            console.log("⚠️ Status não reconhecido:", {
+                              originalStatus,
+                              normalized,
+                            });
                           }
-                        })(appointment.status)
+
+                          return normalized || BOOKING_STATUS.AGENDADO;
+                        })()
                       }
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        console.log("🔄 Select onChange disparado:", {
+                          appointmentId: appointment.id,
+                          newValue: e.target.value,
+                          clientName: appointment.clientName,
+                        });
                         handleStatusChange(appointment.id, e.target.value, {
                           clientName: appointment.clientName,
                           date: formatDateTableBR(
                             appointment.appointmentDate || appointment.date
                           ),
                           time: formatTimeBR(appointment.startTime),
-                        })
-                      }
+                        });
+                      }}
                       disabled={isUpdating}
-                      className={`text-xs font-medium px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-amber-500 ${getStatusColor(
+                      className={`text-xs font-medium px-2 py-1 rounded-full border focus:ring-2 focus:ring-amber-500 focus:outline-none cursor-pointer ${getStatusColor(
                         appointment.status
                       )}`}
+                      style={{
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        backgroundImage:
+                          "url(\"data:image/svg+xml;utf8,<svg fill='black' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>\")",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 4px center",
+                        backgroundSize: "16px",
+                        paddingRight: "24px",
+                      }}
                     >
                       <option value={BOOKING_STATUS.AGENDADO}>Agendado</option>
                       <option value={BOOKING_STATUS.CONFIRMADO}>
