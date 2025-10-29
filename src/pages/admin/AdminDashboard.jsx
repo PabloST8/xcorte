@@ -20,6 +20,23 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Debug para verificar a estrutura da empresa
+    console.log("🔍 Empresa atual para upload:", {
+      currentEnterprise,
+      id: currentEnterprise.id,
+      email: currentEnterprise.email,
+      hasId: !!currentEnterprise.id,
+      hasEmail: !!currentEnterprise.email,
+    });
+
+    // Usar email como ID se id não estiver disponível
+    const enterpriseId = currentEnterprise.id || currentEnterprise.email;
+
+    if (!enterpriseId) {
+      alert("Erro: ID da empresa não encontrado");
+      return;
+    }
+
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/jpeg,image/jpg,image/png,image/webp";
@@ -30,9 +47,11 @@ export default function AdminDashboard() {
       setUploadingPhoto(true);
 
       try {
+        console.log("📤 Fazendo upload com enterpriseId:", enterpriseId);
+
         // Usar o serviço real para upload
         const result = await enterprisePhotoService.uploadPhoto(
-          currentEnterprise.id,
+          enterpriseId,
           file
         );
 

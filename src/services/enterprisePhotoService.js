@@ -12,8 +12,14 @@ export const enterprisePhotoService = {
   // Upload de foto da empresa
   async uploadPhoto(enterpriseId, file) {
     try {
+      // Validação do enterpriseId
+      if (!enterpriseId) {
+        throw new Error("Enterprise ID é obrigatório para upload de foto");
+      }
+
       console.log("📤 Iniciando upload da foto da empresa...", {
         enterpriseId,
+        enterpriseIdType: typeof enterpriseId,
         fileName: file.name,
         fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
         fileType: file.type,
@@ -38,9 +44,20 @@ export const enterprisePhotoService = {
       const timestamp = Date.now();
       const fileExtension = file.name.split(".").pop();
       const fileName = `${timestamp}.${fileExtension}`;
+
+      // Sanitizar enterpriseId para uso em path (remover caracteres especiais)
+      const sanitizedEnterpriseId = String(enterpriseId)
+        .replace(/[^a-zA-Z0-9@.-]/g, "_")
+        .replace(/\s+/g, "_");
+
+      console.log(
+        "📁 Criando path:",
+        `enterprise-photos/${sanitizedEnterpriseId}/${fileName}`
+      );
+
       const photoRef = ref(
         storage,
-        `enterprise-photos/${enterpriseId}/${fileName}`
+        `enterprise-photos/${sanitizedEnterpriseId}/${fileName}`
       );
 
       // Upload do arquivo
