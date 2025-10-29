@@ -7,6 +7,7 @@ import { ProtectedRoute, GuestRoute } from "./components/ProtectedRoute";
 import AdminLayout from "./layouts/AdminLayout";
 import EnterpriseDetector from "./components/EnterpriseDetector";
 import FloatingMenu from "./components/FloatingMenu";
+import { usePageTitle } from "./hooks/usePageTitle";
 
 import Home from "./pages/Home";
 import ServiceDetails from "./pages/ServiceDetails";
@@ -26,6 +27,8 @@ import DebugEnterprises from "./pages/DebugEnterprises";
 import MyAppointments from "./pages/MyAppointments";
 import TestBookingAPI from "./pages/TestBookingAPI";
 import ApiDiagnostic from "./components/ApiDiagnostic";
+import FirebaseDebugger from "./components/FirebaseDebugger";
+import PhotoDebugger from "./components/PhotoDebugger";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -47,6 +50,9 @@ const queryClient = new QueryClient({
 
 // Layout principal (sem navbar para home da barbearia)
 function Layout() {
+  // Hook para atualizar título da página e favicon baseado na empresa atual
+  usePageTitle();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Outlet />
@@ -86,6 +92,26 @@ const router = createBrowserRouter([
       </EnterpriseDetector>
     ),
     children: [{ index: true, element: <ApiDiagnostic /> }],
+  },
+  // Página de depuração Firebase
+  {
+    path: "/firebase-debug",
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
+    children: [{ index: true, element: <FirebaseDebugger /> }],
+  },
+  // Página de depuração de fotos
+  {
+    path: "/photo-debug",
+    element: (
+      <EnterpriseDetector>
+        <Layout />
+      </EnterpriseDetector>
+    ),
+    children: [{ index: true, element: <PhotoDebugger /> }],
   },
   // Rota raiz - redireciona automaticamente para empresa
   {

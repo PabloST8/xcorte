@@ -5,10 +5,12 @@ import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
 import { formatDateBR } from "../../utils/dateUtils";
 import { enterprisePhotoService } from "../../services/enterprisePhotoService";
+import { firestoreEnterpriseService } from "../../services/firestoreEnterpriseService";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
-  const { currentEnterprise, updateCurrentEnterprise } = useEnterprise();
+  const { currentEnterprise, updateCurrentEnterprise, loadEnterprises } =
+    useEnterprise();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Função para lidar com upload da foto da barbearia
@@ -35,10 +37,31 @@ export default function AdminDashboard() {
         );
 
         if (result.success) {
-          // Atualizar a empresa no contexto com a nova foto
+          console.log("✅ Upload realizado com sucesso:", result);
+
+          // Método 1: Atualizar empresa no contexto com a nova foto
           updateCurrentEnterprise({
             photoURL: result.photoURL,
+            photoPath: result.photoPath,
+            photoUpdatedAt: new Date(),
           });
+
+          // Método 2: Recarregar empresa do Firestore para garantir sincronização
+          try {
+            const updatedEnterprise =
+              await firestoreEnterpriseService.getEnterpriseByEmail(
+                currentEnterprise.email
+              );
+            if (updatedEnterprise) {
+              console.log(
+                "🔄 Empresa recarregada do Firestore:",
+                updatedEnterprise
+              );
+              updateCurrentEnterprise(updatedEnterprise);
+            }
+          } catch (reloadError) {
+            console.warn("⚠️ Erro ao recarregar empresa:", reloadError);
+          }
 
           alert(
             `✅ Foto da barbearia "${currentEnterprise.name}" atualizada com sucesso!`

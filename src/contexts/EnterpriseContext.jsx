@@ -404,7 +404,7 @@ export const EnterpriseProvider = ({ children }) => {
       );
 
       // Salvar nos cookies
-      Cookies.set("selectedEnterprise", JSON.stringify(updatedEnterprise), {
+      Cookies.set("current_enterprise", JSON.stringify(updatedEnterprise), {
         expires: 30,
       });
     },
