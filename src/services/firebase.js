@@ -1,31 +1,31 @@
 // Configuração e inicialização do Firebase
-// Atualizado para setembro 2025 - Suporte para novos domínios .firebasestorage.app
+// Atualizado para resolver problemas de DNS com .firebasestorage.app
 
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 
-// Configuração do bucket - Suporta tanto .appspot.com quanto .firebasestorage.app
-const _projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-let _bucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+console.log("🔧 Inicializando Firebase...");
 
-// Se não especificado, usa o padrão
+// Configuração do bucket - Força uso do .appspot.com para compatibilidade
+const _projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+
+// CORREÇÃO: Sempre usar .appspot.com em vez de .firebasestorage.app
+// para evitar problemas de DNS (ERR_NAME_NOT_RESOLVED)
+let _bucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+if (_bucket && _bucket.includes(".firebasestorage.app")) {
+  _bucket = _bucket.replace(".firebasestorage.app", ".appspot.com");
+  console.log(
+    "🔧 Convertendo bucket para .appspot.com para compatibilidade:",
+    _bucket
+  );
+}
+
+// Se não especificado, usa o padrão .appspot.com
 if (!_bucket && _projectId) {
   _bucket = `${_projectId}.appspot.com`;
 }
-
-console.log("🔧 Inicializando Firebase...");
-console.log("Firebase Env Check:", {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY
-    ? "***definida***"
-    : "❌ undefined",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-});
 
 console.log("Firebase Config:", {
   projectId: _projectId,
@@ -47,5 +47,4 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
-// Log para debug
-console.log("Firebase inicializado com bucket:", _bucket);
+console.log("✅ Firebase inicializado com bucket:", _bucket);

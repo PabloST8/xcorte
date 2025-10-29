@@ -103,69 +103,108 @@ class ModernPhotoService {
   // Upload com progresso
   async uploadUserPhoto(userId, file, onProgress = null) {
     try {
-      console.log("📸 modernPhotoService.uploadUserPhoto chamado:", {
+      console.log("📸 [INÍCIO] modernPhotoService.uploadUserPhoto:", {
         userId,
         fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        timestamp: new Date().toISOString(),
       });
 
       // Garante autenticação
+      console.log("📸 [STEP 1] Verificando autenticação...");
       const isAuth = await this.ensureAuth();
+      console.log("📸 [STEP 1] Resultado da autenticação:", isAuth);
+
       if (!isAuth) {
         throw new Error("Falha na autenticação");
       }
 
       // Valida arquivo
+      console.log("📸 [STEP 2] Validando arquivo...");
       this.validateFile(file);
+      console.log("📸 [STEP 2] Arquivo validado com sucesso");
 
       // Comprime se necessário
+      console.log("📸 [STEP 3] Comprimindo arquivo...");
       const compressedFile = await this.compressImage(file);
-      console.log("📸 Arquivo comprimido:", {
+      console.log("📸 [STEP 3] Arquivo comprimido:", {
         originalSize: file.size,
         compressedSize: compressedFile.size,
+        compression: `${((1 - compressedFile.size / file.size) * 100).toFixed(
+          1
+        )}%`,
       });
 
       // Cria referência do arquivo
       const timestamp = Date.now();
       const fileName = `user-photos/${userId}/${timestamp}.jpg`;
-      const storageRef = ref(storage, fileName);
+      console.log("📸 [STEP 4] Criando referência do arquivo:", fileName);
 
-      console.log("📸 Fazendo upload para:", fileName);
+      const storageRef = ref(storage, fileName);
+      console.log("📸 [STEP 4] Referência criada:", {
+        bucket: storage.app.options.storageBucket,
+        fullPath: fileName,
+      });
+
+      console.log("📸 [STEP 5] Iniciando upload...");
 
       // Upload com acompanhamento de progresso
       const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+      console.log("📸 [STEP 5] UploadTask criado");
 
       return new Promise((resolve, reject) => {
         uploadTask.on(
           "state_changed",
           (snapshot) => {
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(
+              `📸 [PROGRESS] Upload em andamento: ${progress.toFixed(1)}%`
+            );
+
             if (onProgress) {
-              const progress =
-                (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
               onProgress(progress);
             }
           },
           (error) => {
-            console.error("📸 Erro no upload:", error);
+            console.error("📸 [ERROR] Erro no upload:", {
+              code: error.code,
+              message: error.message,
+              serverResponse: error.serverResponse,
+              customData: error.customData,
+            });
             reject(new Error(`Erro no upload: ${error.message}`));
           },
           async () => {
             try {
+              console.log("📸 [SUCCESS] Upload concluído, obtendo URL...");
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              console.log("📸 Upload concluído:", { downloadURL, fileName });
-              resolve({
+              console.log("📸 [SUCCESS] URL obtida:", downloadURL);
+
+              const result = {
                 url: downloadURL,
                 path: fileName,
                 size: compressedFile.size,
-              });
+              };
+
+              console.log("📸 [FINAL] Upload completo:", result);
+              resolve(result);
             } catch (error) {
-              console.error("📸 Erro ao obter URL:", error);
+              console.error("📸 [ERROR] Erro ao obter URL:", error);
               reject(new Error(`Erro ao obter URL: ${error.message}`));
             }
           }
         );
       });
     } catch (error) {
-      console.error("Erro no upload de foto:", error);
+      console.error("📸 [FATAL ERROR] Erro no upload de foto:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        userId,
+        fileName: file?.name,
+      });
       throw error;
     }
   }
