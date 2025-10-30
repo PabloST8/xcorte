@@ -15,24 +15,26 @@ export default function PhotoSyncTest() {
     console.log("🧪 PhotoSyncTest - Empresa atual:", {
       name: currentEnterprise?.name,
       id: currentEnterprise?.id,
+      email: currentEnterprise?.email,
       hasPhoto: !!currentEnterprise?.photoURL,
       photoURL: currentEnterprise?.photoURL,
     });
   }, [currentEnterprise]);
 
   const testPhotoSync = async () => {
-    if (!currentEnterprise?.id) {
-      alert("Nenhuma empresa selecionada");
+    const enterpriseId = currentEnterprise?.id || currentEnterprise?.email;
+    if (!enterpriseId) {
+      alert("Nenhuma empresa selecionada - id e email são undefined");
       return;
     }
 
     try {
-      console.log("🧪 Testando sincronização de foto...");
+      console.log("🧪 Testando sincronização de foto para:", enterpriseId);
 
       // Buscar foto atual do Firestore
       const photoData =
         await enterprisePhotoSyncService.getCurrentPhotoFromFirestore(
-          currentEnterprise.id
+          enterpriseId
         );
 
       console.log("📸 Foto encontrada no Firestore:", photoData);
@@ -51,8 +53,9 @@ export default function PhotoSyncTest() {
   };
 
   const testPhotoUpload = async () => {
-    if (!currentEnterprise?.id) {
-      alert("Nenhuma empresa selecionada");
+    const enterpriseId = currentEnterprise?.id || currentEnterprise?.email;
+    if (!enterpriseId) {
+      alert("Nenhuma empresa selecionada - id e email são undefined");
       return;
     }
 
@@ -67,10 +70,10 @@ export default function PhotoSyncTest() {
       setUploadingPhoto(true);
 
       try {
-        console.log("🧪 Testando upload de foto...");
+        console.log("🧪 Testando upload de foto para:", enterpriseId);
 
         const result = await enterprisePhotoServiceNoAuth.uploadPhoto(
-          currentEnterprise.id,
+          enterpriseId,
           file
         );
 
@@ -112,6 +115,11 @@ export default function PhotoSyncTest() {
 
       <div style={{ marginBottom: "10px" }}>
         <strong>Empresa:</strong> {currentEnterprise?.name || "Nenhuma"}
+      </div>
+
+      <div style={{ marginBottom: "10px" }}>
+        <strong>ID:</strong>{" "}
+        {currentEnterprise?.id || currentEnterprise?.email || "❌ Nenhum"}
       </div>
 
       <div style={{ marginBottom: "10px" }}>
