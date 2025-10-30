@@ -55,11 +55,35 @@ export default function EnterpriseDetector({ children }) {
             console.log("🏢 Empresa encontrada:", foundEnterprise);
             console.log("✅ Status isActive:", foundEnterprise.isActive);
             console.log("🔒 Status isBlocked:", foundEnterprise.isBlocked);
+            console.log(
+              "🔍 DEBUG - Dados completos da empresa:",
+              JSON.stringify(foundEnterprise, null, 2)
+            );
 
             // Verificar se a empresa está bloqueada ou inativa
-            // Se isBlocked for undefined, considera como false (não bloqueada)
-            const isEnterpriseBlocked = foundEnterprise.isBlocked === true;
-            const isEnterpriseInactive = foundEnterprise.isActive === false;
+            // Usa isBlocked se disponível, senão usa blocked como fallback
+            // Se ambos forem undefined, considera como false (não bloqueada)
+            const blockedStatus =
+              foundEnterprise.isBlocked ?? foundEnterprise.blocked ?? false;
+            const isEnterpriseBlocked = blockedStatus === true;
+
+            // Usa isActive se disponível, senão usa active como fallback
+            // Se ambos forem undefined, considera como true (ativa)
+            const activeStatus =
+              foundEnterprise.isActive ?? foundEnterprise.active ?? true;
+            const isEnterpriseInactive = activeStatus === false;
+
+            console.log("🔍 DEBUG - Validação:", {
+              isBlocked: foundEnterprise.isBlocked,
+              blocked: foundEnterprise.blocked,
+              blockedStatus,
+              isActive: foundEnterprise.isActive,
+              active: foundEnterprise.active,
+              activeStatus,
+              isEnterpriseBlocked,
+              isEnterpriseInactive,
+              willBlock: isEnterpriseBlocked || isEnterpriseInactive,
+            });
 
             if (isEnterpriseBlocked || isEnterpriseInactive) {
               console.log(
