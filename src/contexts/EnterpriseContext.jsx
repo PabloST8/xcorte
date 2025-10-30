@@ -36,69 +36,7 @@ export const EnterpriseProvider = ({ children }) => {
   // Email da empresa padrão - usando empresaadmin@xcortes.com
   const DEFAULT_ENTERPRISE_EMAIL = "empresaadmin@xcortes.com";
 
-  useEffect(() => {
-    loadEnterprises();
-  }, [loadEnterprises]);
-
-  // Listener para atualizações de foto em tempo real
-  useEffect(() => {
-    const handlePhotoUpdate = (event) => {
-      const { enterpriseId, photoData } = event.detail;
-
-      console.log("📸 Foto atualizada via listener:", enterpriseId, photoData);
-
-      // Atualizar empresa atual se for a mesma (usar ID ou email como identificador)
-      if (
-        currentEnterprise &&
-        (currentEnterprise.id === enterpriseId ||
-          currentEnterprise.email === enterpriseId)
-      ) {
-        console.log("📸 Atualizando foto da empresa atual");
-        setCurrentEnterprise((prev) => ({
-          ...prev,
-          ...photoData,
-        }));
-
-        // Atualizar cookie
-        const updatedEnterprise = { ...currentEnterprise, ...photoData };
-        Cookies.set("current_enterprise", JSON.stringify(updatedEnterprise), {
-          expires: 30,
-        });
-      }
-
-      // Atualizar na lista de empresas (usar ID ou email como identificador)
-      setEnterprises((prev) =>
-        prev.map((enterprise) =>
-          enterprise.id === enterpriseId || enterprise.email === enterpriseId
-            ? { ...enterprise, ...photoData }
-            : enterprise
-        )
-      );
-    };
-
-    window.addEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
-
-    return () => {
-      window.removeEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
-    };
-  }, [currentEnterprise]);
-
-  // Sincronizar automaticamente quando o usuário mudar
-  useEffect(() => {
-    if (
-      enterprises.length > 0 &&
-      user &&
-      user.role === "admin" &&
-      user.enterpriseEmail
-    ) {
-      console.log(
-        "🔄 Auto-sincronizando empresa com usuário:",
-        user.enterpriseEmail
-      );
-      syncEnterpriseWithUser(user);
-    }
-  }, [user, enterprises.length, syncEnterpriseWithUser]);
-
+  // Declarar loadEnterprises primeiro, antes dos useEffects
   const loadEnterprises = useCallback(async () => {
     try {
       setLoading(true);
@@ -243,6 +181,69 @@ export const EnterpriseProvider = ({ children }) => {
       setLoading(false);
     }
   }, [user]); // Só depende do usuário
+
+  useEffect(() => {
+    loadEnterprises();
+  }, [loadEnterprises]);
+
+  // Listener para atualizações de foto em tempo real
+  useEffect(() => {
+    const handlePhotoUpdate = (event) => {
+      const { enterpriseId, photoData } = event.detail;
+
+      console.log("📸 Foto atualizada via listener:", enterpriseId, photoData);
+
+      // Atualizar empresa atual se for a mesma (usar ID ou email como identificador)
+      if (
+        currentEnterprise &&
+        (currentEnterprise.id === enterpriseId ||
+          currentEnterprise.email === enterpriseId)
+      ) {
+        console.log("📸 Atualizando foto da empresa atual");
+        setCurrentEnterprise((prev) => ({
+          ...prev,
+          ...photoData,
+        }));
+
+        // Atualizar cookie
+        const updatedEnterprise = { ...currentEnterprise, ...photoData };
+        Cookies.set("current_enterprise", JSON.stringify(updatedEnterprise), {
+          expires: 30,
+        });
+      }
+
+      // Atualizar na lista de empresas (usar ID ou email como identificador)
+      setEnterprises((prev) =>
+        prev.map((enterprise) =>
+          enterprise.id === enterpriseId || enterprise.email === enterpriseId
+            ? { ...enterprise, ...photoData }
+            : enterprise
+        )
+      );
+    };
+
+    window.addEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
+
+    return () => {
+      window.removeEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
+    };
+  }, [currentEnterprise]);
+
+  // Sincronizar automaticamente quando o usuário mudar
+  useEffect(() => {
+    if (
+      enterprises.length > 0 &&
+      user &&
+      user.role === "admin" &&
+      user.enterpriseEmail
+    ) {
+      console.log(
+        "🔄 Auto-sincronizando empresa com usuário:",
+        user.enterpriseEmail
+      );
+      syncEnterpriseWithUser(user);
+    }
+  }, [user, enterprises.length, syncEnterpriseWithUser]);
 
   const selectEnterprise = useCallback(async (enterprise) => {
     console.log(
