@@ -16,6 +16,7 @@ import EnterpriseAvatar from "../components/EnterpriseAvatar";
 import PhotoSyncTest from "../components/PhotoSyncTest";
 import ProductionPhotoTest from "../components/ProductionPhotoTest";
 import EnterpriseDebugInfo from "../components/EnterpriseDebugInfo";
+import FirestoreDebugInfo from "../components/FirestoreDebugInfo";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminLayout() {
@@ -409,6 +410,7 @@ export default function AdminLayout() {
         {/* Componente de teste para sincronização de fotos */}
         <ProductionPhotoTest />
         <EnterpriseDebugInfo />
+        <FirestoreDebugInfo />
         <PhotoSyncTest />
       </div>
     </div>

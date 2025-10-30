@@ -138,16 +138,19 @@ export const enterprisePhotoSyncService = {
 
   // Sincronizar foto com dados da empresa
   async syncPhotoWithEnterprise(enterprise) {
-    if (!enterprise || !enterprise.id) {
+    if (!enterprise || (!enterprise.id && !enterprise.email)) {
       console.warn("⚠️ Empresa inválida para sincronização de foto");
       return enterprise;
     }
 
+    // Usar ID se disponível, senão usar email como identificador
+    const enterpriseId = enterprise.id || enterprise.email;
+
     try {
-      console.log("🔄 Sincronizando foto com empresa:", enterprise.id);
+      console.log("🔄 Sincronizando foto com empresa:", enterpriseId);
 
       // Buscar foto mais recente do Firestore
-      const photoData = await this.getCurrentPhotoFromFirestore(enterprise.id);
+      const photoData = await this.getCurrentPhotoFromFirestore(enterpriseId);
 
       // Mesclar dados da foto com dados da empresa
       const updatedEnterprise = {

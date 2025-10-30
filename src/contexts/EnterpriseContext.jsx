@@ -288,14 +288,15 @@ export const EnterpriseProvider = ({ children }) => {
 
     // Sincronizar foto da empresa antes de definir como atual
     let enterpriseWithPhoto = enterprise;
-    if (enterprise?.id) {
+    if (enterprise?.id || enterprise?.email) {
       try {
         console.log("📸 Sincronizando foto da empresa selecionada...");
         enterpriseWithPhoto =
           await enterprisePhotoSyncService.syncPhotoWithEnterprise(enterprise);
 
-        // Inicializar listener de foto para esta empresa
-        enterprisePhotoSyncService.initializePhotoSync(enterprise.id);
+        // Inicializar listener de foto para esta empresa (usar ID ou email)
+        const enterpriseIdentifier = enterprise.id || enterprise.email;
+        enterprisePhotoSyncService.initializePhotoSync(enterpriseIdentifier);
       } catch (error) {
         console.error("❌ Erro ao sincronizar foto da empresa:", error);
       }
@@ -451,15 +452,19 @@ export const EnterpriseProvider = ({ children }) => {
       ) {
         console.log("📸 Sincronizando foto da empresa...");
         try {
+          // Usar ID se disponível, senão usar email como identificador
+          const enterpriseIdentifier =
+            currentEnterprise.id || currentEnterprise.email;
+
           // Inicializar sincronização de foto para esta empresa
           await enterprisePhotoSyncService.initializePhotoSync(
-            currentEnterprise.id
+            enterpriseIdentifier
           );
 
           // Obter dados mais recentes da foto
           const latestPhotoData =
             await enterprisePhotoSyncService.getCurrentPhotoFromFirestore(
-              currentEnterprise.id
+              enterpriseIdentifier
             );
 
           // Mesclar com dados atualizados
