@@ -357,6 +357,18 @@ export default function AdminLayout() {
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
+                {/* Debug: verificar dados antes de passar para EnterpriseAvatar */}
+                {React.useEffect(() => {
+                  console.log("🔍 AdminLayout - Passando para EnterpriseAvatar:", {
+                    hasCurrentEnterprise: !!currentEnterprise,
+                    enterpriseName: currentEnterprise?.name,
+                    enterpriseEmail: currentEnterprise?.email,
+                    enterpriseId: currentEnterprise?.id,
+                    hasPhotoURL: !!currentEnterprise?.photoURL,
+                    photoURL: currentEnterprise?.photoURL,
+                    fullObject: currentEnterprise
+                  });
+                }, [currentEnterprise])}
                 <EnterpriseAvatar enterprise={currentEnterprise} size="sm" />
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-700">
