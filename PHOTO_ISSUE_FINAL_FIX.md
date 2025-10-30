@@ -18,11 +18,13 @@ Esta incompatibilidade impedia que o contexto fosse atualizado quando a foto mud
 ### 1. Correção no EnterpriseContext.jsx
 
 **Antes:**
+
 ```javascript
 if (currentEnterprise && currentEnterprise.id === enterpriseId) {
 ```
 
 **Depois:**
+
 ```javascript
 if (currentEnterprise && (currentEnterprise.id === enterpriseId || currentEnterprise.email === enterpriseId)) {
 ```
@@ -30,21 +32,21 @@ if (currentEnterprise && (currentEnterprise.id === enterpriseId || currentEnterp
 ### 2. Correção na Lista de Empresas
 
 **Antes:**
+
 ```javascript
 prev.map((enterprise) =>
-  enterprise.id === enterpriseId
-    ? { ...enterprise, ...photoData }
-    : enterprise
-)
+  enterprise.id === enterpriseId ? { ...enterprise, ...photoData } : enterprise
+);
 ```
 
 **Depois:**
+
 ```javascript
 prev.map((enterprise) =>
-  (enterprise.id === enterpriseId || enterprise.email === enterpriseId)
+  enterprise.id === enterpriseId || enterprise.email === enterpriseId
     ? { ...enterprise, ...photoData }
     : enterprise
-)
+);
 ```
 
 ## 🔄 Fluxo Corrigido

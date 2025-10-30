@@ -48,7 +48,11 @@ export const EnterpriseProvider = ({ children }) => {
       console.log("📸 Foto atualizada via listener:", enterpriseId, photoData);
 
       // Atualizar empresa atual se for a mesma (usar ID ou email como identificador)
-      if (currentEnterprise && (currentEnterprise.id === enterpriseId || currentEnterprise.email === enterpriseId)) {
+      if (
+        currentEnterprise &&
+        (currentEnterprise.id === enterpriseId ||
+          currentEnterprise.email === enterpriseId)
+      ) {
         console.log("📸 Atualizando foto da empresa atual");
         setCurrentEnterprise((prev) => ({
           ...prev,
@@ -65,7 +69,7 @@ export const EnterpriseProvider = ({ children }) => {
       // Atualizar na lista de empresas (usar ID ou email como identificador)
       setEnterprises((prev) =>
         prev.map((enterprise) =>
-          (enterprise.id === enterpriseId || enterprise.email === enterpriseId)
+          enterprise.id === enterpriseId || enterprise.email === enterpriseId
             ? { ...enterprise, ...photoData }
             : enterprise
         )
