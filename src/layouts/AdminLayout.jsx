@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import EnterpriseAvatar from "../components/EnterpriseAvatar";
+import PhotoSyncTest from "../components/PhotoSyncTest";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminLayout() {
@@ -402,6 +403,9 @@ export default function AdminLayout() {
         <main className="flex-1">
           <Outlet />
         </main>
+
+        {/* Componente de teste para sincronização de fotos */}
+        <PhotoSyncTest />
       </div>
     </div>
   );

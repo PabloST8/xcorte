@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { publicEnterpriseFirestoreService } from "../services/publicEnterpriseFirestoreService";
 import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
+import { enterprisePhotoSyncService } from "../services/enterprisePhotoSyncService";
 import { USE_REMOTE_API } from "../config";
 import { barbershopService } from "../services/barbershopService";
 import Cookies from "js-cookie";
@@ -38,6 +39,45 @@ export const EnterpriseProvider = ({ children }) => {
   useEffect(() => {
     loadEnterprises();
   }, []);
+
+  // Listener para atualizações de foto em tempo real
+  useEffect(() => {
+    const handlePhotoUpdate = (event) => {
+      const { enterpriseId, photoData } = event.detail;
+
+      console.log("📸 Foto atualizada via listener:", enterpriseId, photoData);
+
+      // Atualizar empresa atual se for a mesma
+      if (currentEnterprise && currentEnterprise.id === enterpriseId) {
+        console.log("📸 Atualizando foto da empresa atual");
+        setCurrentEnterprise((prev) => ({
+          ...prev,
+          ...photoData,
+        }));
+
+        // Atualizar cookie
+        const updatedEnterprise = { ...currentEnterprise, ...photoData };
+        Cookies.set("current_enterprise", JSON.stringify(updatedEnterprise), {
+          expires: 30,
+        });
+      }
+
+      // Atualizar na lista de empresas
+      setEnterprises((prev) =>
+        prev.map((enterprise) =>
+          enterprise.id === enterpriseId
+            ? { ...enterprise, ...photoData }
+            : enterprise
+        )
+      );
+    };
+
+    window.addEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
+
+    return () => {
+      window.removeEventListener("enterprisePhotoUpdated", handlePhotoUpdate);
+    };
+  }, [currentEnterprise]);
 
   // Sincronizar automaticamente quando o usuário mudar
   useEffect(() => {
@@ -230,7 +270,7 @@ export const EnterpriseProvider = ({ children }) => {
     }
   };
 
-  const selectEnterprise = (enterprise) => {
+  const selectEnterprise = async (enterprise) => {
     console.log(
       "🔄 selectEnterprise chamado com:",
       enterprise?.name,
@@ -246,8 +286,23 @@ export const EnterpriseProvider = ({ children }) => {
       enterprise?.email !== currentEnterprise?.email
     );
 
-    setCurrentEnterprise(enterprise);
-    Cookies.set("current_enterprise", JSON.stringify(enterprise), {
+    // Sincronizar foto da empresa antes de definir como atual
+    let enterpriseWithPhoto = enterprise;
+    if (enterprise?.id) {
+      try {
+        console.log("📸 Sincronizando foto da empresa selecionada...");
+        enterpriseWithPhoto =
+          await enterprisePhotoSyncService.syncPhotoWithEnterprise(enterprise);
+
+        // Inicializar listener de foto para esta empresa
+        enterprisePhotoSyncService.initializePhotoSync(enterprise.id);
+      } catch (error) {
+        console.error("❌ Erro ao sincronizar foto da empresa:", error);
+      }
+    }
+
+    setCurrentEnterprise(enterpriseWithPhoto);
+    Cookies.set("current_enterprise", JSON.stringify(enterpriseWithPhoto), {
       expires: 30,
     });
 
@@ -382,14 +437,46 @@ export const EnterpriseProvider = ({ children }) => {
 
   // Função para atualizar empresa atual (para casos como upload de foto)
   const updateCurrentEnterprise = useCallback(
-    (updatedData) => {
+    async (updatedData) => {
       if (!currentEnterprise) return;
 
       console.log("🔄 Atualizando empresa atual:", updatedData);
 
+      // Se há dados de foto, sincronizar com o serviço de foto
+      let finalUpdatedData = updatedData;
+      if (
+        updatedData.photoURL ||
+        updatedData.photoPath ||
+        updatedData.photoUpdatedAt
+      ) {
+        console.log("📸 Sincronizando foto da empresa...");
+        try {
+          // Inicializar sincronização de foto para esta empresa
+          await enterprisePhotoSyncService.initializePhotoSync(
+            currentEnterprise.id
+          );
+
+          // Obter dados mais recentes da foto
+          const latestPhotoData =
+            await enterprisePhotoSyncService.getCurrentPhotoFromFirestore(
+              currentEnterprise.id
+            );
+
+          // Mesclar com dados atualizados
+          finalUpdatedData = {
+            ...updatedData,
+            ...latestPhotoData,
+          };
+
+          console.log("✅ Foto sincronizada:", finalUpdatedData);
+        } catch (error) {
+          console.error("❌ Erro ao sincronizar foto:", error);
+        }
+      }
+
       const updatedEnterprise = {
         ...currentEnterprise,
-        ...updatedData,
+        ...finalUpdatedData,
       };
 
       setCurrentEnterprise(updatedEnterprise);
