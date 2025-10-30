@@ -274,7 +274,7 @@ export const EnterpriseProvider = ({ children }) => {
     }
   };
 
-  const selectEnterprise = async (enterprise) => {
+  const selectEnterprise = useCallback(async (enterprise) => {
     console.log(
       "🔄 selectEnterprise chamado com:",
       enterprise?.name,
@@ -412,7 +412,7 @@ export const EnterpriseProvider = ({ children }) => {
         "⚠️ Não invalidando cache - empresas são iguais ou não há mudança"
       );
     }
-  };
+  }, [currentEnterprise, queryClient]); // Dependencies: currentEnterprise e queryClient
 
   const createEnterprise = async (enterpriseData) => {
     try {

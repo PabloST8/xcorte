@@ -109,7 +109,7 @@ export default function EnterpriseDetector({ children }) {
     enterpriseSlug,
     selectEnterprise,
     loadEnterprises,
-  ]);
+  ]); // selectEnterprise agora é useCallback, então não causará loop infinito
 
   // Mostra loading enquanto não está pronto
   if (!isReady) {
