@@ -38,7 +38,7 @@ export const EnterpriseProvider = ({ children }) => {
 
   useEffect(() => {
     loadEnterprises();
-  }, []);
+  }, [loadEnterprises]);
 
   // Listener para atualizações de foto em tempo real
   useEffect(() => {
@@ -97,39 +97,9 @@ export const EnterpriseProvider = ({ children }) => {
       );
       syncEnterpriseWithUser(user);
     }
-  }, [user, enterprises.length]);
+  }, [user, enterprises.length, syncEnterpriseWithUser]);
 
-  // Sincronizar automaticamente quando o usuário mudar
-  useEffect(() => {
-    if (
-      enterprises.length > 0 &&
-      user &&
-      user.role === "admin" &&
-      user.enterpriseEmail
-    ) {
-      console.log(
-        "🔄 Auto-sincronizando empresa com usuário:",
-        user.enterpriseEmail
-      );
-      syncEnterpriseWithUser(user);
-    }
-  }, [user, enterprises]);
-
-  const loadEnterprises = async () => {
-    // Após carregar as empresas, se já houver usuário logado, sincroniza imediatamente
-    if (user && user.enterpriseEmail) {
-      const found = enterprises.find((e) => e.email === user.enterpriseEmail);
-      if (found) {
-        setCurrentEnterprise(found);
-        Cookies.set("current_enterprise", JSON.stringify(found), {
-          expires: 30,
-        });
-        console.log(
-          "🔄 Empresa sincronizada com usuário após carregar empresas:",
-          found
-        );
-      }
-    }
+  const loadEnterprises = useCallback(async () => {
     try {
       setLoading(true);
       let enterprises = [];
@@ -272,7 +242,7 @@ export const EnterpriseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]); // Só depende do usuário
 
   const selectEnterprise = useCallback(async (enterprise) => {
     console.log(
