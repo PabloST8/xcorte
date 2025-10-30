@@ -1,6 +1,6 @@
 /**
  * Script para limpar funcionários inválidos/corrompidos do Firestore
- * 
+ *
  * Este script:
  * 1. Busca todos os funcionários da empresa pablofafstar@gmail.com
  * 2. Identifica funcionários com dados corrompidos/incompletos
@@ -38,7 +38,10 @@ async function cleanInvalidEmployees() {
   try {
     // Buscar todos os funcionários da empresa
     const employeesRef = collection(db, "employees");
-    const q = query(employeesRef, where("enterpriseEmail", "==", ENTERPRISE_EMAIL));
+    const q = query(
+      employeesRef,
+      where("enterpriseEmail", "==", ENTERPRISE_EMAIL)
+    );
     const snapshot = await getDocs(q);
 
     console.log(`📊 Total de registros encontrados: ${snapshot.size}\n`);

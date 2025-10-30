@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { publicEnterpriseFirestoreService } from "../services/publicEnterpriseFirestoreService";
 import { firestoreEnterpriseService } from "../services/firestoreEnterpriseService";
@@ -35,6 +36,18 @@ export const EnterpriseProvider = ({ children }) => {
 
   // Email da empresa padrão - usando empresaadmin@xcortes.com
   const DEFAULT_ENTERPRISE_EMAIL = "empresaadmin@xcortes.com";
+
+  // Usar ref para acessar currentEnterprise sem causar re-renders
+  const currentEnterpriseRef = useRef(currentEnterprise);
+  useEffect(() => {
+    currentEnterpriseRef.current = currentEnterprise;
+  }, [currentEnterprise]);
+
+  // Usar ref para acessar user sem causar re-renders
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Declarar loadEnterprises primeiro, antes dos useEffects
   const loadEnterprises = useCallback(async () => {
@@ -127,11 +140,12 @@ export const EnterpriseProvider = ({ children }) => {
 
       // Sempre sincronizar empresa com usuário logado, ignorando cookie antigo se necessário
       const savedEnterprise = Cookies.get("current_enterprise");
+      const currentUser = userRef.current;
       let initialEnterprise = null;
-      if (user && user.enterpriseEmail) {
+      if (currentUser && currentUser.enterpriseEmail) {
         // Se usuário logado, prioriza empresa do usuário
         initialEnterprise = enterprises.find(
-          (e) => e.email === user.enterpriseEmail
+          (e) => e.email === currentUser.enterpriseEmail
         );
         if (initialEnterprise) {
           setCurrentEnterprise(initialEnterprise);
@@ -180,11 +194,14 @@ export const EnterpriseProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [user]); // Só depende do usuário
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Carregar apenas uma vez ao montar
 
+  // Carregar empresas apenas uma vez ao montar
   useEffect(() => {
     loadEnterprises();
-  }, [loadEnterprises]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Rodar apenas ao montar
 
   // Listener para atualizações de foto em tempo real
   useEffect(() => {
@@ -229,13 +246,15 @@ export const EnterpriseProvider = ({ children }) => {
     };
   }, [currentEnterprise]);
 
-  // Função para sincronizar empresa com usuário logado - declarada antes do useEffect
+  // Função para sincronizar empresa com usuário logado - usando refs para evitar loops
   const syncEnterpriseWithUser = useCallback(
     (user) => {
+      const currentEnt = currentEnterpriseRef.current;
+
       console.log("🔄 syncEnterpriseWithUser chamado:", {
         user,
         enterprises,
-        currentEnterprise,
+        currentEnterprise: currentEnt,
       });
 
       if (!user || !user.enterpriseEmail) {
@@ -254,17 +273,14 @@ export const EnterpriseProvider = ({ children }) => {
         targetEnterprise
       );
 
-      if (
-        targetEnterprise &&
-        currentEnterprise?.email !== targetEnterprise.email
-      ) {
+      if (targetEnterprise && currentEnt?.email !== targetEnterprise.email) {
         console.log(
           `🔄 Sincronizando empresa: ${targetEnterprise.name} (${targetEnterprise.email})`
         );
         console.log(
           "🔄 Empresa anterior:",
-          currentEnterprise?.name,
-          currentEnterprise?.email
+          currentEnt?.name,
+          currentEnt?.email
         );
         console.log(
           "🔄 Empresa nova:",
@@ -283,31 +299,21 @@ export const EnterpriseProvider = ({ children }) => {
             "🗑️ Invalidando cache do React Query para empresa sincronizada:",
             targetEnterprise.email
           );
-          console.log("🗑️ QueryClient disponível:", !!queryClient);
-
-          // Verificar queries existentes antes da invalidação
-          const allQueries = queryClient.getQueriesData();
-          console.log(
-            "📋 Total de queries no cache antes da invalidação:",
-            allQueries.length
-          );
 
           // Método mais agressivo: remover queries antigas e invalidar
           try {
             // 1. Remover todas as queries de admin da empresa anterior
             if (
-              currentEnterprise?.email &&
-              currentEnterprise.email !== targetEnterprise.email
+              currentEnt?.email &&
+              currentEnt.email !== targetEnterprise.email
             ) {
               console.log(
                 "🗑️ Removendo queries da empresa anterior:",
-                currentEnterprise.email
+                currentEnt.email
               );
               queryClient.removeQueries({
                 predicate: (query) => {
-                  const hasOldEmail = query.queryKey.includes(
-                    currentEnterprise.email
-                  );
+                  const hasOldEmail = query.queryKey.includes(currentEnt.email);
                   if (hasOldEmail) {
                     console.log(
                       "🗑️ Removendo query com email antigo:",
@@ -321,7 +327,7 @@ export const EnterpriseProvider = ({ children }) => {
 
             // 2. Invalidar todas as queries de admin
             console.log("🗑️ Invalidando todas as queries de admin...");
-            const invalidateResult = queryClient.invalidateQueries({
+            queryClient.invalidateQueries({
               predicate: (query) => {
                 const shouldInvalidate =
                   query.queryKey.includes("admin") ||
@@ -331,59 +337,20 @@ export const EnterpriseProvider = ({ children }) => {
                   query.queryKey.includes("services") ||
                   query.queryKey.includes("appointments");
 
-                if (shouldInvalidate) {
-                  console.log("🗑️ Invalidando query:", query.queryKey);
-                }
-
                 return shouldInvalidate;
               },
             });
-
-            console.log(
-              "✅ Invalidação concluída, resultado:",
-              invalidateResult
-            );
-
-            // 3. Forçar refetch das queries da nova empresa
-            setTimeout(() => {
-              console.log(
-                "🔄 Forçando refetch para nova empresa:",
-                targetEnterprise.email
-              );
-              queryClient.refetchQueries({
-                predicate: (query) => {
-                  const shouldRefetch =
-                    query.queryKey.includes("admin") &&
-                    query.queryKey.includes(targetEnterprise.email);
-                  if (shouldRefetch) {
-                    console.log("🔄 Refetch query:", query.queryKey);
-                  }
-                  return shouldRefetch;
-                },
-              });
-            }, 200);
           } catch (error) {
             console.error("❌ Erro durante invalidação do cache:", error);
           }
-
-          // Verificar queries após invalidação
-          setTimeout(() => {
-            const queriesAfter = queryClient.getQueriesData();
-            console.log(
-              "📋 Total de queries no cache após invalidação:",
-              queriesAfter.length
-            );
-          }, 300);
-        } else {
-          console.error("❌ QueryClient não está disponível para invalidação!");
         }
       } else if (!targetEnterprise) {
         console.warn("⚠️ Empresa não encontrada:", user.enterpriseEmail);
       } else {
-        console.log("✅ Empresa já está correta:", currentEnterprise?.name);
+        console.log("✅ Empresa já está correta:", currentEnt?.name);
       }
     },
-    [enterprises, currentEnterprise, queryClient]
+    [enterprises, queryClient]
   );
 
   // Sincronizar automaticamente quando o usuário mudar
@@ -400,147 +367,153 @@ export const EnterpriseProvider = ({ children }) => {
       );
       syncEnterpriseWithUser(user);
     }
-  }, [user, enterprises.length, syncEnterpriseWithUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.enterpriseEmail, enterprises.length]); // Depende apenas do email do user e tamanho do array
 
-  const selectEnterprise = useCallback(async (enterprise) => {
-    console.log(
-      "🔄 selectEnterprise chamado com:",
-      enterprise?.name,
-      enterprise?.email
-    );
-    console.log(
-      "🔄 Empresa atual:",
-      currentEnterprise?.name,
-      currentEnterprise?.email
-    );
-    console.log(
-      "🔄 Empresas são diferentes?",
-      enterprise?.email !== currentEnterprise?.email
-    );
-
-    // Sincronizar foto da empresa antes de definir como atual
-    let enterpriseWithPhoto = enterprise;
-    if (enterprise?.id || enterprise?.email) {
-      try {
-        console.log("📸 Sincronizando foto da empresa selecionada...");
-        enterpriseWithPhoto =
-          await enterprisePhotoSyncService.syncPhotoWithEnterprise(enterprise);
-
-        // Inicializar listener de foto para esta empresa (usar ID ou email)
-        const enterpriseIdentifier = enterprise.id || enterprise.email;
-        enterprisePhotoSyncService.initializePhotoSync(enterpriseIdentifier);
-      } catch (error) {
-        console.error("❌ Erro ao sincronizar foto da empresa:", error);
-      }
-    }
-
-    setCurrentEnterprise(enterpriseWithPhoto);
-    Cookies.set("current_enterprise", JSON.stringify(enterpriseWithPhoto), {
-      expires: 30,
-    });
-
-    // Invalidar cache do React Query quando mudar de empresa
-    if (queryClient && enterprise?.email !== currentEnterprise?.email) {
+  const selectEnterprise = useCallback(
+    async (enterprise) => {
       console.log(
-        "🗑️ Invalidando cache do React Query para nova empresa:",
+        "🔄 selectEnterprise chamado com:",
+        enterprise?.name,
         enterprise?.email
       );
-      console.log("🗑️ QueryClient disponível:", !!queryClient);
-
-      // Verificar queries existentes antes da invalidação
-      const allQueries = queryClient.getQueriesData();
       console.log(
-        "📋 Total de queries no cache antes da invalidação:",
-        allQueries.length
+        "🔄 Empresa atual:",
+        currentEnterprise?.name,
+        currentEnterprise?.email
+      );
+      console.log(
+        "🔄 Empresas são diferentes?",
+        enterprise?.email !== currentEnterprise?.email
       );
 
-      // Método mais agressivo: remover queries antigas e invalidar
-      try {
-        // 1. Remover todas as queries de admin da empresa anterior
-        if (
-          currentEnterprise?.email &&
-          currentEnterprise.email !== enterprise.email
-        ) {
-          console.log(
-            "🗑️ Removendo queries da empresa anterior:",
-            currentEnterprise.email
-          );
-          queryClient.removeQueries({
-            predicate: (query) => {
-              const hasOldEmail = query.queryKey.includes(
-                currentEnterprise.email
-              );
-              if (hasOldEmail) {
-                console.log(
-                  "🗑️ Removendo query com email antigo:",
-                  query.queryKey
-                );
-              }
-              return hasOldEmail;
-            },
-          });
+      // Sincronizar foto da empresa antes de definir como atual
+      let enterpriseWithPhoto = enterprise;
+      if (enterprise?.id || enterprise?.email) {
+        try {
+          console.log("📸 Sincronizando foto da empresa selecionada...");
+          enterpriseWithPhoto =
+            await enterprisePhotoSyncService.syncPhotoWithEnterprise(
+              enterprise
+            );
+
+          // Inicializar listener de foto para esta empresa (usar ID ou email)
+          const enterpriseIdentifier = enterprise.id || enterprise.email;
+          enterprisePhotoSyncService.initializePhotoSync(enterpriseIdentifier);
+        } catch (error) {
+          console.error("❌ Erro ao sincronizar foto da empresa:", error);
         }
-
-        // 2. Invalidar todas as queries de admin
-        console.log("🗑️ Invalidando todas as queries de admin...");
-        const invalidateResult = queryClient.invalidateQueries({
-          predicate: (query) => {
-            const shouldInvalidate =
-              query.queryKey.includes("admin") ||
-              query.queryKey.includes("staff") ||
-              query.queryKey.includes("employees") ||
-              query.queryKey.includes("products") ||
-              query.queryKey.includes("services") ||
-              query.queryKey.includes("appointments");
-
-            if (shouldInvalidate) {
-              console.log("🗑️ Invalidando query:", query.queryKey);
-            }
-
-            return shouldInvalidate;
-          },
-        });
-
-        console.log("✅ Invalidação concluída, resultado:", invalidateResult);
-
-        // 3. Forçar refetch das queries da nova empresa
-        setTimeout(() => {
-          console.log(
-            "🔄 Forçando refetch para nova empresa:",
-            enterprise.email
-          );
-          queryClient.refetchQueries({
-            predicate: (query) => {
-              const shouldRefetch =
-                query.queryKey.includes("admin") &&
-                query.queryKey.includes(enterprise.email);
-              if (shouldRefetch) {
-                console.log("🔄 Refetch query:", query.queryKey);
-              }
-              return shouldRefetch;
-            },
-          });
-        }, 200);
-      } catch (error) {
-        console.error("❌ Erro durante invalidação do cache:", error);
       }
 
-      // Verificar queries após invalidação
-      setTimeout(() => {
-        const queriesAfter = queryClient.getQueriesData();
+      setCurrentEnterprise(enterpriseWithPhoto);
+      Cookies.set("current_enterprise", JSON.stringify(enterpriseWithPhoto), {
+        expires: 30,
+      });
+
+      // Invalidar cache do React Query quando mudar de empresa
+      if (queryClient && enterprise?.email !== currentEnterprise?.email) {
         console.log(
-          "📋 Total de queries no cache após invalidação:",
-          queriesAfter.length
+          "🗑️ Invalidando cache do React Query para nova empresa:",
+          enterprise?.email
         );
-      }, 300);
-    } else if (!queryClient) {
-      console.error("❌ QueryClient não está disponível para invalidação!");
-    } else {
-      console.log(
-        "⚠️ Não invalidando cache - empresas são iguais ou não há mudança"
-      );
-    }
-  }, [currentEnterprise, queryClient]); // Dependencies: currentEnterprise e queryClient
+        console.log("🗑️ QueryClient disponível:", !!queryClient);
+
+        // Verificar queries existentes antes da invalidação
+        const allQueries = queryClient.getQueriesData();
+        console.log(
+          "📋 Total de queries no cache antes da invalidação:",
+          allQueries.length
+        );
+
+        // Método mais agressivo: remover queries antigas e invalidar
+        try {
+          // 1. Remover todas as queries de admin da empresa anterior
+          if (
+            currentEnterprise?.email &&
+            currentEnterprise.email !== enterprise.email
+          ) {
+            console.log(
+              "🗑️ Removendo queries da empresa anterior:",
+              currentEnterprise.email
+            );
+            queryClient.removeQueries({
+              predicate: (query) => {
+                const hasOldEmail = query.queryKey.includes(
+                  currentEnterprise.email
+                );
+                if (hasOldEmail) {
+                  console.log(
+                    "🗑️ Removendo query com email antigo:",
+                    query.queryKey
+                  );
+                }
+                return hasOldEmail;
+              },
+            });
+          }
+
+          // 2. Invalidar todas as queries de admin
+          console.log("🗑️ Invalidando todas as queries de admin...");
+          const invalidateResult = queryClient.invalidateQueries({
+            predicate: (query) => {
+              const shouldInvalidate =
+                query.queryKey.includes("admin") ||
+                query.queryKey.includes("staff") ||
+                query.queryKey.includes("employees") ||
+                query.queryKey.includes("products") ||
+                query.queryKey.includes("services") ||
+                query.queryKey.includes("appointments");
+
+              if (shouldInvalidate) {
+                console.log("🗑️ Invalidando query:", query.queryKey);
+              }
+
+              return shouldInvalidate;
+            },
+          });
+
+          console.log("✅ Invalidação concluída, resultado:", invalidateResult);
+
+          // 3. Forçar refetch das queries da nova empresa
+          setTimeout(() => {
+            console.log(
+              "🔄 Forçando refetch para nova empresa:",
+              enterprise.email
+            );
+            queryClient.refetchQueries({
+              predicate: (query) => {
+                const shouldRefetch =
+                  query.queryKey.includes("admin") &&
+                  query.queryKey.includes(enterprise.email);
+                if (shouldRefetch) {
+                  console.log("🔄 Refetch query:", query.queryKey);
+                }
+                return shouldRefetch;
+              },
+            });
+          }, 200);
+        } catch (error) {
+          console.error("❌ Erro durante invalidação do cache:", error);
+        }
+
+        // Verificar queries após invalidação
+        setTimeout(() => {
+          const queriesAfter = queryClient.getQueriesData();
+          console.log(
+            "📋 Total de queries no cache após invalidação:",
+            queriesAfter.length
+          );
+        }, 300);
+      } else if (!queryClient) {
+        console.error("❌ QueryClient não está disponível para invalidação!");
+      } else {
+        console.log(
+          "⚠️ Não invalidando cache - empresas são iguais ou não há mudança"
+        );
+      }
+    },
+    [currentEnterprise, queryClient]
+  ); // Dependencies: currentEnterprise e queryClient
 
   const createEnterprise = async (enterpriseData) => {
     try {

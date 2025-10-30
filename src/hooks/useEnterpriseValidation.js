@@ -16,7 +16,11 @@ export function useEnterpriseValidation() {
 
   const params = useParams();
   const location = useLocation();
-  const { enterprises, currentEnterprise, loading: enterpriseLoading } = useEnterprise();
+  const {
+    enterprises,
+    currentEnterprise,
+    loading: enterpriseLoading,
+  } = useEnterprise();
 
   useEffect(() => {
     const validateEnterprise = async () => {
@@ -27,9 +31,9 @@ export function useEnterpriseValidation() {
         }
 
         // Verificar se é uma rota que precisa de empresa específica
-        const needsEnterpriseValidation = 
-          location.pathname.includes('/empresa/') || 
-          location.pathname.includes('/agendamento/') ||
+        const needsEnterpriseValidation =
+          location.pathname.includes("/empresa/") ||
+          location.pathname.includes("/agendamento/") ||
           params.enterpriseId ||
           params.enterpriseSlug;
 
@@ -45,9 +49,9 @@ export function useEnterpriseValidation() {
         }
 
         // Extrair identificador da empresa da URL ou parâmetros
-        const enterpriseIdentifier = 
-          params.enterpriseId || 
-          params.enterpriseSlug || 
+        const enterpriseIdentifier =
+          params.enterpriseId ||
+          params.enterpriseSlug ||
           extractEnterpriseFromPath(location.pathname);
 
         console.log("🔍 Validando empresa:", {
@@ -85,7 +89,8 @@ export function useEnterpriseValidation() {
             enterprise.id === enterpriseIdentifier ||
             enterprise.email === enterpriseIdentifier ||
             enterprise.slug === enterpriseIdentifier ||
-            enterprise.name?.toLowerCase().replace(/\s+/g, "-") === enterpriseIdentifier
+            enterprise.name?.toLowerCase().replace(/\s+/g, "-") ===
+              enterpriseIdentifier
         );
 
         console.log("🔍 Resultado da busca:", {
@@ -124,7 +129,6 @@ export function useEnterpriseValidation() {
           loading: false,
           error: null,
         });
-
       } catch (error) {
         console.error("❌ Erro na validação da empresa:", error);
         setStatus({
@@ -137,7 +141,13 @@ export function useEnterpriseValidation() {
     };
 
     validateEnterprise();
-  }, [params, location.pathname, enterprises, enterpriseLoading, currentEnterprise]);
+  }, [
+    params,
+    location.pathname,
+    enterprises,
+    enterpriseLoading,
+    currentEnterprise,
+  ]);
 
   return status;
 }

@@ -236,22 +236,45 @@ function Home() {
           </div>
         )}
 
-        {/* Mensagem de Boas-vindas */}
-        {user && (
-          <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl p-6 mb-8 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-lg font-semibold mb-2">
-                Bem-vindo de volta, {user?.name || "Usuário"}!
-              </h3>
-              <p className="text-blue-100">
-                Pronto para agendar seu próximo serviço?
-              </p>
-            </div>
-            {/* elementos decorativos sutis */}
-            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-500 rounded-full opacity-20" />
-            <div className="absolute top-4 right-12 w-8 h-8 bg-blue-400 rounded-full opacity-30" />
+        {/* Mensagem de Boas-vindas - Para todos os usuários */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-xl p-6 mb-8 text-white relative overflow-hidden">
+          <div className="relative z-10">
+            {user ? (
+              <>
+                <h3 className="text-lg font-semibold mb-2">
+                  Bem-vindo de volta, {user?.name || "Usuário"}!
+                </h3>
+                <p className="text-blue-100">
+                  Pronto para agendar seu próximo serviço?
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold mb-2">Seja bem-vindo!</h3>
+                <p className="text-blue-100 mb-3">
+                  Crie uma conta ou entre para começar a agendar seus serviços.
+                </p>
+                <div className="flex gap-3 mt-4">
+                  <Link
+                    to="/auth/register"
+                    className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Criar Conta
+                  </Link>
+                  <Link
+                    to="/auth/login"
+                    className="bg-blue-500 hover:bg-blue-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-400"
+                  >
+                    Entrar
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
-        )}
+          {/* elementos decorativos sutis */}
+          <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-500 rounded-full opacity-20" />
+          <div className="absolute top-4 right-12 w-8 h-8 bg-blue-400 rounded-full opacity-30" />
+        </div>
 
         {/* Nossos Serviços - só mostrar se há categorias disponíveis */}
         {(isLoadingServices || serviceCategoriesFromData.length > 0) && (

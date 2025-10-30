@@ -65,12 +65,17 @@ export default function EnterpriseDetector({ children }) {
               console.log(
                 "🚫 Empresa bloqueada ou inativa:",
                 foundEnterprise.name,
-                { isBlocked: isEnterpriseBlocked, isActive: foundEnterprise.isActive }
+                {
+                  isBlocked: isEnterpriseBlocked,
+                  isActive: foundEnterprise.isActive,
+                }
               );
-              setValidationStatus({ 
-                isValid: false, 
-                reason: "blocked", 
-                error: `Empresa ${isEnterpriseBlocked ? 'bloqueada' : 'inativa'}` 
+              setValidationStatus({
+                isValid: false,
+                reason: "blocked",
+                error: `Empresa ${
+                  isEnterpriseBlocked ? "bloqueada" : "inativa"
+                }`,
               });
               setIsReady(true);
               return;
@@ -87,32 +92,28 @@ export default function EnterpriseDetector({ children }) {
           } else {
             console.log("❌ Empresa não encontrada para slug:", enterpriseSlug);
             // Empresa não encontrada
-            setValidationStatus({ 
-              isValid: false, 
-              reason: "not-found", 
-              error: `Empresa não encontrada: ${enterpriseSlug}` 
+            setValidationStatus({
+              isValid: false,
+              reason: "not-found",
+              error: `Empresa não encontrada: ${enterpriseSlug}`,
             });
             setIsReady(true);
           }
         }
       } catch (error) {
         console.error("❌ Erro ao inicializar empresa:", error);
-        setValidationStatus({ 
-          isValid: false, 
-          reason: "error", 
-          error: error.message 
+        setValidationStatus({
+          isValid: false,
+          reason: "error",
+          error: error.message,
         });
         setIsReady(true);
       }
     };
 
     initializeEnterprise();
-  }, [
-    enterprises,
-    enterpriseSlug,
-    selectEnterprise,
-    loadEnterprises,
-  ]); // Incluir todas as dependências para evitar warnings
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enterprises.length, enterpriseSlug]); // Apenas length e slug - funções causam loop
 
   // Mostra loading enquanto não está pronto
   if (!isReady) {
@@ -122,8 +123,8 @@ export default function EnterpriseDetector({ children }) {
   // Mostra tela de serviço indisponível se a validação falhou
   if (!validationStatus.isValid) {
     return (
-      <ServiceUnavailable 
-        reason={validationStatus.reason} 
+      <ServiceUnavailable
+        reason={validationStatus.reason}
         message={validationStatus.error}
       />
     );

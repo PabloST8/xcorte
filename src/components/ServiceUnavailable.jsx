@@ -24,7 +24,9 @@ export default function ServiceUnavailable({
         return {
           icon: AlertTriangle,
           title: title || "Página Não Encontrada",
-          message: message || "A barbearia que você está procurando não foi encontrada ou não existe.",
+          message:
+            message ||
+            "A barbearia que você está procurando não foi encontrada ou não existe.",
           color: "amber",
           bgColor: "bg-amber-50",
           iconColor: "text-amber-500",
@@ -34,7 +36,9 @@ export default function ServiceUnavailable({
         return {
           icon: AlertTriangle,
           title: title || "Serviço Temporariamente Indisponível",
-          message: message || "Esta barbearia está temporariamente indisponível. Por favor, tente novamente mais tarde.",
+          message:
+            message ||
+            "Esta barbearia está temporariamente indisponível. Por favor, tente novamente mais tarde.",
           color: "red",
           bgColor: "bg-red-50",
           iconColor: "text-red-500",
@@ -44,7 +48,9 @@ export default function ServiceUnavailable({
         return {
           icon: Clock,
           title: title || "Serviço Indisponível",
-          message: message || "Nosso serviço está temporariamente indisponível. Estamos trabalhando para resolver o problema.",
+          message:
+            message ||
+            "Nosso serviço está temporariamente indisponível. Estamos trabalhando para resolver o problema.",
           color: "blue",
           bgColor: "bg-blue-50",
           iconColor: "text-blue-500",
@@ -72,15 +78,19 @@ export default function ServiceUnavailable({
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className={`mx-auto flex justify-center w-24 h-24 rounded-full ${config.bgColor} mb-6`}>
-          <IconComponent className={`w-12 h-12 ${config.iconColor} self-center`} />
+        <div
+          className={`mx-auto flex justify-center w-24 h-24 rounded-full ${config.bgColor} mb-6`}
+        >
+          <IconComponent
+            className={`w-12 h-12 ${config.iconColor} self-center`}
+          />
         </div>
-        
+
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
             {config.title}
           </h1>
-          
+
           <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
             {config.message}
           </p>
@@ -95,7 +105,7 @@ export default function ServiceUnavailable({
                 Tentar Novamente
               </button>
             )}
-            
+
             <div className="sm:ml-3">
               <button
                 onClick={goHome}
@@ -109,7 +119,8 @@ export default function ServiceUnavailable({
           {/* Informações adicionais */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-sm text-gray-500">
-              Se o problema persistir, entre em contato conosco ou tente novamente em alguns minutos.
+              Se o problema persistir, entre em contato conosco ou tente
+              novamente em alguns minutos.
             </p>
           </div>
         </div>

@@ -1490,6 +1490,11 @@ export default function BookingOverlay({
                 {product?.name}
               </span>
             </h3>
+            {product?.description && (
+              <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                {product.description}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}

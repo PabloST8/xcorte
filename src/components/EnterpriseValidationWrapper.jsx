@@ -9,9 +9,9 @@ import LoadingSpinner from "./LoadingSpinner";
  * @param {React.ReactNode} props.children - Componentes filhos a serem renderizados se válido
  * @param {boolean} props.showLoadingSpinner - Mostrar spinner durante validação
  */
-export default function EnterpriseValidationWrapper({ 
-  children, 
-  showLoadingSpinner = true 
+export default function EnterpriseValidationWrapper({
+  children,
+  showLoadingSpinner = true,
 }) {
   const { isValid, reason, loading, error } = useEnterpriseValidation();
 
@@ -40,25 +40,29 @@ export default function EnterpriseValidationWrapper({
         case "not-found":
           return {
             title: "Barbearia Não Encontrada",
-            message: "A barbearia que você está procurando não foi encontrada. Verifique se a URL está correta ou se a barbearia ainda está ativa.",
+            message:
+              "A barbearia que você está procurando não foi encontrada. Verifique se a URL está correta ou se a barbearia ainda está ativa.",
             showRetry: true,
           };
         case "blocked":
           return {
             title: "Serviço Temporariamente Indisponível",
-            message: "Esta barbearia está temporariamente indisponível para agendamentos. Entre em contato diretamente com o estabelecimento ou tente novamente mais tarde.",
+            message:
+              "Esta barbearia está temporariamente indisponível para agendamentos. Entre em contato diretamente com o estabelecimento ou tente novamente mais tarde.",
             showRetry: false,
           };
         case "error":
           return {
             title: "Erro de Conexão",
-            message: "Ocorreu um erro ao verificar a disponibilidade do serviço. Verifique sua conexão com a internet e tente novamente.",
+            message:
+              "Ocorreu um erro ao verificar a disponibilidade do serviço. Verifique sua conexão com a internet e tente novamente.",
             showRetry: true,
           };
         default:
           return {
             title: "Serviço Indisponível",
-            message: "O serviço está temporariamente indisponível. Estamos trabalhando para resolver o problema.",
+            message:
+              "O serviço está temporariamente indisponível. Estamos trabalhando para resolver o problema.",
             showRetry: true,
           };
       }
