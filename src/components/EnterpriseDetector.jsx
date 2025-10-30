@@ -24,7 +24,10 @@ export default function EnterpriseDetector({ children }) {
         // Carrega as empresas se ainda não carregou
         if (!enterprises || enterprises.length === 0) {
           console.log("🔄 Carregando empresas...");
-          await loadEnterprises(false);
+          // Só chama loadEnterprises se realmente precisar, para evitar loops
+          if (loadEnterprises) {
+            await loadEnterprises();
+          }
           return;
         }
 
@@ -109,7 +112,7 @@ export default function EnterpriseDetector({ children }) {
     enterpriseSlug,
     selectEnterprise,
     loadEnterprises,
-  ]); // selectEnterprise agora é useCallback, então não causará loop infinito
+  ]); // Incluir todas as dependências para evitar warnings
 
   // Mostra loading enquanto não está pronto
   if (!isReady) {
