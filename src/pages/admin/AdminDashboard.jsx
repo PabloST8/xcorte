@@ -4,7 +4,7 @@ import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
 import { formatDateBR } from "../../utils/dateUtils";
-import { enterprisePhotoService } from "../../services/enterprisePhotoService";
+import { enterprisePhotoServiceNoAuth } from "../../services/enterprisePhotoServiceNoAuth";
 import { firestoreEnterpriseService } from "../../services/firestoreEnterpriseService";
 
 export default function AdminDashboard() {
@@ -49,8 +49,8 @@ export default function AdminDashboard() {
       try {
         console.log("📤 Fazendo upload com enterpriseId:", enterpriseId);
 
-        // Usar o serviço real para upload
-        const result = await enterprisePhotoService.uploadPhoto(
+        // Usar o serviço SEM autenticação anônima (temporário)
+        const result = await enterprisePhotoServiceNoAuth.uploadPhoto(
           enterpriseId,
           file
         );

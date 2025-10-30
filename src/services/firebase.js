@@ -11,20 +11,12 @@ console.log("🔧 Inicializando Firebase...");
 // Configuração do bucket - Força uso do .appspot.com para compatibilidade
 const _projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
-// CORREÇÃO: Sempre usar .appspot.com em vez de .firebasestorage.app
-// para evitar problemas de DNS (ERR_NAME_NOT_RESOLVED)
+// CORREÇÃO: Usar o bucket original .firebasestorage.app já que configuramos CORS nele
 let _bucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-if (_bucket && _bucket.includes(".firebasestorage.app")) {
-  _bucket = _bucket.replace(".firebasestorage.app", ".appspot.com");
-  console.log(
-    "🔧 Convertendo bucket para .appspot.com para compatibilidade:",
-    _bucket
-  );
-}
 
-// Se não especificado, usa o padrão .appspot.com
+// Se não especificado, usar o padrão .firebasestorage.app (o bucket real)
 if (!_bucket && _projectId) {
-  _bucket = `${_projectId}.appspot.com`;
+  _bucket = `${_projectId}.firebasestorage.app`;
 }
 
 console.log("Firebase Config:", {
