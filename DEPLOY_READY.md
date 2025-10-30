@@ -7,10 +7,12 @@ A pasta `dist` foi **adicionada ao repositório GitHub** para permitir que o bac
 ## 🔄 Mudanças Realizadas
 
 ### 1. Modificado `.gitignore`
+
 - ❌ Removido: `dist` (estava impedindo commit)
 - ✅ Mantido: `dist-ssr` (ainda ignorado)
 
 ### 2. Adicionado ao Git
+
 - ✅ `dist/assets/index-B5Q6CKP3.css` (50.13 kB)
 - ✅ `dist/assets/index-BFbepCbc.js` (1,268.33 kB)
 - ✅ `dist/index.html`
@@ -19,6 +21,7 @@ A pasta `dist` foi **adicionada ao repositório GitHub** para permitir que o bac
 - ✅ `dist/test-bucket-verification.js`
 
 ### 3. Commit & Push
+
 - **Hash:** `a143437`
 - **Commit:** "🚀 Add dist folder for production deployment"
 - **Status:** ✅ Enviado para GitHub
@@ -28,11 +31,13 @@ A pasta `dist` foi **adicionada ao repositório GitHub** para permitir que o bac
 Agora o rapaz do backend pode:
 
 1. **Fazer pull do repositório:**
+
    ```bash
    git pull origin main
    ```
 
 2. **Copiar arquivos da pasta `dist` para produção:**
+
    ```bash
    cp -r dist/* /caminho/para/agendamentos.codxis.com.br/
    ```
@@ -42,15 +47,16 @@ Agora o rapaz do backend pode:
 ## 🎯 Conteúdo da Build
 
 A pasta `dist` contém:
+
 - ✅ **Correção final do sistema de fotos** (EnterpriseContext fix)
-- ✅ **Firebase Storage funcionando** 
+- ✅ **Firebase Storage funcionando**
 - ✅ **Upload de fotos em tempo real**
 - ✅ **Sincronização automática de fotos**
 - ✅ **Debug tools habilitados**
 
 ## 🚀 Próximo Passo
 
-**Avise o backend que pode fazer o deploy!** 
+**Avise o backend que pode fazer o deploy!**
 O repositório está atualizado com a build que contém todas as correções do sistema de fotos.
 
 ---
