@@ -32,8 +32,8 @@ export const EnterpriseProvider = ({ children }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Email da empresa padrão - usando empresaadmin@xcortes.com
-  const DEFAULT_ENTERPRISE_EMAIL = "empresaadmin@xcortes.com";
+  // Email da empresa padrão - usando a Barbearia do Pablo
+  const DEFAULT_ENTERPRISE_EMAIL = "pablofafstar@gmail.com";
 
   useEffect(() => {
     loadEnterprises();
@@ -173,11 +173,12 @@ export const EnterpriseProvider = ({ children }) => {
 
       setEnterprises(enterprises);
 
-      // Sempre sincronizar empresa com usuário logado, ignorando cookie antigo se necessário
-      const savedEnterprise = Cookies.get("current_enterprise");
+      // MUDANÇA: Não carregar automaticamente do cookie
+      // Deixar o EnterpriseDetector definir a empresa pela URL
+      // Apenas definir empresa padrão se for admin logado ou não houver empresa selecionada
       let initialEnterprise = null;
       if (user && user.enterpriseEmail) {
-        // Se usuário logado, prioriza empresa do usuário
+        // Se usuário admin logado, prioriza empresa do usuário
         initialEnterprise = enterprises.find(
           (e) => e.email === user.enterpriseEmail
         );
@@ -191,12 +192,8 @@ export const EnterpriseProvider = ({ children }) => {
             initialEnterprise
           );
         }
-      } else if (savedEnterprise) {
-        const enterprise = JSON.parse(savedEnterprise);
-        setCurrentEnterprise(enterprise);
-        console.log("🍪 Empresa carregada dos cookies:", enterprise);
-      } else {
-        // Usar empresa padrão ou primeira da lista
+      } else if (!currentEnterprise) {
+        // Apenas definir padrão se não houver empresa atual
         const defaultEnterprise =
           enterprises.find((e) => e.email === DEFAULT_ENTERPRISE_EMAIL) ||
           enterprises[0];

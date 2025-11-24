@@ -161,6 +161,101 @@ export const firestoreAppointmentsService = {
   applyFilters(appointments, filters) {
     let filteredAppointments = appointments;
 
+    // 🕒 PRIMEIRO: Atualizar status de agendamentos antigos (mais de 1 hora) para "concluído"
+    const now = new Date();
+    filteredAppointments = filteredAppointments.map((appointment) => {
+      const statusRaw = (appointment.status || "").toString().toLowerCase();
+
+      // 🆕 NÃO aplicar lógica automática se o status foi manualmente definido
+      if (appointment.statusManuallySet) {
+        console.log(
+          "⏭️ [FirestoreService] Status foi manualmente definido, pulando atualização automática:",
+          {
+            id: appointment.id,
+            status: appointment.status,
+          }
+        );
+        return appointment;
+      }
+
+      // Só aplicar lógica automática se não for cancelado ou já concluído
+      if (
+        statusRaw !== "cancelado" &&
+        statusRaw !== "canceled" &&
+        statusRaw !== "concluido" &&
+        statusRaw !== "completed"
+      ) {
+        const dateStr = appointment.date;
+        const timeStr = appointment.startTime || appointment.time;
+
+        if (dateStr && timeStr) {
+          try {
+            // Criar data/hora do agendamento
+            let appointmentDate;
+
+            // Processar data corretamente
+            if (
+              typeof dateStr === "string" &&
+              dateStr.match(/^\d{4}-\d{2}-\d{2}$/)
+            ) {
+              const [year, month, day] = dateStr.split("-");
+              appointmentDate = new Date(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day)
+              );
+            } else {
+              appointmentDate = new Date(dateStr);
+            }
+
+            // Processar horário
+            const [hours, minutes] = timeStr
+              .split(":")
+              .map((num) => parseInt(num, 10));
+
+            if (
+              !isNaN(hours) &&
+              !isNaN(minutes) &&
+              appointmentDate &&
+              !isNaN(appointmentDate.getTime())
+            ) {
+              appointmentDate.setHours(hours, minutes, 0, 0);
+
+              // Se o agendamento foi há mais de 1 hora, marcar como concluído
+              const oneHourAfterAppointment = new Date(
+                appointmentDate.getTime() + 60 * 60 * 1000
+              );
+
+              if (now > oneHourAfterAppointment) {
+                console.log(
+                  "✅ [FirestoreService] Agendamento marcado como concluído:",
+                  {
+                    id: appointment.id,
+                    client: appointment.clientName,
+                    originalStatus: statusRaw,
+                    appointmentTime: appointmentDate.toLocaleString("pt-BR"),
+                    currentTime: now.toLocaleString("pt-BR"),
+                  }
+                );
+
+                return {
+                  ...appointment,
+                  status: "concluido",
+                };
+              }
+            }
+          } catch (timeError) {
+            console.warn(
+              "⚠️ [FirestoreService] Erro ao processar horário:",
+              timeError
+            );
+          }
+        }
+      }
+
+      return appointment;
+    });
+
     // Filtro por data no frontend
     if (filters.date && filters.date !== "all") {
       const today = new Date();
@@ -335,6 +430,7 @@ export const firestoreAppointmentsService = {
       await updateDoc(appointmentRef, {
         status: newStatus,
         updatedAt: new Date().toISOString(),
+        statusManuallySet: true, // 🆕 Flag para indicar que o status foi definido manualmente
       });
 
       console.log("✅ Status do agendamento atualizado com sucesso");

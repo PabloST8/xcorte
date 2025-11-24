@@ -59,11 +59,21 @@ export const useAllAppointments = (params = {}) => {
           ...params,
         };
 
+        console.log(
+          "🔍 [useAdmin] Buscando agendamentos com filtros:",
+          filters
+        );
+
         const response = await firestoreAppointmentsService.getAppointments(
           filters
         );
 
         if (response.success) {
+          console.log(
+            "✅ [useAdmin] Retornando",
+            response.data.length,
+            "agendamentos"
+          );
           return response.data;
         }
       } catch (error) {

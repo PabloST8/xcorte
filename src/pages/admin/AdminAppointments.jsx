@@ -176,15 +176,12 @@ export default function AdminAppointments() {
   const { mutate: deleteAppointment, isLoading: isDeleting } =
     useDeleteAppointment();
 
-  // 🕒 NOVA LÓGICA: Processar agendamentos para atualizar status automaticamente E resolver nomes de funcionários
+  // 🆕 NOVA LÓGICA: Processar agendamentos para resolver nomes de funcionários
+  // (A lógica de conclusão automática agora está no firestoreAppointmentsService)
   const processedAppointments = React.useMemo(() => {
     if (!appointments) return [];
 
-    const now = new Date();
-
     return appointments.map((appointment) => {
-      const statusRaw = (appointment.status || "").toString().toLowerCase();
-
       // 🆕 LÓGICA DE RESOLUÇÃO DE NOME DO FUNCIONÁRIO MELHORADA
       let employeeName = "Funcionário"; // Default
 
@@ -260,82 +257,8 @@ export default function AdminAppointments() {
         },
       });
 
-      // Aplicar lógica de status automático (já existente)
-      let processedStatus = appointment.status;
-      if (
-        statusRaw !== "cancelado" &&
-        statusRaw !== "canceled" &&
-        statusRaw !== "concluido" &&
-        statusRaw !== "completed"
-      ) {
-        const dateStr = appointment.date || appointment.appointmentDate;
-        const timeStr = appointment.startTime || appointment.time;
-
-        if (dateStr && timeStr) {
-          try {
-            // Criar data/hora do agendamento
-            let appointmentDate;
-
-            // Processar data corretamente
-            if (
-              typeof dateStr === "string" &&
-              dateStr.match(/^\d{4}-\d{2}-\d{2}$/)
-            ) {
-              const [year, month, day] = dateStr.split("-");
-              appointmentDate = new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day)
-              );
-            } else {
-              appointmentDate = new Date(dateStr);
-            }
-
-            // Processar horário
-            const [hours, minutes] = timeStr
-              .split(":")
-              .map((num) => parseInt(num, 10));
-
-            if (
-              !isNaN(hours) &&
-              !isNaN(minutes) &&
-              appointmentDate &&
-              !isNaN(appointmentDate.getTime())
-            ) {
-              appointmentDate.setHours(hours, minutes, 0, 0);
-
-              // Se o agendamento foi há mais de 1 hora, marcar como concluído
-              const oneHourAfterAppointment = new Date(
-                appointmentDate.getTime() + 60 * 60 * 1000
-              );
-
-              if (now > oneHourAfterAppointment) {
-                console.log(
-                  "✅ [AdminAppointments] Agendamento automaticamente marcado como concluído:",
-                  {
-                    id: appointment.id,
-                    client: appointment.clientName,
-                    appointmentTime: appointmentDate.toLocaleString("pt-BR"),
-                    currentTime: now.toLocaleString("pt-BR"),
-                    originalStatus: statusRaw,
-                  }
-                );
-
-                processedStatus = BOOKING_STATUS.CONCLUIDO;
-              }
-            }
-          } catch (timeError) {
-            console.warn(
-              "⚠️ [AdminAppointments] Erro ao processar horário:",
-              timeError
-            );
-          }
-        }
-      }
-
       return {
         ...appointment,
-        status: processedStatus,
         resolvedEmployeeName: employeeName, // 🆕 Campo adicional com nome resolvido
         _debugInfo: {
           // 🆕 Info de debug para verificar dados
