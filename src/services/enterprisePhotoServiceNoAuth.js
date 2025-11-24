@@ -1,25 +1,28 @@
-// Serviço para gerenciar fotos de empresas
-import { ref, deleteObject } from "firebase/storage";
+// Serviço alternativo para upload sem autenticação anônima
+// Usa apenas as regras permissivas do Firebase Storage
+
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { storage, db } from "./firebase";
-import { firebaseAuthService } from "./firebaseAuthService";
 
-export const enterprisePhotoService = {
-  // Upload de foto da empresa
+export const enterprisePhotoServiceNoAuth = {
+  // Upload de foto da empresa SEM autenticação anônima
   async uploadPhoto(enterpriseId, file) {
     try {
-      // STEP 1: Garantir autenticação Firebase
-      console.log("🔐 STEP 1: Garantindo autenticação para upload...");
-      await firebaseAuthService.ensureAnonymous();
+      console.log("📤 INICIANDO UPLOAD SEM AUTENTICAÇÃO ANÔNIMA");
 
       // Validação do enterpriseId
       if (!enterpriseId) {
         throw new Error("Enterprise ID é obrigatório para upload de foto");
       }
 
-      console.log("📤 STEP 2: Iniciando upload da foto da empresa...", {
+      console.log("📤 STEP 1: Dados do upload:", {
         enterpriseId,
-        enterpriseIdType: typeof enterpriseId,
         fileName: file.name,
         fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
         fileType: file.type,
@@ -45,13 +48,13 @@ export const enterprisePhotoService = {
       const fileExtension = file.name.split(".").pop();
       const fileName = `${timestamp}.${fileExtension}`;
 
-      // Sanitizar enterpriseId para uso em path (remover caracteres especiais)
+      // Sanitizar enterpriseId para uso em path
       const sanitizedEnterpriseId = String(enterpriseId)
         .replace(/[^a-zA-Z0-9@.-]/g, "_")
         .replace(/\s+/g, "_");
 
       console.log(
-        "📁 STEP 3: Criando path:",
+        "📁 STEP 2: Path criado:",
         `enterprise-photos/${sanitizedEnterpriseId}/${fileName}`
       );
 
@@ -60,26 +63,18 @@ export const enterprisePhotoService = {
         `enterprise-photos/${sanitizedEnterpriseId}/${fileName}`
       );
 
-      console.log(
-        "🔧 STEP 4: Storage bucket configurado:",
-        storage.app.options.storageBucket
-      );
-      console.log(
-        "🌐 Upload URL base:",
-        `https://firebasestorage.googleapis.com/v0/b/${storage.app.options.storageBucket}/o`
-      );
+      console.log("🔧 STEP 3: Storage configurado:", {
+        bucket: storage.app.options.storageBucket,
+        fullPath: photoRef.fullPath,
+      });
 
-      // CORREÇÃO CORS: Usar uploadBytesResumable para melhor controle
-      const { uploadBytesResumable, getDownloadURL: getURL } = await import(
-        "firebase/storage"
-      );
-
-      console.log("🚀 STEP 5: Iniciando upload com uploadBytesResumable...");
+      // Upload direto SEM autenticação
+      console.log("🚀 STEP 4: Iniciando upload direto...");
 
       const uploadTask = uploadBytesResumable(photoRef, file, {
         contentType: file.type,
         customMetadata: {
-          uploaded_by: "enterprise_photo_service",
+          uploaded_by: "enterprise_photo_service_no_auth",
           enterprise_id: enterpriseId,
           upload_timestamp: timestamp.toString(),
         },
@@ -107,11 +102,11 @@ export const enterprisePhotoService = {
 
       // Aguardar conclusão do upload
       const snapshot = await uploadPromise;
-      console.log("📷 Arquivo uploaded:", snapshot.metadata.fullPath);
+      console.log("📷 STEP 5: Arquivo uploaded:", snapshot.metadata.fullPath);
 
       // Obter URL de download
-      const downloadURL = await getURL(photoRef);
-      console.log("🔗 URL de download obtida:", downloadURL);
+      const downloadURL = await getDownloadURL(photoRef);
+      console.log("🔗 STEP 6: URL obtida:", downloadURL);
 
       // Atualizar documento da empresa no Firestore
       const enterpriseRef = doc(db, "enterprises", enterpriseId);
@@ -121,7 +116,7 @@ export const enterprisePhotoService = {
         photoUpdatedAt: new Date(),
       });
 
-      console.log("✅ Foto da empresa atualizada no Firestore");
+      console.log("✅ STEP 7: Foto da empresa atualizada no Firestore");
 
       return {
         success: true,
@@ -131,7 +126,7 @@ export const enterprisePhotoService = {
     } catch (error) {
       console.error("❌ Erro no upload da foto:", error);
 
-      // Log detalhado do erro para diagnóstico
+      // Log detalhado do erro
       if (error.code) {
         console.error("🔍 Código do erro:", error.code);
       }
@@ -143,7 +138,7 @@ export const enterprisePhotoService = {
     }
   },
 
-  // Deletar foto anterior (opcional)
+  // Métodos auxiliares (iguais ao serviço original)
   async deletePhoto(photoPath) {
     try {
       if (!photoPath) return;
@@ -153,11 +148,9 @@ export const enterprisePhotoService = {
       console.log("🗑️ Foto anterior deletada:", photoPath);
     } catch (error) {
       console.warn("⚠️ Erro ao deletar foto anterior:", error);
-      // Não é um erro crítico, apenas log
     }
   },
 
-  // Obter foto atual da empresa
   async getCurrentPhoto(enterpriseId) {
     try {
       const enterpriseRef = doc(db, "enterprises", enterpriseId);

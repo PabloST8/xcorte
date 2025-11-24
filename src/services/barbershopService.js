@@ -18,7 +18,51 @@ export const barbershopService = {
             "✅ Empresas carregadas da API:",
             response.data.data.length
           );
-          return response.data.data;
+
+          // Buscar dados do Firestore para fazer merge dos campos de bloqueio/ativação
+          console.log("🔄 Buscando dados de bloqueio do Firestore...");
+          try {
+            const firestoreEnterprises =
+              await publicEnterpriseFirestoreService.getEnterprises();
+
+            // Fazer merge: dados da API + campos de bloqueio do Firestore
+            const mergedEnterprises = response.data.data.map(
+              (apiEnterprise) => {
+                const firestoreData = firestoreEnterprises.find(
+                  (fe) =>
+                    fe.email === apiEnterprise.email ||
+                    fe.id === apiEnterprise.id
+                );
+
+                if (firestoreData) {
+                  // Preservar campos de bloqueio/ativação do Firestore
+                  return {
+                    ...apiEnterprise,
+                    isBlocked:
+                      firestoreData.isBlocked ?? firestoreData.blocked ?? false,
+                    blocked:
+                      firestoreData.blocked ?? firestoreData.isBlocked ?? false,
+                    isActive:
+                      firestoreData.isActive ?? firestoreData.active ?? true,
+                    active:
+                      firestoreData.active ?? firestoreData.isActive ?? true,
+                  };
+                }
+
+                return apiEnterprise;
+              }
+            );
+
+            console.log("✅ Merge de dados API + Firestore concluído");
+            return mergedEnterprises;
+          } catch (firestoreError) {
+            console.warn(
+              "⚠️ Erro ao buscar Firestore para merge:",
+              firestoreError.message
+            );
+            // Se falhar, retorna só os dados da API
+            return response.data.data;
+          }
         }
         throw new Error("API não retornou dados válidos");
       } catch (error) {

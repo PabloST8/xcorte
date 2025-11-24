@@ -4,17 +4,36 @@ import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
 import { formatDateBR } from "../../utils/dateUtils";
-import { enterprisePhotoService } from "../../services/enterprisePhotoService";
+import { enterprisePhotoServiceNoAuth } from "../../services/enterprisePhotoServiceNoAuth";
+import { firestoreEnterpriseService } from "../../services/firestoreEnterpriseService";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
-  const { currentEnterprise, updateCurrentEnterprise } = useEnterprise();
+  const { currentEnterprise, updateCurrentEnterprise, loadEnterprises } =
+    useEnterprise();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Função para lidar com upload da foto da barbearia
   const handleUploadPhoto = async () => {
     if (!currentEnterprise) {
       alert("Nenhuma empresa selecionada");
+      return;
+    }
+
+    // Debug para verificar a estrutura da empresa
+    console.log("🔍 Empresa atual para upload:", {
+      currentEnterprise,
+      id: currentEnterprise.id,
+      email: currentEnterprise.email,
+      hasId: !!currentEnterprise.id,
+      hasEmail: !!currentEnterprise.email,
+    });
+
+    // Usar email como ID se id não estiver disponível
+    const enterpriseId = currentEnterprise.id || currentEnterprise.email;
+
+    if (!enterpriseId) {
+      alert("Erro: ID da empresa não encontrado");
       return;
     }
 
@@ -28,17 +47,40 @@ export default function AdminDashboard() {
       setUploadingPhoto(true);
 
       try {
-        // Usar o serviço real para upload
-        const result = await enterprisePhotoService.uploadPhoto(
-          currentEnterprise.id,
+        console.log("📤 Fazendo upload com enterpriseId:", enterpriseId);
+
+        // Usar o serviço SEM autenticação anônima (temporário)
+        const result = await enterprisePhotoServiceNoAuth.uploadPhoto(
+          enterpriseId,
           file
         );
 
         if (result.success) {
-          // Atualizar a empresa no contexto com a nova foto
+          console.log("✅ Upload realizado com sucesso:", result);
+
+          // Método 1: Atualizar empresa no contexto com a nova foto
           updateCurrentEnterprise({
             photoURL: result.photoURL,
+            photoPath: result.photoPath,
+            photoUpdatedAt: new Date(),
           });
+
+          // Método 2: Recarregar empresa do Firestore para garantir sincronização
+          try {
+            const updatedEnterprise =
+              await firestoreEnterpriseService.getEnterpriseByEmail(
+                currentEnterprise.email
+              );
+            if (updatedEnterprise) {
+              console.log(
+                "🔄 Empresa recarregada do Firestore:",
+                updatedEnterprise
+              );
+              updateCurrentEnterprise(updatedEnterprise);
+            }
+          } catch (reloadError) {
+            console.warn("⚠️ Erro ao recarregar empresa:", reloadError);
+          }
 
           alert(
             `✅ Foto da barbearia "${currentEnterprise.name}" atualizada com sucesso!`

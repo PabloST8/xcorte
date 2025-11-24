@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Teste Firebase Storage - Correção DNS</title>
+    <script type="module">
+      console.log("🧪 Iniciando teste do Firebase Storage...");
+
+      // Importar os módulos do Firebase
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+      import {
+        getStorage,
+        ref,
+        getDownloadURL,
+      } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+      // Configuração usando .appspot.com (CORREÇÃO)
+      const firebaseConfig = {
+        apiKey: "AIzaSyBupV7YZi4WBL_3-7_KqZhN3YKLl_kUlHQ",
+        authDomain: "xcortes-e6f64.firebaseapp.com",
+        projectId: "xcortes-e6f64",
+        storageBucket: "xcortes-e6f64.appspot.com", // ← USANDO .appspot.com
+        messagingSenderId: "509755540306",
+        appId: "1:509755540306:web:0e0f1e89b1a8c1b2c1b8f1",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const storage = getStorage(app);
+
+      console.log("✅ Firebase inicializado");
+      console.log("📦 Storage bucket:", storage.app.options.storageBucket);
+
+      // Teste: Tentar criar uma referência
+      const testRef = ref(storage, "test-image.jpg");
+      console.log("✅ Referência criada:", testRef.fullPath);
+      console.log("🌐 Bucket URL:", testRef.bucket);
+
+      // Teste: Verificar se conseguimos acessar (mesmo arquivo inexistente)
+      getDownloadURL(testRef)
+        .then((url) => {
+          console.log("✅ URL obtida com sucesso:", url);
+          document.getElementById("result").innerHTML = `
+                <div style="color: green;">
+                    <h2>✅ SUCESSO!</h2>
+                    <p><strong>DNS Resolvido:</strong> Firebase Storage está funcionando</p>
+                    <p><strong>Bucket:</strong> ${
+                      storage.app.options.storageBucket
+                    }</p>
+                    <p><strong>URL Base:</strong> ${url.split("/o/")[0]}</p>
+                </div>
+            `;
+        })
+        .catch((error) => {
+          if (error.code === "storage/object-not-found") {
+            console.log("✅ Storage funciona! (arquivo não existe)");
+            document.getElementById("result").innerHTML = `
+                    <div style="color: green;">
+                        <h2>✅ SUCESSO!</h2>
+                        <p><strong>Firebase Storage está funcionando</strong></p>
+                        <p>O erro 'object-not-found' é esperado - significa que conseguimos conectar!</p>
+                        <p><strong>Bucket:</strong> ${storage.app.options.storageBucket}</p>
+                        <p><strong>Status:</strong> DNS resolvido com .appspot.com</p>
+                    </div>
+                `;
+          } else {
+            console.log("❌ Erro:", error);
+            document.getElementById("result").innerHTML = `
+                    <div style="color: red;">
+                        <h2>❌ ERRO</h2>
+                        <p><strong>Código:</strong> ${error.code}</p>
+                        <p><strong>Mensagem:</strong> ${error.message}</p>
+                        <p><strong>Bucket:</strong> ${storage.app.options.storageBucket}</p>
+                    </div>
+                `;
+          }
+        });
+    </script>
+  </head>
+  <body>
+    <h1>🧪 Teste Firebase Storage - Correção DNS</h1>
+    <p>
+      Testando se a correção de .firebasestorage.app → .appspot.com resolveu o
+      problema...
+    </p>
+
+    <div id="result">
+      <p>⏳ Testando...</p>
+    </div>
+
+    <hr />
+    <h3>📊 Detalhes</h3>
+    <ul>
+      <li>
+        <strong>Problema Original:</strong> ERR_NAME_NOT_RESOLVED com
+        .firebasestorage.app
+      </li>
+      <li><strong>Solução:</strong> Usar .appspot.com para compatibilidade</li>
+      <li>
+        <strong>Bucket Original:</strong> xcortes-e6f64.firebasestorage.app
+      </li>
+      <li><strong>Bucket Corrigido:</strong> xcortes-e6f64.appspot.com</li>
+    </ul>
+  </body>
+</html>

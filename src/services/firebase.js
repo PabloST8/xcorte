@@ -1,51 +1,30 @@
 // Configuração e inicialização do Firebase
-// Atualizado para setembro 2025 - Suporte para novos domínios .firebasestorage.app
+// Atualizado para resolver problemas de DNS e garantir funcionamento em produção
 
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
+import { getFirebaseConfig } from "../config/productionFirebase.js";
 
-// Configuração do bucket - Suporta tanto .appspot.com quanto .firebasestorage.app
-const _projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-let _bucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+console.log("🔧 Inicializando Firebase com config inteligente...");
 
-// Se não especificado, usa o padrão
-if (!_bucket && _projectId) {
-  _bucket = `${_projectId}.appspot.com`;
-}
+// Usar configuração inteligente que detecta produção
+const firebaseConfig = getFirebaseConfig();
 
-console.log("🔧 Inicializando Firebase...");
-console.log("Firebase Env Check:", {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY
-    ? "***definida***"
-    : "❌ undefined",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+console.log("Firebase Config Final:", {
+  projectId: firebaseConfig.projectId,
+  bucket: firebaseConfig.storageBucket,
+  domain: firebaseConfig.authDomain,
+  environment: window.location.hostname,
 });
-
-console.log("Firebase Config:", {
-  projectId: _projectId,
-  bucket: _bucket,
-  domain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-});
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: _projectId,
-  storageBucket: _bucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
-// Log para debug
-console.log("Firebase inicializado com bucket:", _bucket);
+console.log(
+  "✅ Firebase inicializado com bucket:",
+  firebaseConfig.storageBucket
+);

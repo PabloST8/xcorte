@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -13,16 +13,24 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useEnterprise } from "../contexts/EnterpriseContext";
 import EnterpriseAvatar from "../components/EnterpriseAvatar";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
   const { currentEnterprise, syncEnterpriseWithUser } = useEnterprise();
-  const queryClient = useQueryClient();
-  const previousEnterpriseRef = useRef(null);
-  const previousUserRef = useRef(null);
+
+  // Debug: verificar dados da empresa atual
+  useEffect(() => {
+    console.log("🔍 AdminLayout - Dados da currentEnterprise:", {
+      hasCurrentEnterprise: !!currentEnterprise,
+      enterpriseName: currentEnterprise?.name,
+      enterpriseEmail: currentEnterprise?.email,
+      enterpriseId: currentEnterprise?.id,
+      hasPhotoURL: !!currentEnterprise?.photoURL,
+      photoURL: currentEnterprise?.photoURL,
+    });
+  }, [currentEnterprise]);
 
   // Sincronizar empresa com usuário admin logado
   useEffect(() => {
@@ -75,39 +83,10 @@ export default function AdminLayout() {
     }
   }, [user, syncEnterpriseWithUser]);
 
-  // Monitorar mudanças no usuário logado
-  useEffect(() => {
-    console.log("👤 AdminLayout - Mudança no usuário detectada:", {
-      currentUser: user?.email,
-      currentUserEnterprise: user?.enterpriseEmail,
-      previousUser: previousUserRef.current?.email,
-      previousUserEnterprise: previousUserRef.current?.enterpriseEmail,
-      hasChanged:
-        user?.enterpriseEmail !== previousUserRef.current?.enterpriseEmail,
-    });
+  // Remover o useEffect problemático que monitora mudanças no usuário
+  // O sync já é feito no useEffect anterior
 
-    // Se mudou o enterpriseEmail do usuário, força reload
-    if (
-      user?.enterpriseEmail &&
-      previousUserRef.current?.enterpriseEmail &&
-      user.enterpriseEmail !== previousUserRef.current.enterpriseEmail
-    ) {
-      console.log(
-        `🔄 AdminLayout - Usuário mudou de empresa: ${previousUserRef.current.enterpriseEmail} → ${user.enterpriseEmail}, forçando reload IMEDIATO...`
-      );
-
-      if (queryClient) {
-        queryClient.clear();
-      }
-
-      // Reload imediato sem setTimeout
-      window.location.reload();
-    }
-
-    previousUserRef.current = user;
-  }, [user, queryClient]);
-
-  // Adicionar listener para mudanças na empresa via storage/cookies
+  // Simplified listener para mudanças de empresa via storage - sem reload automático
   useEffect(() => {
     console.log(
       "🔧 AdminLayout - Configurando listener para mudanças de empresa..."
@@ -119,128 +98,19 @@ export default function AdminLayout() {
         e.key,
         e.newValue
       );
-
-      if (e.key === "current_enterprise" && e.newValue) {
-        try {
-          const newEnterprise = JSON.parse(e.newValue);
-          console.log(
-            "🏢 AdminLayout - Nova empresa detectada via storage:",
-            newEnterprise.name,
-            newEnterprise.email
-          );
-
-          if (
-            currentEnterprise?.email &&
-            newEnterprise.email !== currentEnterprise.email
-          ) {
-            console.log(
-              "🔄 AdminLayout - Forçando reload IMEDIATO por mudança de empresa via storage..."
-            );
-            window.location.reload();
-          }
-        } catch (error) {
-          console.error(
-            "❌ AdminLayout - Erro ao processar mudança de storage:",
-            error
-          );
-        }
-      }
+      // Apenas log por enquanto, sem reload automático
     };
-
-    // Monitorar mudanças nos cookies também
-    const checkCookieChanges = () => {
-      const cookieEnterprise = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("current_enterprise="));
-
-      if (cookieEnterprise) {
-        try {
-          const enterpriseData = JSON.parse(
-            decodeURIComponent(cookieEnterprise.split("=")[1])
-          );
-          if (
-            currentEnterprise?.email &&
-            enterpriseData.email !== currentEnterprise.email
-          ) {
-            console.log(
-              "🍪 AdminLayout - Mudança detectada via cookie, forçando reload IMEDIATO..."
-            );
-            window.location.reload();
-          }
-        } catch (error) {
-          console.log("⚠️ AdminLayout - Erro ao verificar cookie:", error);
-        }
-      }
-    };
-
-    // Verificar cookies a cada 1 segundo (mais frequente)
-    const cookieInterval = setInterval(checkCookieChanges, 1000);
 
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
       console.log("🧹 AdminLayout - Limpando listeners...");
       window.removeEventListener("storage", handleStorageChange);
-      clearInterval(cookieInterval);
     };
-  }, [currentEnterprise]);
+  }, []); // Dependencies vazias para evitar re-execução
 
-  // Monitorar mudanças na empresa atual e invalidar cache quando necessário
-  useEffect(() => {
-    console.log("🏢 AdminLayout - useEffect empresa disparado:", {
-      currentEnterprise: currentEnterprise?.name,
-      email: currentEnterprise?.email,
-      previous: previousEnterpriseRef.current?.name,
-      previousEmail: previousEnterpriseRef.current?.email,
-      hasChanged:
-        currentEnterprise?.email !== previousEnterpriseRef.current?.email,
-    });
-
-    // Se mudou de empresa, invalida o cache
-    if (
-      currentEnterprise?.email &&
-      previousEnterpriseRef.current?.email &&
-      currentEnterprise.email !== previousEnterpriseRef.current.email &&
-      queryClient
-    ) {
-      console.log(
-        `🗑️ AdminLayout - Invalidando cache por mudança de empresa: ${previousEnterpriseRef.current.email} → ${currentEnterprise.email}`
-      );
-
-      try {
-        // Método mais agressivo: limpar todo o cache
-        queryClient.clear();
-
-        console.log("✅ AdminLayout - Cache limpo com sucesso!");
-        console.log("🔄 AdminLayout - Forçando reload IMEDIATO...");
-
-        // Forçar reload IMEDIATO sem setTimeout
-        window.location.reload();
-      } catch (error) {
-        console.error("❌ AdminLayout - Erro ao limpar cache:", error);
-        // Mesmo com erro, força reload
-        console.log("🔄 AdminLayout - Forçando reload por erro...");
-        window.location.reload();
-      }
-    } else {
-      console.log("⚠️ AdminLayout - Não vai fazer reload:", {
-        hasCurrentEmail: !!currentEnterprise?.email,
-        hasPreviousEmail: !!previousEnterpriseRef.current?.email,
-        emailsAreDifferent:
-          currentEnterprise?.email !== previousEnterpriseRef.current?.email,
-        hasQueryClient: !!queryClient,
-      });
-    }
-
-    // Atualizar referência da empresa anterior
-    if (currentEnterprise) {
-      console.log(
-        "📌 AdminLayout - Atualizando referência da empresa:",
-        currentEnterprise.email
-      );
-      previousEnterpriseRef.current = currentEnterprise;
-    }
-  }, [currentEnterprise, queryClient]);
+  // Remover o useEffect que monitora mudanças na empresa para evitar reload infinito
+  // A sincronização já é feita adequadamente no useEffect do usuário
 
   const navigation = [
     { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },

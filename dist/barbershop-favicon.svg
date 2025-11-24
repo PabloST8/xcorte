@@ -1,0 +1,26 @@
+<!-- Favicon SVG personalizado para barbearia -->
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo circular azul -->
+  <circle cx="16" cy="16" r="16" fill="#1e40af"/>
+  
+  <!-- Tesoura estilizada -->
+  <g transform="translate(16, 16)">
+    <!-- Cabo esquerdo da tesoura -->
+    <ellipse cx="-4" cy="-2" rx="1" ry="3" fill="white" transform="rotate(-20)"/>
+    <!-- Cabo direito da tesoura -->
+    <ellipse cx="4" cy="-2" rx="1" ry="3" fill="white" transform="rotate(20)"/>
+    
+    <!-- Lâminas da tesoura -->
+    <path d="M-6 2 L0 -1 L0 1 L-5 4 Z" fill="white"/>
+    <path d="M6 2 L0 -1 L0 1 L5 4 Z" fill="white"/>
+    
+    <!-- Centro/pino da tesoura -->
+    <circle cx="0" cy="0" r="1.5" fill="#fbbf24"/>
+  </g>
+  
+  <!-- Detalhes decorativos -->
+  <circle cx="8" cy="8" r="0.5" fill="white" opacity="0.6"/>
+  <circle cx="24" cy="8" r="0.5" fill="white" opacity="0.6"/>
+  <circle cx="8" cy="24" r="0.5" fill="white" opacity="0.6"/>
+  <circle cx="24" cy="24" r="0.5" fill="white" opacity="0.6"/>
+</svg>

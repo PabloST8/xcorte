@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 PS C:\Users\pablo\OneDrive\Documentos\xcorte fia> npm run dev > xcorte@0.0.0 dev
 > vite error when starting dev server: Error: Port 4000 is already in use at
 Server.onError$1
@@ -5,12 +6,17 @@ Server.onError$1
 at Server.emit (node:events:507:28) at emitErrorNT (node:net:1976:8) at
 process.processTicksAndRejections (node:internal/process/task_queues:90:21) PS
 C:\Users\pablo\OneDrive\Documentos\xcorte fia> <!DOCTYPE html>
+=======
+<!DOCTYPE html>
+>>>>>>> f128fcb3269f546d933123ba130d3d6aba52e28e
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" id="favicon" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <title>Agendamentos</title>
+    <!-- Configuração de produção carregada antes de tudo -->
+    <script type="module" src="/src/config/productionFirebase.js"></script>
   </head>
   <body>
     <div id="root"></div>

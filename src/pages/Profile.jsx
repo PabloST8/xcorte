@@ -13,6 +13,13 @@ export default function Profile() {
    * Manipula a atualização da foto do usuário
    */
   const handlePhotoUpdate = async (photoData) => {
+    console.log("📸 [PROFILE] handlePhotoUpdate chamado:", {
+      photoData,
+      user: user?.name,
+      userId: user?.phone || user?.id,
+      timestamp: new Date().toISOString(),
+    });
+
     try {
       // Sempre derive o ID como telefone numérico; fallback para email
       const phoneDigits = String(user?.phone || user?.id || "").replace(
