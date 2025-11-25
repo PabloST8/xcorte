@@ -138,21 +138,11 @@ export const EnterpriseProvider = ({ children }) => {
 
       setEnterprises(enterprises);
 
-<<<<<<< HEAD
-      // MUDANÇA: Não carregar automaticamente do cookie
-      // Deixar o EnterpriseDetector definir a empresa pela URL
-      // Apenas definir empresa padrão se for admin logado ou não houver empresa selecionada
-      let initialEnterprise = null;
-      if (user && user.enterpriseEmail) {
-        // Se usuário admin logado, prioriza empresa do usuário
-=======
       // Sempre sincronizar empresa com usuário logado, ignorando cookie antigo se necessário
-      const savedEnterprise = Cookies.get("current_enterprise");
       const currentUser = userRef.current;
       let initialEnterprise = null;
       if (currentUser && currentUser.enterpriseEmail) {
         // Se usuário logado, prioriza empresa do usuário
->>>>>>> f128fcb3269f546d933123ba130d3d6aba52e28e
         initialEnterprise = enterprises.find(
           (e) => e.email === currentUser.enterpriseEmail
         );
