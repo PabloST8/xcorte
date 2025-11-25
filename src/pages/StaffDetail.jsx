@@ -216,6 +216,13 @@ function StaffDetail() {
         onClose={() => setOverlayOpen(false)}
         product={selectedProduct}
         employees={staff ? [staff] : []}
+        initialSelection={
+          staff
+            ? {
+                employeeId: staff.id,
+              }
+            : undefined
+        }
       />
     </div>
   );

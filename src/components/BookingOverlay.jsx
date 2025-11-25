@@ -71,41 +71,22 @@ export default function BookingOverlay({
     return new Date(dateStr);
   };
 
-  // useEffect separado para limpeza quando fecha
+  // useEffect unificado para gerenciar abertura/fechamento
   useEffect(() => {
-    if (!open) {
-      setSelectedEmployeeId("");
-      setSelectedDate("");
-      setSlots([]);
-      setSelectedTime("");
-      setAvailableDates([]);
-      // Reset dados do cliente
-      setClientData({ name: "", phone: "", email: "" });
-      setUseClientForm(false);
-      // Limpar notificação quando fechar
+    if (open) {
+      // ABERTURA: Configuração inicial
       hideNotification();
-    }
-  }, [open, hideNotification]);
 
-  // useEffect separado para verificação de autenticação
-  useEffect(() => {
-    if (open && !authUser) {
-      console.log(
-        "🚫 [BookingOverlay] Usuário não autenticado, redirecionando para login"
-      );
-
-      // Redirecionar para login
-      saveEnterpriseContext();
-      const loginUrl = "/auth/login";
-      navigate(loginUrl);
-    }
-  }, [open, authUser, navigate, saveEnterpriseContext]);
-
-  // useEffect separado para configuração inicial quando abre
-  useEffect(() => {
-    if (open && authUser) {
-      // Limpar notificação quando abrir
-      hideNotification();
+      // Verificar autenticação
+      if (!authUser) {
+        console.log(
+          "🚫 [BookingOverlay] Usuário não autenticado, redirecionando para login"
+        );
+        saveEnterpriseContext();
+        const loginUrl = "/auth/login";
+        navigate(loginUrl);
+        return;
+      }
 
       // Verificar se usuário é admin/staff para mostrar opção de cliente
       const isAdminOrStaff =
@@ -113,22 +94,38 @@ export default function BookingOverlay({
       if (isAdminOrStaff) {
         setUseClientForm(true);
       }
-    }
-  }, [open, authUser, hideNotification]);
 
-  // Seed initial selection when opening in edit mode
-  useEffect(() => {
-    if (!open || !initialSelection) return;
-    const { employeeId, date, time } = initialSelection || {};
-    if (employeeId) setSelectedEmployeeId(String(employeeId));
-    if (date) setSelectedDate(date);
-    if (time) setSelectedTime(time);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // Aplicar seleção inicial se fornecida
+      if (initialSelection) {
+        const { employeeId, date, time } = initialSelection;
+        if (employeeId) {
+          console.log(
+            "🎯 [BookingOverlay] Pré-selecionando funcionário:",
+            employeeId
+          );
+          setSelectedEmployeeId(String(employeeId));
+        }
+        if (date) setSelectedDate(date);
+        if (time) setSelectedTime(time);
+      }
+    } else {
+      // FECHAMENTO: Limpeza
+      setSelectedEmployeeId("");
+      setSelectedDate("");
+      setSlots([]);
+      setSelectedTime("");
+      setAvailableDates([]);
+      setClientData({ name: "", phone: "", email: "" });
+      setUseClientForm(false);
+      hideNotification();
+    }
   }, [
     open,
-    initialSelection?.employeeId,
-    initialSelection?.date,
-    initialSelection?.time,
+    authUser,
+    navigate,
+    saveEnterpriseContext,
+    hideNotification,
+    initialSelection,
   ]);
 
   // Reset selected time when employee or date changes
