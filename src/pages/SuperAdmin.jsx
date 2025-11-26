@@ -51,6 +51,8 @@ const SuperAdmin = () => {
     phone: "",
     address: "",
     displayName: "",
+    password: "",
+    confirmPassword: "",
   });
 
   // Verificar autenticação
@@ -142,6 +144,8 @@ const SuperAdmin = () => {
       phone: "",
       address: "",
       displayName: "",
+      password: "",
+      confirmPassword: "",
     });
   };
 
@@ -150,31 +154,81 @@ const SuperAdmin = () => {
     try {
       console.log("🏢 Tentando criar empresa:", formData);
 
+      // Validar senhas
+      if (formData.password !== formData.confirmPassword) {
+        showError("As senhas não coincidem!");
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        showError("A senha deve ter no mínimo 6 caracteres!");
+        return;
+      }
+
       // 1. Criar a empresa
       await createEnterprise(formData);
       showSuccess("Empresa criada com sucesso!");
 
-      // 2. Automaticamente criar usuário admin para a empresa
+      // 2. Criar usuário admin no Firebase Auth com senha
       try {
-        const adminEmail = formData.email; // Usar o mesmo email da empresa
+        const adminEmail = formData.email;
         const adminName = `Admin ${formData.name}`;
+        const adminPassword = formData.password;
 
-        const adminResult = await createAdminUser(
-          adminEmail, // email do admin
-          formData.email, // enterpriseEmail
-          "admin", // role
-          adminName // name
+        // Importar Firebase Auth
+        const { createUserWithEmailAndPassword } = await import(
+          "firebase/auth"
         );
+        const { doc, setDoc } = await import("firebase/firestore");
+        const { auth, db } = await import("../services/firebase");
+
+        console.log("🔐 Criando usuário admin com senha no Firebase Auth...");
+
+        // Criar usuário no Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          adminEmail,
+          adminPassword
+        );
+        const user = userCredential.user;
+
+        console.log("✅ Usuário criado no Auth:", user.uid);
+
+        // Criar documento no Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: adminName,
+          role: "admin",
+          status: "active",
+          enterpriseEmail: formData.email,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          permissions: {
+            canManageAppointments: true,
+            canManageServices: true,
+            canManageStaff: true,
+            canManageClients: true,
+            canViewReports: true,
+          },
+        });
+
+        console.log("✅ Documento do usuário criado no Firestore");
 
         showSuccess(
-          `✅ Usuário admin criado automaticamente para ${formData.name}!`
+          `✅ Login criado! Email: ${adminEmail} | Senha: ${adminPassword}`
         );
-        console.log("✅ Admin criado:", adminResult);
       } catch (adminError) {
         console.warn("⚠️ Empresa criada, mas erro ao criar admin:", adminError);
-        showError(
-          `Empresa criada, mas erro ao criar admin: ${adminError.message}`
-        );
+
+        if (adminError.code === "auth/email-already-in-use") {
+          showError(
+            "Empresa criada, mas o email já possui um usuário cadastrado. Use outro email ou faça login com este."
+          );
+        } else {
+          showError(
+            `Empresa criada, mas erro ao criar login: ${adminError.message}`
+          );
+        }
       }
 
       setShowCreateModal(false);
@@ -614,9 +668,49 @@ const SuperAdmin = () => {
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Para testar o bug CT003-002, tente usar:
-                      pablofafstar@gmail.com ou empresaadmin@xcortes.com
+                      Será usado como login do administrador
                     </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Senha do Admin*
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.password || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          password: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Mínimo 6 caracteres"
+                      required
+                      minLength={6}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Senha para login do administrador da empresa
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirmar Senha*
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.confirmPassword || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Repita a senha"
+                      required
+                      minLength={6}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
