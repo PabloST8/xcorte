@@ -1,17 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { Users, Calendar, DollarSign, Clock, Camera } from "lucide-react";
+import {
+  Users,
+  Calendar,
+  DollarSign,
+  Clock,
+  Camera,
+  Link as LinkIcon,
+} from "lucide-react";
 import { useDashboardStats } from "../../hooks/useAdmin";
 import { useEnterprise } from "../../contexts/EnterpriseContext";
 import { debugFirestoreData } from "../../utils/debugFirestore";
 import { formatDateBR } from "../../utils/dateUtils";
 import { enterprisePhotoServiceNoAuth } from "../../services/enterprisePhotoServiceNoAuth";
 import { firestoreEnterpriseService } from "../../services/firestoreEnterpriseService";
+import { useEnterpriseNavigation } from "../../hooks/useEnterpriseNavigation";
 
 export default function AdminDashboard() {
   const { data: stats, isLoading, error } = useDashboardStats();
   const { currentEnterprise, updateCurrentEnterprise, loadEnterprises } =
     useEnterprise();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [copyingUrl, setCopyingUrl] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { getEnterpriseUrl } = useEnterpriseNavigation();
 
   // Função para lidar com upload da foto da barbearia
   const handleUploadPhoto = async () => {
@@ -97,6 +108,38 @@ export default function AdminDashboard() {
     input.click();
   };
 
+  // Função para copiar a URL pública da barbearia
+  const handleCopyUrl = async () => {
+    try {
+      setCopyingUrl(true);
+      const path = getEnterpriseUrl();
+      const fullUrl = `${window.location.origin}${path}`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(fullUrl);
+      } else {
+        // Fallback para navegadores sem Clipboard API
+        const textarea = document.createElement("textarea");
+        textarea.value = fullUrl;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Erro ao copiar URL da barbearia:", err);
+      alert("Não foi possível copiar a URL. Tente novamente.");
+    } finally {
+      setCopyingUrl(false);
+    }
+  };
+
   // Debug dos dados do Firestore
   useEffect(() => {
     if (currentEnterprise?.email) {
@@ -169,17 +212,30 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          {/* Botão de Upload da Foto da Barbearia */}
-          <button
-            onClick={handleUploadPhoto}
-            disabled={uploadingPhoto}
-            className="flex items-center justify-center space-x-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base w-full sm:w-auto"
-          >
-            <Camera className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            <span className="truncate">
-              {uploadingPhoto ? "Enviando..." : "Foto da Barbearia"}
-            </span>
-          </button>
+          {/* Ações do Header */}
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <button
+              onClick={handleCopyUrl}
+              disabled={copyingUrl}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 bg-gray-700 hover:bg-gray-800 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+              title="Copiar URL pública da barbearia"
+            >
+              <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <span className="truncate">
+                {copied ? "Copiado!" : "Copiar URL"}
+              </span>
+            </button>
+            <button
+              onClick={handleUploadPhoto}
+              disabled={uploadingPhoto}
+              className="flex-1 sm:flex-initial flex items-center justify-center space-x-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base"
+            >
+              <Camera className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <span className="truncate">
+                {uploadingPhoto ? "Enviando..." : "Foto da Barbearia"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
